@@ -10,3 +10,4 @@ export * from './canonical.js';
 export * from './hash.js';
 export * from './commit.js';
 export * from './verify.js';
+export * from './batch.js';
