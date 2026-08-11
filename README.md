@@ -1,4 +1,4 @@
-# @veilcore/records
+# veilcore-records
 
 Build, commit and verify VeilCore records. **No chain dependency** — this package plus a
 JavaScript runtime is everything you need.
@@ -10,7 +10,7 @@ commitment to a chain is a separate step, and only that step is chain-specific.
 ## Verify a record
 
 ```js
-import { verifyCommitment } from '@veilcore/records';
+import { verifyCommitment } from 'veilcore-records';
 
 const result = await verifyCommitment(record);
 // { valid: true, computed: '33aaa590...' }

@@ -1,5 +1,5 @@
 {
-  "name": "@veilcore/records",
+  "name": "veilcore-records",
   "version": "0.1.0",
   "description": "Build, commit and verify VeilCore records. No chain dependency.",
   "license": "Apache-2.0",
