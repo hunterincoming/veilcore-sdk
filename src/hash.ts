@@ -13,8 +13,12 @@ export const sha256Hex = async (text: string): Promise<string> => {
   if (g.crypto?.subtle) {
     return toHex(new Uint8Array(await g.crypto.subtle.digest('SHA-256', bytes)));
   }
-  const { createHash } = await import('node:crypto');
-  return createHash('sha256').update(bytes).digest('hex');
+  // Node fallback, resolved at runtime rather than statically. A bare import of
+  // node:crypto gets pulled into browser bundles by every bundler and produces a
+  // warning in the consumer's build — which is a bad first impression for a package
+  // whose whole claim is that it has no dependencies.
+  const nodeCrypto = await import(/* @vite-ignore */ 'node' + ':crypto');
+  return nodeCrypto.createHash('sha256').update(bytes).digest('hex');
 };
 
 /** A 32-byte random nonce, hex encoded. */
