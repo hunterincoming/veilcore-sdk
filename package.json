@@ -7,11 +7,14 @@
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
   "files": [
-    "dist"
+    "dist",
+    "conformance"
   ],
   "scripts": {
     "build": "tsc",
-    "test": "node --test test/*.test.mjs"
+    "test": "node --test test/*.test.mjs",
+    "conformance": "node conformance/run.mjs",
+    "conformance:generate": "node conformance/generate.mjs"
   },
   "devDependencies": {
     "@types/node": "^26.2.0",

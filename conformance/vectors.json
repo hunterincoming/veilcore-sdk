@@ -1,0 +1,219 @@
+{
+  "formatVersion": "0.1",
+  "generatedAt": "2026-08-11T10:22:59.110Z",
+  "canonicalisation": [
+    {
+      "name": "keys sorted by code point",
+      "input": {
+        "b": 1,
+        "a": 2,
+        "C": 3
+      },
+      "expected": "{\"C\":3,\"a\":2,\"b\":1}"
+    },
+    {
+      "name": "absent optional omitted, not null",
+      "input": {
+        "a": 1
+      },
+      "expected": "{\"a\":1}"
+    },
+    {
+      "name": "array order preserved",
+      "input": [
+        "b",
+        "a",
+        "c"
+      ],
+      "expected": "[\"b\",\"a\",\"c\"]"
+    },
+    {
+      "name": "nested objects sorted at every level",
+      "input": {
+        "z": {
+          "b": 1,
+          "a": 2
+        },
+        "a": 3
+      },
+      "expected": "{\"a\":3,\"z\":{\"a\":2,\"b\":1}}"
+    },
+    {
+      "name": "NFC normalisation applied",
+      "input": {
+        "k": "é"
+      },
+      "expected": "{\"k\":\"é\"}"
+    },
+    {
+      "name": "empty object",
+      "input": {},
+      "expected": "{}"
+    },
+    {
+      "name": "empty array",
+      "input": [],
+      "expected": "[]"
+    },
+    {
+      "name": "booleans and numbers",
+      "input": {
+        "t": true,
+        "f": false,
+        "n": 0,
+        "neg": -1.5
+      },
+      "expected": "{\"f\":false,\"n\":0,\"neg\":-1.5,\"t\":true}"
+    }
+  ],
+  "commitments": [
+    {
+      "name": "minimal record",
+      "record": {
+        "formatVersion": "0.1",
+        "recordId": "vc_rec_conformance_01",
+        "subjectType": "plant-genetic-material",
+        "profile": "veilcore/profile/cannabis/v0.1",
+        "commitment": "",
+        "commitmentAlgorithm": "sha256/canonical-json/v1",
+        "anchor": {
+          "chain": "midnight",
+          "network": "undeployed"
+        },
+        "sealedAt": "2026-01-01T00:00:00Z",
+        "holder": {
+          "id": "vc_hld_conformance"
+        },
+        "parents": [],
+        "attestations": [],
+        "profileData": {
+          "cultivarName": "Reference Cultivar",
+          "nonce": "0000000000000000000000000000000000000000000000000000000000000000"
+        }
+      },
+      "expectedCommitment": "773ecbb259d7dbfb400f38617a7c1f60c4347244eb6cc0fc085294e7943f6e5d"
+    },
+    {
+      "name": "anchor changes must not change the commitment",
+      "record": {
+        "formatVersion": "0.1",
+        "recordId": "vc_rec_conformance_01",
+        "subjectType": "plant-genetic-material",
+        "profile": "veilcore/profile/cannabis/v0.1",
+        "commitment": "",
+        "commitmentAlgorithm": "sha256/canonical-json/v1",
+        "anchor": {
+          "chain": "midnight",
+          "network": "preview",
+          "txHash": "0xdeadbeef"
+        },
+        "sealedAt": "2026-01-01T00:00:00Z",
+        "holder": {
+          "id": "vc_hld_conformance"
+        },
+        "parents": [],
+        "attestations": [],
+        "profileData": {
+          "cultivarName": "Reference Cultivar",
+          "nonce": "0000000000000000000000000000000000000000000000000000000000000000"
+        }
+      },
+      "expectedCommitment": "773ecbb259d7dbfb400f38617a7c1f60c4347244eb6cc0fc085294e7943f6e5d"
+    },
+    {
+      "name": "with one declared parent",
+      "record": {
+        "formatVersion": "0.1",
+        "recordId": "vc_rec_conformance_01",
+        "subjectType": "plant-genetic-material",
+        "profile": "veilcore/profile/cannabis/v0.1",
+        "commitment": "",
+        "commitmentAlgorithm": "sha256/canonical-json/v1",
+        "anchor": {
+          "chain": "midnight",
+          "network": "undeployed"
+        },
+        "sealedAt": "2026-01-01T00:00:00Z",
+        "holder": {
+          "id": "vc_hld_conformance"
+        },
+        "parents": [
+          {
+            "parentRecordId": "vc_rec_parent",
+            "declaredBy": "holder",
+            "verified": false
+          }
+        ],
+        "attestations": [],
+        "profileData": {
+          "cultivarName": "Reference Cultivar",
+          "nonce": "0000000000000000000000000000000000000000000000000000000000000000"
+        }
+      },
+      "expectedCommitment": "63d721f314ad466308b01e9011a331db9899e49c510bea95431c37f373eacf0f"
+    },
+    {
+      "name": "with an attestation",
+      "record": {
+        "formatVersion": "0.1",
+        "recordId": "vc_rec_conformance_01",
+        "subjectType": "plant-genetic-material",
+        "profile": "veilcore/profile/cannabis/v0.1",
+        "commitment": "",
+        "commitmentAlgorithm": "sha256/canonical-json/v1",
+        "anchor": {
+          "chain": "midnight",
+          "network": "undeployed"
+        },
+        "sealedAt": "2026-01-01T00:00:00Z",
+        "holder": {
+          "id": "vc_hld_conformance"
+        },
+        "parents": [],
+        "attestations": [
+          {
+            "attestationId": "att_1",
+            "type": "genetic-fingerprint",
+            "attester": {
+              "id": "lab_1"
+            },
+            "documentHash": "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+            "hashAlgorithm": "sha256",
+            "issuedAt": "2026-01-02T00:00:00Z"
+          }
+        ],
+        "profileData": {
+          "cultivarName": "Reference Cultivar",
+          "nonce": "0000000000000000000000000000000000000000000000000000000000000000"
+        }
+      },
+      "expectedCommitment": "1e66f8c670154aa66952c9e1b983294f3f5b56debc9b84cba7fe4b2c1a3c37bd"
+    },
+    {
+      "name": "with a unicode cultivar name",
+      "record": {
+        "formatVersion": "0.1",
+        "recordId": "vc_rec_conformance_01",
+        "subjectType": "plant-genetic-material",
+        "profile": "veilcore/profile/cannabis/v0.1",
+        "commitment": "",
+        "commitmentAlgorithm": "sha256/canonical-json/v1",
+        "anchor": {
+          "chain": "midnight",
+          "network": "undeployed"
+        },
+        "sealedAt": "2026-01-01T00:00:00Z",
+        "holder": {
+          "id": "vc_hld_conformance"
+        },
+        "parents": [],
+        "attestations": [],
+        "profileData": {
+          "cultivarName": "Ölandsvete é",
+          "nonce": "0000000000000000000000000000000000000000000000000000000000000000"
+        }
+      },
+      "expectedCommitment": "0523d4c5558c31de7c76871d74bfa12375ef67c99c40ddee08f2c84f609ad59c"
+    }
+  ]
+}
