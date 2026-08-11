@@ -1,6 +1,6 @@
 {
   "name": "veilcore-records",
-  "version": "0.2.1",
+  "version": "0.2.2",
   "description": "Build, commit and verify VeilCore records. No chain dependency.",
   "license": "Apache-2.0",
   "type": "module",
@@ -19,5 +19,12 @@
   "devDependencies": {
     "@types/node": "^26.2.0",
     "typescript": "^5.6.0"
+  },
+  "exports": {
+    ".": {
+      "browser": "./dist/index.browser.js",
+      "import": "./dist/index.js",
+      "types": "./dist/index.d.ts"
+    }
   }
 }
