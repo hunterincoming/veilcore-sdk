@@ -11,3 +11,4 @@ export * from './hash.browser.js';
 export * from './commit.js';
 export * from './verify.js';
 export * from './batch.js';
+export * from './corrections.js';
