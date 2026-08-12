@@ -4,6 +4,10 @@
 procedure, anchoring, corrections, attester identity, and verification. Written for implementers
 rather than users of this package.
 
+Three independent implementations pass the same conformance vectors: this package
+(TypeScript), a Python implementation in `conformance/impl.py`, and a Rust
+implementation at https://github.com/hunterincoming/veilcore-rs
+
 Build, commit and verify VeilCore records. **No chain dependency** — this package plus a
 JavaScript runtime is everything you need.
 

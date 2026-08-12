@@ -10,7 +10,7 @@ Version 0.1 - August 2026
 
 This is a draft specification, published for comment. It describes a record format and a verification procedure. It is not a description of a product.
 
-**The format is open.** Anyone may implement it. There is no licence fee, no certification requirement, and no dependency on any company for the format to function. A reference implementation is published under the Apache 2.0 licence, and a second independent implementation in a different programming language passes the same conformance vectors - which is the evidence that this document is unambiguous enough to implement without consulting its authors.
+**The format is open.** Anyone may implement it. There is no licence fee, no certification requirement, and no dependency on any company for the format to function. Three independent implementations - in TypeScript, Python and Rust - pass the same conformance vectors. Each was written from this document rather than translated from the others, which is the evidence that it is unambiguous enough to implement without consulting its authors.
 
 **Verification is free and requires no account, permanently.** This is a design constraint rather than a pricing decision: a record whose verification can be withheld is not evidence.
 
@@ -313,7 +313,7 @@ Named so that implementers do not mistake absence for oversight.
 
 This document is published for comment, and specific correction is more useful than general agreement. The classification table in section 6.2 is the part most in need of review by people who adjudicate disputes in a given domain; the authors' assignments there are reasoned but not authoritative.
 
-**Reference implementation:** published under Apache 2.0, with conformance vectors and a second independent implementation in another language.
+**Implementations:** TypeScript (reference, published under Apache 2.0 with the conformance vectors), Python, and Rust. All three pass the same vectors.
 
 **Contact:** Hunter Roberts, VeilCore - hunterfrancisroberts@gmail.com
 
