@@ -12,3 +12,5 @@ export * from './commit.js';
 export * from './verify.js';
 export * from './batch.js';
 export * from './corrections.js';
+export * from './attester.js';
+export * from './signing.js';
