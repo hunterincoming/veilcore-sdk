@@ -1,5 +1,9 @@
 # veilcore-records
 
+**[Read the specification](SPEC.md)** — record structure, canonical serialisation, the commitment
+procedure, anchoring, corrections, attester identity, and verification. Written for implementers
+rather than users of this package.
+
 Build, commit and verify VeilCore records. **No chain dependency** — this package plus a
 JavaScript runtime is everything you need.
 
