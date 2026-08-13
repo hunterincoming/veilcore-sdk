@@ -56,7 +56,17 @@ A record has three layers. This separation is what allows the format to be used 
 
 Required: `formatVersion`, `recordId`, `subjectType`, `profile`, `commitment`, `commitmentAlgorithm`, `anchor`, `sealedAt`, `holder`, `profileData`.
 
-Optional: `attestations`, `parents`, `terms`, `supersedes`, `jurisdictionBindings`, `extensions`.
+Optional: `subject`, `identification`, `registrations`, `attestations`, `parents`, `terms`, `supersedes`, `jurisdictionBindings`, `extensions`.
+
+**Three of those carry what every subject has, whatever domain it comes from.** They are in the envelope rather than in a profile because the alternative is every profile redefining them, and definitions that are redefined drift.
+
+`subject` — `name`, `internalDesignation`, `taxon`, `originator`, `claimedCreationDate`. Note `originator` rather than "breeder": a culture collection has a depositor and a herd book has a keeper.
+
+`identification` — `method`, `panel`, `data`, `performedBy`, `performedOn`, `reportHash`. Every domain identifies subjects by something measurable, and the shape is the same everywhere: a named method and values produced by it. What the values mean is the profile's business; that they exist and are committed is the envelope's. This is what lets a holder show marker data to one examiner and prove afterwards that it is what was sealed, without it ever being published.
+
+`registrations` — `authority`, `reference`, `status`, `filedOn`. External rights registrations, recorded and never verified.
+
+**The test for whether a field belongs here rather than in a profile:** would an ornamental propagator, a livestock herd book, and a microbial culture collection all need it? Propagation type fails that test — seed versus vegetative means nothing to a herd book — so it lives in the plant profile.
 
 `subjectType` is one of `plant-genetic-material`, `animal-genetic-material`, `plant-variety`, `other`. `sealedAt` is RFC 3339, UTC, second precision. `extensions` keys must be reverse-DNS.
 
