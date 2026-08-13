@@ -2,6 +2,8 @@
 
 **[Integrating VeilCore](INTEGRATING.md)** — start here if you are adding this to existing software.
 
+**[Records in evidence](EVIDENCE.md)** — for counsel: authentication, hearsay, and what these records do not prove.
+
 **[The specification](SPEC.md)** — record structure, canonical serialisation, the commitment
 procedure, anchoring, corrections, attester identity, and verification. Written for implementers
 rather than users of this package.
