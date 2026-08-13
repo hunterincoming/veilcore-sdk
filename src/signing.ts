@@ -12,6 +12,7 @@
 
 import { toHex } from './hash.js';
 import { attestationPayload, retractionPayload, type SignedAttestation, type Retraction } from './attester.js';
+import { challengePayload, type Challenge } from './challenge.js';
 
 const subtle = (): SubtleCrypto => {
   const c = (globalThis as { crypto?: Crypto }).crypto;
@@ -102,6 +103,40 @@ export const verifyRetraction = async (r: Retraction, a: SignedAttestation): Pro
     const key = await importPublic(r.attesterPublicKey);
     const { signature, ...unsigned } = r;
     return await subtle().verify('Ed25519', key, fromHex(signature), bytes(retractionPayload(unsigned)));
+  } catch {
+    return false;
+  }
+};
+
+
+/**
+ * Sign a challenge.
+ *
+ * An anonymous challenge is free to make and impossible to answer, which is the
+ * definition of a griefing tool. The signature is what puts a name behind the assertion.
+ */
+export const signChallenge = async (
+  c: Omit<Challenge, 'signature' | 'signatureAlgorithm'>,
+  privateKeyHex: string,
+): Promise<Challenge> => {
+  const key = await importPrivate(privateKeyHex);
+  const sig = await subtle().sign('Ed25519', key, bytes(challengePayload(c)));
+  return { ...c, signature: toHex(new Uint8Array(sig)), signatureAlgorithm: 'ed25519' };
+};
+
+/**
+ * Verify a challenge.
+ *
+ * Proves the challenger made this assertion. It says nothing about whether the
+ * assertion is correct - that is for the parties and, if it comes to it, a court.
+ */
+export const verifyChallenge = async (c: Challenge): Promise<boolean> => {
+  if (!c.signature) return false;
+  if (!c.claimCommitment) return false; // a challenge with nothing sealed behind it
+  try {
+    const key = await importPublic(c.challenger.publicKey);
+    const { signature, signatureAlgorithm, response, resolution, state, ...unsigned } = c;
+    return await subtle().verify('Ed25519', key, fromHex(signature), bytes(challengePayload(unsigned as never)));
   } catch {
     return false;
   }
