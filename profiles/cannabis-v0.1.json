@@ -1,0 +1,58 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "veilcore/profile/cannabis/v0.1",
+  "title": "Cannabis varieties",
+  "description": "Everything in plant-variety/v1 applies. This adds the two things cannabis breeders record that other crops do not, and is here as a demonstration that a domain can extend the plant profile without anyone's permission and without changing it.",
+  "type": "object",
+  "required": [
+    "nonce"
+  ],
+  "properties": {
+    "nonce": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64,}$"
+    },
+    "propagationType": {
+      "enum": [
+        "seed",
+        "vegetative",
+        "both"
+      ]
+    },
+    "breedingMethod": {
+      "type": "string"
+    },
+    "phenotypeSelection": {
+      "type": "string",
+      "description": "Which phenotype was selected from a population, and on what basis."
+    },
+    "chemotype": {
+      "type": "string",
+      "description": "Cannabinoid or terpene profile as claimed. Substantiate with an attestation from a testing laboratory."
+    },
+    "notes": {
+      "type": "string"
+    },
+    "internalReference": {
+      "type": "string"
+    }
+  },
+  "x-veilcore": {
+    "extends": "veilcore/profile/plant-variety/v1",
+    "parentRoles": [
+      "seed-parent",
+      "pollen-parent",
+      "clone-source"
+    ],
+    "correctionSeverity": {
+      "phenotypeSelection": {
+        "descent": "cosmetic",
+        "terms": "cosmetic"
+      },
+      "chemotype": {
+        "descent": "cosmetic",
+        "terms": "material"
+      }
+    }
+  }
+}

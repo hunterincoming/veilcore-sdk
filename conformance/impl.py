@@ -69,7 +69,11 @@ def committed_fields(env):
         "subjectType": env["subjectType"],
     }
     # Optional envelope fields are included only when present, never as null.
-    for key in ("extensions", "jurisdictionBindings", "supersedes"):
+    for key in (
+        "extensions", "jurisdictionBindings", "supersedes",
+        # What every subject has, whatever domain it comes from.
+        "subject", "identification", "registrations",
+    ):
         if env.get(key) is not None:
             fields[key] = env[key]
     return fields

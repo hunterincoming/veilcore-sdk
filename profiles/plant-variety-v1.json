@@ -1,0 +1,87 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "veilcore/profile/plant-variety/v1",
+  "title": "Plant varieties",
+  "description": "What is specific to plants, and nothing more. Name, originator, claimed creation date, identification evidence and external registrations are envelope fields, because a livestock herd book and a culture collection need them too. This profile is small on purpose: the smaller it is, the less a body adopting the format has to agree with us about.",
+  "type": "object",
+  "required": [
+    "nonce"
+  ],
+  "properties": {
+    "nonce": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64,}$"
+    },
+    "propagationType": {
+      "enum": [
+        "seed",
+        "vegetative",
+        "both"
+      ],
+      "description": "Determines whether a voucher specimen is practical to store, which is the difficulty this format exists to work around for vegetatively propagated material."
+    },
+    "breedingMethod": {
+      "enum": [
+        "cross",
+        "backcross",
+        "selection",
+        "mutation",
+        "doubled-haploid",
+        "clonal-selection",
+        "landrace",
+        "other"
+      ]
+    },
+    "sportOrigin": {
+      "type": "string",
+      "description": "Where a variety arose as a sport on an existing one. Common in ornamentals and fruit, and a common dispute."
+    },
+    "maturityGroup": {
+      "type": "string"
+    },
+    "notes": {
+      "type": "string"
+    },
+    "internalReference": {
+      "type": "string"
+    }
+  },
+  "x-veilcore": {
+    "parentRoles": [
+      "seed-parent",
+      "pollen-parent",
+      "recurrent-parent",
+      "donor-parent",
+      "clone-source",
+      "sport-parent",
+      "rootstock",
+      "scion"
+    ],
+    "correctionSeverity": {
+      "propagationType": {
+        "descent": "material",
+        "terms": "material"
+      },
+      "breedingMethod": {
+        "descent": "material",
+        "terms": "cosmetic"
+      },
+      "sportOrigin": {
+        "descent": "material",
+        "terms": "material"
+      },
+      "maturityGroup": {
+        "descent": "cosmetic",
+        "terms": "cosmetic"
+      },
+      "notes": {
+        "descent": "cosmetic",
+        "terms": "cosmetic"
+      },
+      "internalReference": {
+        "descent": "cosmetic",
+        "terms": "cosmetic"
+      }
+    }
+  }
+}

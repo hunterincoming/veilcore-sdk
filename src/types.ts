@@ -153,6 +153,72 @@ export type Envelope = {
   terms?: Terms;
   supersedes?: Supersedes;
   jurisdictionBindings?: JurisdictionBinding[];
+  /**
+   * What every subject has, whatever domain it is from.
+   *
+   * These are in the envelope rather than in a profile because the alternative is every
+   * profile redefining them, which is how definitions drift. UPOV has run this shape
+   * since 1961: conditions that apply to every variety live in the convention, and what
+   * varies by species lives in a Test Guideline.
+   *
+   * The test each of these passed: would an ornamental propagator, a livestock herd
+   * book, and a microbial culture collection all need it.
+   */
+  subject?: {
+    /** What it is called. A variety denomination, an animal name, a strain designation. */
+    name?: string;
+    /** An internal designation, which usually precedes a public name. */
+    internalDesignation?: string;
+    /** Species or equivalent taxonomic identifier. */
+    taxon?: string;
+    /**
+     * Who claims to have produced or selected it. Deliberately not "breeder": a culture
+     * collection has a depositor and a herd book has a keeper.
+     */
+    originator?: string;
+    /**
+     * When the holder says it came into being. Distinct from sealedAt, and the field a
+     * prior-possession argument turns on.
+     */
+    claimedCreationDate?: string;
+  };
+
+  /**
+   * What distinguishes this subject from others.
+   *
+   * Every domain identifies subjects by something measurable, and the shape is the same
+   * everywhere: a named method, and values produced by it. What the values mean is the
+   * profile's business; that they exist and are committed is the envelope's.
+   *
+   * Committed like any other field, so a holder can show identification data to one
+   * examiner and prove afterwards that what they showed is what was sealed. It is never
+   * published.
+   */
+  identification?: {
+    /** How the subject was identified. */
+    method?: 'morphological' | 'molecular-marker' | 'sequence' | 'phenotypic' | 'other';
+    /** A named panel or protocol, where one exists. */
+    panel?: string;
+    /** The values themselves. Structure is the profile's business. */
+    data?: unknown;
+    /** Who produced them. Substantiate with a signed attestation from that party. */
+    performedBy?: string;
+    performedOn?: string;
+    /** SHA-256 of a report held by the holder. The report never enters the record. */
+    reportHash?: string;
+  };
+
+  /**
+   * External registrations. Recorded, never verified by any registry implementing this
+   * format.
+   */
+  registrations?: {
+    authority: string;
+    reference: string;
+    status?: 'pending' | 'granted' | 'lapsed' | 'withdrawn' | 'refused';
+    filedOn?: string;
+  }[];
+
   /** The domain payload. Opaque to the envelope. */
   profileData: Record<string, unknown>;
   /** Namespaced escape hatch. Keys must be reverse-DNS. */
