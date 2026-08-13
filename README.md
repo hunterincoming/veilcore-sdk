@@ -4,6 +4,9 @@
 
 **[Records in evidence](EVIDENCE.md)** — for counsel: authentication, hearsay, and what these records do not prove.
 
+**[Records in evidence](EVIDENCE.md)** — for counsel: what a party can establish, how it is
+authenticated across jurisdictions, and what it does not prove.
+
 **[The specification](SPEC.md)** — record structure, canonical serialisation, the commitment
 procedure, anchoring, corrections, attester identity, and verification. Written for implementers
 rather than users of this package.
