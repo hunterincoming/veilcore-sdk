@@ -319,6 +319,25 @@ A registry descriptor contains: `name`, `api`, `formatVersions`, optionally `anc
 
 ---
 
+## 11.6 - Profiles, and who governs them
+
+A profile defines the subject fields for a domain. The cannabis profile is one; a body working with fruit varieties, ornamentals or livestock defines its own.
+
+**Nobody grants permission to define a profile.** A profile is identified by an authority and a name, resolved the same way a record is:
+
+    veilcore/profile/cannabis/v0.1        published by the authors of this specification
+    jp.go.maff/profile/variety/v1         published by whoever controls jp.go.maff
+
+An authority publishes a JSON schema at a path it controls, and any implementation can fetch it. There is no registry of profiles, because a registry of profiles is a body that can refuse one.
+
+**A profile publisher decides its own versioning.** Version identifiers are opaque to the envelope; a record names a profile and an implementation either recognises it or does not. Two records naming different profile versions are different records, not the same record read differently.
+
+**A profile may extend the correction classification (section 6.2) for its own fields, but may not reclassify an envelope field.** A publisher knows what a name change means in their domain; nobody knows better than they do. What no publisher may do is decide that changing a record's parents is cosmetic.
+
+**Deprecation is a statement, not a mechanism.** A publisher marks a profile version deprecated in its schema. Records already issued under it remain valid, because a record that stops verifying when a schema changes was never evidence.
+
+---
+
 ## 12 - What is not yet specified
 
 Named so that implementers do not mistake absence for oversight.
@@ -326,8 +345,6 @@ Named so that implementers do not mistake absence for oversight.
 **Third-party challenge.** A party other than the holder or an attester contesting a record. The design depends on challenger identity and on a challenge changing what is reported rather than altering the record.
 
 **Payment instruction in terms.** Where terms carry an obligation, how a settlement instruction is expressed. The obligation is recorded; performance is not.
-
-**Profile governance.** How a profile is registered, versioned, and deprecated, and by whom.
 
 ---
 
