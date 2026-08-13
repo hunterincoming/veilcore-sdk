@@ -297,6 +297,28 @@ Recorded because they explain choices that would otherwise look arbitrary, and b
 
 ---
 
+## 11.5 - Resolution across registries
+
+If anyone may operate a registry, a verifier holding a record identifier must be able to find the one that issued it.
+
+**There is no central directory, and none is planned.** A study of failed persistent-identifier systems found the common cause was reliance on a central authority or infrastructure; even DOI carries this weakness, because prefix allocation sits with a single organisation. A format whose resolution depends on one party has that party as a permanent single point of failure.
+
+**Instead, a registrar identifies itself by a domain it already controls.** A qualified identifier is:
+
+    vc:northfield.example.com/LAB-2026-00417
+
+The authority is a domain name. The local part is whatever the issuer already uses internally, unchanged - which is what keeps adoption cheap.
+
+**Resolution is two requests.** A verifier fetches `https://<authority>/.well-known/veilcore-registry`, which returns a descriptor naming the registry's API, the format versions it issues, and where it anchors. The verifier then asks that API for the record.
+
+Nothing in this path touches infrastructure operated by the authors of this specification, and there is no prefix to allocate, no authority to petition, and no registration step. GS1 resolves barcodes by the same mechanism.
+
+A registry descriptor contains: `name`, `api`, `formatVersions`, optionally `anchors` and `publicKey`.
+
+**An unqualified identifier remains valid within its own registry.** It simply cannot be resolved by a stranger, which is the honest consequence of not naming an authority.
+
+---
+
 ## 12 - What is not yet specified
 
 Named so that implementers do not mistake absence for oversight.
@@ -304,8 +326,6 @@ Named so that implementers do not mistake absence for oversight.
 **Third-party challenge.** A party other than the holder or an attester contesting a record. The design depends on challenger identity and on a challenge changing what is reported rather than altering the record.
 
 **Payment instruction in terms.** Where terms carry an obligation, how a settlement instruction is expressed. The obligation is recorded; performance is not.
-
-**Cross-registry resolution.** How a verifier locates the registry holding a record given only its identifier.
 
 **Profile governance.** How a profile is registered, versioned, and deprecated, and by whom.
 
