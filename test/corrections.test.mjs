@@ -39,18 +39,22 @@ test('changing parents is material for descent', () => {
   assert.equal(s.descent, 'material');
 });
 
-test('changing the seal date is material', () => {
+test('a correction does not report its own seal time as a change', () => {
+  // A correcting record is a new record and is always sealed later than the one it
+  // supersedes. Reporting that as a change would make every correction material and the
+  // classification meaningless. Backdating is prevented instead by the original record
+  // never being altered or deleted: its own seal time and anchor remain checkable.
   const s = classifyCorrection(diffRecords(base, edit('sealedAt', '2020-01-01T00:00:00Z')));
-  assert.equal(s.descent, 'material');
-  assert.equal(s.terms, 'material');
+  assert.equal(s.descent, 'cosmetic');
+  assert.equal(s.terms, 'cosmetic');
 });
 
 test('one material change makes the whole correction material', () => {
   const both = structuredClone(base);
   both.profileData.notes = 'typo';
-  both.sealedAt = '2019-01-01T00:00:00Z';
+  both.parents = [{ parentRecordId: 'x', declaredBy: 'holder', verified: false }];
   const s = classifyCorrection(diffRecords(base, both));
-  assert.equal(s.descent, 'material');
+  assert.equal(s.descent, 'material', 'a material change is not diluted by cosmetic ones');
 });
 
 test('an unclassified field defaults to material rather than harmless', () => {

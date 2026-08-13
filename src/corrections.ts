@@ -80,7 +80,18 @@ export const diffRecords = (before: Envelope, after: Envelope): FieldChange[] =>
   for (const f of fields) {
     // The commitment and anchor necessarily differ between a record and its
     // replacement; they describe the record rather than the subject.
-    if (f === 'commitment' || f.startsWith('anchor') || f === 'recordId' || f.startsWith('supersedes')) continue;
+    // Fields that necessarily differ between a record and its replacement, because the
+    // replacement is a new record: its own identifier, its own commitment and nonce, its
+    // own seal time, and its own anchor. Treating these as changes would make every
+    // correction material and the classification meaningless.
+    if (
+      f === 'commitment' ||
+      f === 'recordId' ||
+      f === 'sealedAt' ||
+      f === 'profileData.nonce' ||
+      f.startsWith('anchor') ||
+      f.startsWith('supersedes')
+    ) continue;
     if (JSON.stringify(a[f]) === JSON.stringify(b[f])) continue;
     changes.push({ field: f, from: a[f], to: b[f], severity: CLASSIFICATION[f] ?? UNKNOWN });
   }

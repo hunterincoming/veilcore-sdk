@@ -166,7 +166,9 @@ A single flag forces a wrong answer. A variety name change is **cosmetic for des
 
 Both flags are reported. A party relying on descent reads one; a party relying on terms reads the other.
 
-Material for both: `parents`, `attestations`, `sealedAt`, `holder`, `subjectType`, `profile`.
+Material for both: `parents`, `attestations`, `holder`, `subjectType`, `profile`.
+
+**A correcting record's own identity fields are not changes.** `recordId`, `commitment`, the nonce, `sealedAt` and `anchor` necessarily differ between a record and the record that supersedes it, because the latter is a new record sealed later. Reporting those as changes would make every correction material and the classification worthless. Backdating is prevented by a different property: the superseded record is never altered or deleted, so its own seal time and anchor remain independently checkable.
 
 Cosmetic for descent, material for terms: `cultivarName` (or the profile equivalent), `breederName`, `claimedCreationDate`.
 
