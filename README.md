@@ -1,6 +1,8 @@
 # veilcore-records
 
-**[Read the specification](SPEC.md)** — record structure, canonical serialisation, the commitment
+**[Integrating VeilCore](INTEGRATING.md)** — start here if you are adding this to existing software.
+
+**[The specification](SPEC.md)** — record structure, canonical serialisation, the commitment
 procedure, anchoring, corrections, attester identity, and verification. Written for implementers
 rather than users of this package.
 
