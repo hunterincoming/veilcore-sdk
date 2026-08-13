@@ -16,8 +16,21 @@ export type SubjectType =
   | 'plant-variety'
   | 'other';
 
+/**
+ * How a commitment is bound to a time.
+ *
+ * `ledger` publishes the commitment (or a batch root containing it) in a public chain.
+ * `rfc3161` is a signed timestamp token from a Time Stamping Authority. Where that TSA
+ * is a Qualified Trust Service Provider on an EU trusted list, eIDAS Article 42 attaches
+ * a presumption of accuracy and shifts the burden to whoever disputes the date.
+ * `notarial` records a timestamp applied by a notary or equivalent officer.
+ */
+export type AnchorKind = 'ledger' | 'rfc3161' | 'notarial';
+
 /** Where a commitment is anchored, if anywhere. */
 export type Anchor = {
+  /** Defaults to `ledger` when absent, for records written before this field existed. */
+  kind?: AnchorKind;
   chain: string;
   /** `undeployed` is the honest state for a record sealed locally and never settled. */
   network: 'mainnet' | 'preview' | 'preprod' | 'undeployed';
@@ -30,7 +43,33 @@ export type Anchor = {
    * record commitment itself is plain SHA-256 and requires no chain runtime.
    */
   commitmentAlgorithm?: string;
+
+  // For kind: 'rfc3161'
+  /** The timestamp token, base64. Verifiable against the TSA's certificate. */
+  token?: string;
+  /** The Time Stamping Authority that issued it. */
+  tsa?: string;
+  /** Whether that TSA holds qualified status, and under which scheme. */
+  qualified?: { scheme: string; trustedList?: string };
+
+  // For kind: 'notarial'
+  notary?: { name: string; jurisdiction: string; reference: string };
 };
+
+/**
+ * Every anchor on a record.
+ *
+ * A commitment may be bound to a time by more than one mechanism, and different
+ * jurisdictions recognise different ones. An EU court applies the eIDAS presumption to a
+ * qualified timestamp; Italian law grants blockchain anchors the same effect under Law
+ * 12/2019; Chinese Internet Courts have accepted blockchain evidence since 2018; a US
+ * court authenticates either under FRE 901(b)(9).
+ *
+ * Carrying several costs almost nothing, because each binds the same commitment. It also
+ * keeps jurisdiction-specific rules out of this format entirely: a court reads the
+ * anchor it recognises and ignores the rest.
+ */
+export type Anchors = Anchor[];
 
 export type Attester = { id: string; displayName?: string; publicKey?: string };
 

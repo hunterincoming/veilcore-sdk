@@ -16,3 +16,4 @@ export * from './attester.js';
 export * from './signing.js';
 export * from './resolve.js';
 export * from './challenge.js';
+export * from './anchors.js';
