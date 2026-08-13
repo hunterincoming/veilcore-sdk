@@ -338,11 +338,29 @@ An authority publishes a JSON schema at a path it controls, and any implementati
 
 ---
 
+## 11.7 - Challenge by a third party
+
+A holder may correct their own record and an attester may retract their own attestation. Neither covers the case that matters most in a dispute: someone else says the record is wrong.
+
+Three properties keep this from becoming a way to harass a competitor.
+
+**A challenge never alters the record.** It changes what a verifier is told about it. The record remains exactly as sealed, its commitment unchanged, because a record a stranger can alter is not evidence.
+
+**A challenger must seal a record of their own claim first**, and name its commitment in the challenge. Filing therefore costs something, is auditable, and puts the challenger's assertion on the same footing as the one they contest. A challenge naming no claim is refused.
+
+**A challenge is signed.** An anonymous challenge is free to make and impossible to answer.
+
+A challenge carries: `challengeId`, `subjectCommitment`, `claimCommitment`, `ground`, a public `statement`, the challenger's identity, `filedAt`, `state`, and a signature. Grounds are `prior-possession`, `descent`, `attestation`, `identity` or `other`. States are `open`, `answered`, `withdrawn` or `resolved`.
+
+**The holder may answer, and is never required to.** Silence is not an admission. Where an answer is given, both statements travel with the record.
+
+**Nothing here is adjudicated.** A verifier is told that a record is contested, on what ground, and whether it was answered. Where a matter has been resolved, the resolution records which outside authority ruled and a reference a verifier can check for themselves. A registry that ruled on a contested claim would be substituting its judgement for a court's, and would stop being usable by either party the first time it did so.
+
+---
+
 ## 12 - What is not yet specified
 
 Named so that implementers do not mistake absence for oversight.
-
-**Third-party challenge.** A party other than the holder or an attester contesting a record. The design depends on challenger identity and on a challenge changing what is reported rather than altering the record.
 
 **Payment instruction in terms.** Where terms carry an obligation, how a settlement instruction is expressed. The obligation is recorded; performance is not.
 
