@@ -18,35 +18,92 @@ import unicodedata
 
 def canonicalise(value):
     """
-    Canonical serialisation per the VeilCore spec.
+    Canonical serialisation, per specification section 4.4.
 
-    Object keys sorted by Unicode code point. Absent optionals omitted, never null.
-    UTF-8, NFC normalised. No insignificant whitespace. Array order preserved, because
-    parent order is meaningful in some domains.
+    Follows RFC 8785 where they overlap. Rejects null and post-normalisation key
+    collisions rather than resolving them: an implementation that resolves them has to
+    choose how, and two implementations choose differently.
     """
     if value is None:
-        return "null"
-    if isinstance(value, str):
-        # ensure_ascii=False keeps the character; JSON escaping rules still apply.
-        return json.dumps(unicodedata.normalize("NFC", value), ensure_ascii=False, separators=(",", ":"))
-    if isinstance(value, bool):
-        return "true" if value else "false"
+        raise ValueError("null cannot be committed: omit the field instead (spec 4.4 rule 4)")
+
+    if value is True:
+        return "true"
+    if value is False:
+        return "false"
+
     if isinstance(value, (int, float)):
-        # Match JSON number formatting: integers without a trailing .0
-        if isinstance(value, float) and value.is_integer():
-            return str(int(value))
-        return json.dumps(value)
+        if isinstance(value, float):
+            if value != value or value in (float("inf"), float("-inf")):
+                raise ValueError("non-finite numbers cannot be committed")
+            # RFC 8785 3.2.2.3: ECMAScript shortest round-trip. Python pads exponents
+            # to two digits and ECMAScript does not, so 1e-07 becomes 1e-7.
+            out = repr(value)
+            if "e" in out:
+                mantissa, exponent = out.split("e")
+                sign = "-" if exponent.startswith("-") else ""
+                digits = exponent.lstrip("+-").lstrip("0") or "0"
+                out = f"{mantissa}e{sign}{digits}"
+            return out
+        return str(value)
+
+    if isinstance(value, str):
+        return _escape(unicodedata.normalize("NFC", value))
+
     if isinstance(value, list):
         return "[" + ",".join(canonicalise(v) for v in value) + "]"
+
     if isinstance(value, dict):
-        keys = sorted(k for k in value if value[k] is not None or k in value)
-        # An explicit null is preserved; an absent key is simply not present.
+        # Omit absent optionals. A present null is rejected above, not dropped.
+        present = dict(value)
+
+        # Normalise keys, then detect collisions, then sort. Order matters: two keys
+        # differing only by normalisation form are the same key afterwards.
+        seen = {}
+        for k in present:
+            n = unicodedata.normalize("NFC", k)
+            if n in seen and seen[n] != k:
+                raise ValueError(
+                    f'keys "{seen[n]}" and "{k}" are identical after Unicode '
+                    "normalisation; the record is invalid (spec 4.4 rule 1)"
+                )
+            seen[n] = k
+
+        # Python compares strings by code point already, which is what the spec requires.
         parts = [
-            json.dumps(k, ensure_ascii=False, separators=(",", ":")) + ":" + canonicalise(value[k])
-            for k in keys
+            _escape(n) + ":" + canonicalise(present[seen[n]])
+            for n in sorted(seen)
         ]
         return "{" + ",".join(parts) + "}"
+
     raise ValueError(f"cannot canonicalise {type(value)}")
+
+
+def _escape(s):
+    """Escape per RFC 8785 3.2.2.2: shortest form, lowercase hex."""
+    out = ['"']
+    for ch in s:
+        c = ord(ch)
+        if ch == '"':
+            out.append('\\"')
+        elif ch == "\\":
+            out.append("\\\\")
+        elif ch == "\b":
+            out.append("\\b")
+        elif ch == "\f":
+            out.append("\\f")
+        elif ch == "\n":
+            out.append("\\n")
+        elif ch == "\r":
+            out.append("\\r")
+        elif ch == "\t":
+            out.append("\\t")
+        elif c < 0x20:
+            out.append("\\u%04x" % c)
+        else:
+            out.append(ch)
+    out.append('"')
+    return "".join(out)
 
 
 def committed_fields(env):

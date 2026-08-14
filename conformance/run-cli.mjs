@@ -16,6 +16,7 @@
 
 import { readFileSync } from 'node:fs';
 import { spawn } from 'node:child_process';
+import { fileURLToPath } from 'node:url';
 
 const cmd = process.argv[2];
 if (!cmd) {
@@ -28,7 +29,7 @@ const vectors = JSON.parse(readFileSync(new URL('./vectors.json', import.meta.ur
 const ask = (op, input) =>
   new Promise((resolve) => {
     const [bin, ...args] = cmd.split(' ');
-    const p = spawn(bin, args, { cwd: new URL('..', import.meta.url).pathname });
+    const p = spawn(bin, args, { cwd: fileURLToPath(new URL('..', import.meta.url)) });
     let out = '';
     let err = '';
     p.stdout.on('data', (d) => (out += d));
@@ -61,6 +62,32 @@ for (const v of vectors.commitments) {
   const ok = actual === v.expectedCommitment;
   ok ? pass++ : failures.push({ name: v.name, expected: v.expectedCommitment, actual });
   console.log(`  ${ok ? 'PASS' : 'FAIL'}  ${v.name}`);
+}
+
+// Rejections. Until August 2026 the suite only tested agreement on VALID input, which
+// is why three implementations could pass everything while disagreeing about nulls, key
+// collisions and non-finite numbers. An implementation must refuse these, not resolve
+// them: an implementation that resolves them has chosen how, and two implementations
+// choose differently.
+console.log('\nRejections');
+for (const v of vectors.rejections ?? []) {
+  const input = v.construct === 'non-finite' ? { n: 1e999 } : v.input;
+  let refused = false;
+  let got;
+  try {
+    got = await ask('canonicalise', input);
+    // An implementation may signal refusal by returning an error field rather than
+    // exiting non-zero. Both count.
+    refused = got === undefined || got === null || String(got).startsWith('error');
+  } catch {
+    refused = true;
+  }
+  refused ? pass++ : failures.push({
+    name: v.name,
+    expected: `rejected — ${v.reason}`,
+    actual: `accepted, returned ${JSON.stringify(got)}`,
+  });
+  console.log(`  ${refused ? 'PASS' : 'FAIL'}  ${v.name}`);
 }
 
 console.log(`\n${pass} passed, ${failures.length} failed`);

@@ -54,6 +54,20 @@ for (const v of vectors.commitments) {
   console.log(`  ${v.expectedCommitment === actual ? 'PASS' : 'FAIL'}  ${v.name}`);
 }
 
+// Rejections. A suite that only tests valid input cannot catch two implementations
+// disagreeing about what is INVALID, which is where every divergence found in the
+// August 2026 external review actually lived.
+for (const v of vectors.rejections ?? []) {
+  const input = v.construct === 'non-finite' ? { n: Infinity } : v.input;
+  let rejected = false;
+  try {
+    canonicalise(input);
+  } catch {
+    rejected = true;
+  }
+  check('rejections', v.name, 'rejected', rejected ? 'rejected' : 'accepted');
+}
+
 console.log(`\n${pass} passed, ${fail} failed`);
 
 if (fail > 0) {

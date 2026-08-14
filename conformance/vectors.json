@@ -64,6 +64,39 @@
         "neg": -1.5
       },
       "expected": "{\"f\":false,\"n\":0,\"neg\":-1.5,\"t\":true}"
+    },
+    {
+      "name": "key above U+FFFF sorts by code point, not UTF-16 code unit",
+      "note": "JavaScript's default sort gets this wrong. Found by external review, Aug 2026.",
+      "input": {
+        "｡": 1,
+        "😀": 2
+      },
+      "expected": "{\"｡\":1,\"😀\":2}"
+    },
+    {
+      "name": "negative exponent uses ECMAScript form, not zero-padded",
+      "note": "Python's repr pads to 1e-07; RFC 8785 requires 1e-7.",
+      "input": {
+        "n": 1e-07
+      },
+      "expected": "{\"n\":1e-7}"
+    },
+    {
+      "name": "decomposed key is normalised to NFC before sorting",
+      "input": {
+        "é": 1
+      },
+      "expected": "{\"é\":1}"
+    },
+    {
+      "name": "integers within the safe range",
+      "input": {
+        "a": 0,
+        "b": -1,
+        "c": 9007199254740991
+      },
+      "expected": "{\"a\":0,\"b\":-1,\"c\":9007199254740991}"
     }
   ],
   "commitments": [
@@ -214,6 +247,80 @@
         }
       },
       "expectedCommitment": "0523d4c5558c31de7c76871d74bfa12375ef67c99c40ddee08f2c84f609ad59c"
+    },
+    {
+      "name": "record carrying subject, identification and registrations",
+      "note": "Missing from spec 4.2 while both implementations committed them. A spec-literal verifier computed a different value and would have called a genuine record altered. Found by external review, Aug 2026.",
+      "record": {
+        "formatVersion": "0.1",
+        "recordId": "vc_rec_subject",
+        "subjectType": "plant-genetic-material",
+        "profile": "veilcore/profile/plant-variety/v1",
+        "commitment": "",
+        "commitmentAlgorithm": "sha256/canonical-json/v1",
+        "anchor": {
+          "chain": "midnight",
+          "network": "undeployed"
+        },
+        "sealedAt": "2026-01-01T00:00:00Z",
+        "holder": {
+          "id": "h1"
+        },
+        "parents": [],
+        "attestations": [],
+        "subject": {
+          "name": "Example variety",
+          "originator": "A breeder",
+          "taxon": "Glycine max"
+        },
+        "identification": {
+          "method": "molecular-marker",
+          "panel": "BARCSoySSR13"
+        },
+        "registrations": [
+          {
+            "authority": "USDA PVPO",
+            "reference": "2026-0001",
+            "status": "pending"
+          }
+        ],
+        "profileData": {
+          "nonce": "0000000000000000000000000000000000000000000000000000000000000000",
+          "propagationType": "seed"
+        }
+      },
+      "expectedCommitment": "0e949296cc01951fe11e743dd2351063e8e0651ff70c39b53975d2e0bf8c86b5"
+    }
+  ],
+  "rejections": [
+    {
+      "name": "explicit null at the top level is invalid",
+      "input": {
+        "a": null
+      },
+      "reason": "spec 4.4 rule 4"
+    },
+    {
+      "name": "explicit null nested is invalid",
+      "input": {
+        "a": {
+          "b": null
+        }
+      },
+      "reason": "spec 4.4 rule 4 applies at every depth"
+    },
+    {
+      "name": "keys identical after normalisation are a collision",
+      "input": {
+        "é": 1,
+        "é": 2
+      },
+      "reason": "spec 4.4 rule 1; resolving it means two implementations resolve differently"
+    },
+    {
+      "name": "non-finite numbers are invalid",
+      "construct": "non-finite",
+      "reason": "spec 4.4 rule 8. Not expressible in JSON, so the runner constructs it."
     }
   ]
 }
