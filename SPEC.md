@@ -10,7 +10,7 @@ Version 0.1 - August 2026
 
 This is a draft specification, published for comment. It describes a record format and a verification procedure. It is not a description of a product.
 
-**The format is open.** Anyone may implement it. There is no licence fee, no certification requirement, and no dependency on any company for the format to function. Three independent implementations - in TypeScript, Python and Rust - pass the same conformance vectors. Each was written from this document rather than translated from the others, which is the evidence that it is unambiguous enough to implement without consulting its authors.
+**The format is open.** Anyone may implement it. There is no licence fee, no certification requirement, and no dependency on any company for the format to function. Three independent implementations - in TypeScript, Python and Rust - pass the same conformance vectors. Each was written from this document rather than translated from the others, which is the evidence that it is unambiguous enough to implement without consulting its authors. The vectors cover canonicalisation and commitment computation; batch proofs, attestations and resolution are implemented in the reference implementation and are not yet part of the vector set.
 
 **Verification is free and requires no account, permanently.** This is a design constraint rather than a pricing decision: a record whose verification can be withheld is not evidence.
 
