@@ -1,6 +1,6 @@
 {
   "formatVersion": "0.1",
-  "generatedAt": "2026-08-11T10:22:59.110Z",
+  "generatedAt": "2026-08-15T17:28:31.844Z",
   "canonicalisation": [
     {
       "name": "keys sorted by code point",
@@ -67,18 +67,16 @@
     },
     {
       "name": "key above U+FFFF sorts by code point, not UTF-16 code unit",
-      "note": "JavaScript's default sort gets this wrong. Found by external review, Aug 2026.",
       "input": {
-        "｡": 1,
-        "😀": 2
+        "😀": 2,
+        "｡": 1
       },
       "expected": "{\"｡\":1,\"😀\":2}"
     },
     {
       "name": "negative exponent uses ECMAScript form, not zero-padded",
-      "note": "Python's repr pads to 1e-07; RFC 8785 requires 1e-7.",
       "input": {
-        "n": 1e-07
+        "n": 1e-7
       },
       "expected": "{\"n\":1e-7}"
     },
@@ -250,7 +248,6 @@
     },
     {
       "name": "record carrying subject, identification and registrations",
-      "note": "Missing from spec 4.2 while both implementations committed them. A spec-literal verifier computed a different value and would have called a genuine record altered. Found by external review, Aug 2026.",
       "record": {
         "formatVersion": "0.1",
         "recordId": "vc_rec_subject",
@@ -292,35 +289,281 @@
       "expectedCommitment": "0e949296cc01951fe11e743dd2351063e8e0651ff70c39b53975d2e0bf8c86b5"
     }
   ],
+  "inclusion": [
+    {
+      "name": "single-leaf batch — 0000",
+      "commitment": "0000000000000000000000000000000000000000000000000000000000000000",
+      "path": [],
+      "expectedRoot": "d5f28bdae4731c38abc064bc702233257035309462dbeaa891f9e8f33df6d78e"
+    },
+    {
+      "name": "two leaves — 0000",
+      "commitment": "0000000000000000000000000000000000000000000000000000000000000000",
+      "path": [
+        {
+          "sibling": "4ba87560840c1a9a73dd03a36c9a14be72102e07dac3bde0cdbd77b490bd43ef",
+          "siblingIsLeft": false
+        }
+      ],
+      "expectedRoot": "6d73addc23aeeb53fdb16305f105aaa3d01e5ca47d22652048f1f6cbbf6012ff"
+    },
+    {
+      "name": "two leaves — 1111",
+      "commitment": "1111111111111111111111111111111111111111111111111111111111111111",
+      "path": [
+        {
+          "sibling": "d5f28bdae4731c38abc064bc702233257035309462dbeaa891f9e8f33df6d78e",
+          "siblingIsLeft": true
+        }
+      ],
+      "expectedRoot": "6d73addc23aeeb53fdb16305f105aaa3d01e5ca47d22652048f1f6cbbf6012ff"
+    },
+    {
+      "name": "odd leaf count promotes rather than duplicates — 0000",
+      "commitment": "0000000000000000000000000000000000000000000000000000000000000000",
+      "path": [
+        {
+          "sibling": "4ba87560840c1a9a73dd03a36c9a14be72102e07dac3bde0cdbd77b490bd43ef",
+          "siblingIsLeft": false
+        },
+        {
+          "sibling": "064ab871cfdc0e0ef15987f965093ab3ed7e36f35274144242ab80660df29af5",
+          "siblingIsLeft": false
+        },
+        {
+          "sibling": "213de233fb89d4367c0acb192a94d804a882a307fb279c9cf6b78d571089d56e",
+          "siblingIsLeft": false
+        }
+      ],
+      "expectedRoot": "624617c8ca9cfd4ab84b6fee5657ddc8d3749bb6e4130d826df19afdd045f752"
+    },
+    {
+      "name": "odd leaf count promotes rather than duplicates — 1111",
+      "commitment": "1111111111111111111111111111111111111111111111111111111111111111",
+      "path": [
+        {
+          "sibling": "d5f28bdae4731c38abc064bc702233257035309462dbeaa891f9e8f33df6d78e",
+          "siblingIsLeft": true
+        },
+        {
+          "sibling": "064ab871cfdc0e0ef15987f965093ab3ed7e36f35274144242ab80660df29af5",
+          "siblingIsLeft": false
+        },
+        {
+          "sibling": "213de233fb89d4367c0acb192a94d804a882a307fb279c9cf6b78d571089d56e",
+          "siblingIsLeft": false
+        }
+      ],
+      "expectedRoot": "624617c8ca9cfd4ab84b6fee5657ddc8d3749bb6e4130d826df19afdd045f752"
+    },
+    {
+      "name": "odd leaf count promotes rather than duplicates — 2222",
+      "commitment": "2222222222222222222222222222222222222222222222222222222222222222",
+      "path": [
+        {
+          "sibling": "879b9d07185e8ddb3ee07735a5cd23b0a2c867d2932361f876939948b5e390e6",
+          "siblingIsLeft": false
+        },
+        {
+          "sibling": "6d73addc23aeeb53fdb16305f105aaa3d01e5ca47d22652048f1f6cbbf6012ff",
+          "siblingIsLeft": true
+        },
+        {
+          "sibling": "213de233fb89d4367c0acb192a94d804a882a307fb279c9cf6b78d571089d56e",
+          "siblingIsLeft": false
+        }
+      ],
+      "expectedRoot": "624617c8ca9cfd4ab84b6fee5657ddc8d3749bb6e4130d826df19afdd045f752"
+    },
+    {
+      "name": "odd leaf count promotes rather than duplicates — 3333",
+      "commitment": "3333333333333333333333333333333333333333333333333333333333333333",
+      "path": [
+        {
+          "sibling": "8dfb2ea93696611141d143e5034b0c061f51ae11ea01645fe6a9280818fd5ddd",
+          "siblingIsLeft": true
+        },
+        {
+          "sibling": "6d73addc23aeeb53fdb16305f105aaa3d01e5ca47d22652048f1f6cbbf6012ff",
+          "siblingIsLeft": true
+        },
+        {
+          "sibling": "213de233fb89d4367c0acb192a94d804a882a307fb279c9cf6b78d571089d56e",
+          "siblingIsLeft": false
+        }
+      ],
+      "expectedRoot": "624617c8ca9cfd4ab84b6fee5657ddc8d3749bb6e4130d826df19afdd045f752"
+    },
+    {
+      "name": "odd leaf count promotes rather than duplicates — 4444",
+      "commitment": "4444444444444444444444444444444444444444444444444444444444444444",
+      "path": [
+        {
+          "sibling": "0b1525eb08725918a6307d331ffa8ed88c63afecec0a2c890759ca5941b84dc5",
+          "siblingIsLeft": true
+        }
+      ],
+      "expectedRoot": "624617c8ca9cfd4ab84b6fee5657ddc8d3749bb6e4130d826df19afdd045f752"
+    },
+    {
+      "name": "seven leaves, deeper path — 0000",
+      "commitment": "0000000000000000000000000000000000000000000000000000000000000000",
+      "path": [
+        {
+          "sibling": "4ba87560840c1a9a73dd03a36c9a14be72102e07dac3bde0cdbd77b490bd43ef",
+          "siblingIsLeft": false
+        },
+        {
+          "sibling": "064ab871cfdc0e0ef15987f965093ab3ed7e36f35274144242ab80660df29af5",
+          "siblingIsLeft": false
+        },
+        {
+          "sibling": "23f31d6472bbdc401560471be507b73e6b5e4f474ba5f94ab41c1173aa662bf8",
+          "siblingIsLeft": false
+        }
+      ],
+      "expectedRoot": "242daa2558ef906ec156c30aecb08fd3a6d8a7a3f4c8d168070695c877f35d99"
+    },
+    {
+      "name": "seven leaves, deeper path — 1111",
+      "commitment": "1111111111111111111111111111111111111111111111111111111111111111",
+      "path": [
+        {
+          "sibling": "d5f28bdae4731c38abc064bc702233257035309462dbeaa891f9e8f33df6d78e",
+          "siblingIsLeft": true
+        },
+        {
+          "sibling": "064ab871cfdc0e0ef15987f965093ab3ed7e36f35274144242ab80660df29af5",
+          "siblingIsLeft": false
+        },
+        {
+          "sibling": "23f31d6472bbdc401560471be507b73e6b5e4f474ba5f94ab41c1173aa662bf8",
+          "siblingIsLeft": false
+        }
+      ],
+      "expectedRoot": "242daa2558ef906ec156c30aecb08fd3a6d8a7a3f4c8d168070695c877f35d99"
+    },
+    {
+      "name": "seven leaves, deeper path — 2222",
+      "commitment": "2222222222222222222222222222222222222222222222222222222222222222",
+      "path": [
+        {
+          "sibling": "879b9d07185e8ddb3ee07735a5cd23b0a2c867d2932361f876939948b5e390e6",
+          "siblingIsLeft": false
+        },
+        {
+          "sibling": "6d73addc23aeeb53fdb16305f105aaa3d01e5ca47d22652048f1f6cbbf6012ff",
+          "siblingIsLeft": true
+        },
+        {
+          "sibling": "23f31d6472bbdc401560471be507b73e6b5e4f474ba5f94ab41c1173aa662bf8",
+          "siblingIsLeft": false
+        }
+      ],
+      "expectedRoot": "242daa2558ef906ec156c30aecb08fd3a6d8a7a3f4c8d168070695c877f35d99"
+    },
+    {
+      "name": "seven leaves, deeper path — 3333",
+      "commitment": "3333333333333333333333333333333333333333333333333333333333333333",
+      "path": [
+        {
+          "sibling": "8dfb2ea93696611141d143e5034b0c061f51ae11ea01645fe6a9280818fd5ddd",
+          "siblingIsLeft": true
+        },
+        {
+          "sibling": "6d73addc23aeeb53fdb16305f105aaa3d01e5ca47d22652048f1f6cbbf6012ff",
+          "siblingIsLeft": true
+        },
+        {
+          "sibling": "23f31d6472bbdc401560471be507b73e6b5e4f474ba5f94ab41c1173aa662bf8",
+          "siblingIsLeft": false
+        }
+      ],
+      "expectedRoot": "242daa2558ef906ec156c30aecb08fd3a6d8a7a3f4c8d168070695c877f35d99"
+    },
+    {
+      "name": "seven leaves, deeper path — 4444",
+      "commitment": "4444444444444444444444444444444444444444444444444444444444444444",
+      "path": [
+        {
+          "sibling": "ccefdbcc84caea700b03f276d6f32ceb62f1239768ef1f068475157135817f47",
+          "siblingIsLeft": false
+        },
+        {
+          "sibling": "114ea13523618ad73566d8bcfcd2c54e4871a5ebc9169fa7925de03656c0f3ca",
+          "siblingIsLeft": false
+        },
+        {
+          "sibling": "0b1525eb08725918a6307d331ffa8ed88c63afecec0a2c890759ca5941b84dc5",
+          "siblingIsLeft": true
+        }
+      ],
+      "expectedRoot": "242daa2558ef906ec156c30aecb08fd3a6d8a7a3f4c8d168070695c877f35d99"
+    },
+    {
+      "name": "seven leaves, deeper path — 5555",
+      "commitment": "5555555555555555555555555555555555555555555555555555555555555555",
+      "path": [
+        {
+          "sibling": "213de233fb89d4367c0acb192a94d804a882a307fb279c9cf6b78d571089d56e",
+          "siblingIsLeft": true
+        },
+        {
+          "sibling": "114ea13523618ad73566d8bcfcd2c54e4871a5ebc9169fa7925de03656c0f3ca",
+          "siblingIsLeft": false
+        },
+        {
+          "sibling": "0b1525eb08725918a6307d331ffa8ed88c63afecec0a2c890759ca5941b84dc5",
+          "siblingIsLeft": true
+        }
+      ],
+      "expectedRoot": "242daa2558ef906ec156c30aecb08fd3a6d8a7a3f4c8d168070695c877f35d99"
+    },
+    {
+      "name": "seven leaves, deeper path — 6666",
+      "commitment": "6666666666666666666666666666666666666666666666666666666666666666",
+      "path": [
+        {
+          "sibling": "14c195e31aa0d806eb804fd77cb7e9806a2309c6e013ed691c4b14930ed0b8b8",
+          "siblingIsLeft": true
+        },
+        {
+          "sibling": "0b1525eb08725918a6307d331ffa8ed88c63afecec0a2c890759ca5941b84dc5",
+          "siblingIsLeft": true
+        }
+      ],
+      "expectedRoot": "242daa2558ef906ec156c30aecb08fd3a6d8a7a3f4c8d168070695c877f35d99"
+    }
+  ],
   "rejections": [
     {
       "name": "explicit null at the top level is invalid",
+      "reason": "spec 4.4 rule 4",
       "input": {
         "a": null
-      },
-      "reason": "spec 4.4 rule 4"
+      }
     },
     {
       "name": "explicit null nested is invalid",
+      "reason": "spec 4.4 rule 4 applies at every depth",
       "input": {
         "a": {
           "b": null
         }
-      },
-      "reason": "spec 4.4 rule 4 applies at every depth"
+      }
     },
     {
       "name": "keys identical after normalisation are a collision",
+      "reason": "spec 4.4 rule 1; resolving it means two implementations resolve differently",
       "input": {
         "é": 1,
         "é": 2
-      },
-      "reason": "spec 4.4 rule 1; resolving it means two implementations resolve differently"
+      }
     },
     {
       "name": "non-finite numbers are invalid",
-      "construct": "non-finite",
-      "reason": "spec 4.4 rule 8. Not expressible in JSON, so the runner constructs it."
+      "reason": "spec 4.4 rule 8. Not expressible in JSON, so the runner constructs it.",
+      "construct": "non-finite"
     }
   ]
 }

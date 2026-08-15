@@ -10,7 +10,7 @@ Version 0.1 - August 2026
 
 This is a draft specification, published for comment. It describes a record format and a verification procedure. It is not a description of a product.
 
-**The format is open.** Anyone may implement it. There is no licence fee, no certification requirement, and no dependency on any company for the format to function. Three independent implementations - in TypeScript, Python and Rust - pass the same conformance vectors. Each was written from this document rather than translated from the others, which is the evidence that it is unambiguous enough to implement without consulting its authors. The vectors cover canonicalisation and commitment computation; batch proofs, attestations and resolution are implemented in the reference implementation and are not yet part of the vector set.
+**The format is open.** Anyone may implement it. There is no licence fee, no certification requirement, and no dependency on any company for the format to function. Three independent implementations - in TypeScript, Python and Rust - pass the same conformance vectors. Each was written from this document rather than translated from the others, which is the evidence that it is unambiguous enough to implement without consulting its authors. The vectors cover canonicalisation, commitment computation and inclusion proofs; attestations, corrections and resolution are implemented in the reference implementation and are not yet part of the vector set.
 
 **Verification is free and requires no account, permanently.** This is a design constraint rather than a pricing decision: a record whose verification can be withheld is not evidence.
 
@@ -202,21 +202,87 @@ This matters for two reasons beyond cost. **The holder needs no ledger account**
 
 The pattern is established rather than novel; it underlies certificate transparency, and OpenTimestamps has used it for over a billion documents.
 
-### 5.1 Inclusion proof
+### 5.1 Building a batch
+
+A batch is built from a set of commitments. Every rule here affects the root, so two implementations that differ on any of them will disagree about whether a genuine record is in a batch.
+
+**Commitments are lowercase hexadecimal strings** of 64 characters, as produced by section 4.1.
+
+**Duplicates are removed.** A commitment appearing more than once contributes one leaf. Two identical records are one record; counting them twice would make the root depend on how many times a caller happened to submit the same thing.
+
+**Leaves are sorted in ascending lexicographic order** of the hexadecimal string, compared by code point. Sorting is what makes a root independent of the order commitments arrived in, so two parties assembling the same set get the same root.
+
+**An empty batch is refused.** An implementation must reject it rather than publish the hash of nothing, which would be a root that proves nothing and to which anything could later be claimed to belong.
+
+### 5.2 Hashing
+
+Two rules, and both are places an implementation will silently diverge if they are not stated exactly.
+
+**Nodes are hashed as ASCII text, not as decoded bytes.** The input to SHA-256 is a string of hexadecimal characters with a two-character prefix, encoded as UTF-8. It is not the prefix byte followed by 32 raw bytes.
+
+**The prefixes are the ASCII characters `0` `0` and `0` `1`**, not the bytes `0x00` and `0x01`.
+
+A leaf:
+
+    hashLeaf(commitment) = SHA256_hex( "00" || commitment )
+
+An interior node:
+
+    hashNode(left, right) = SHA256_hex( "01" || left || right )
+
+where `||` is string concatenation, both operands are 64-character lowercase hex, and `SHA256_hex` returns lowercase hex. So a leaf hashes a 66-character string and an interior node hashes a 130-character string.
+
+Worked example, so an implementation can check itself before running the vectors. For a batch of the single commitment `0000000000000000000000000000000000000000000000000000000000000000`, the input to SHA-256 is the two prefix characters followed by the 64 zeros — 66 characters in total — and the resulting digest is both the leaf hash and, because the batch has one leaf, the batch root.
+
+**Leaves and interior nodes are domain-separated** by those prefixes so that a leaf can never be presented as an interior node, and so that an interior node's preimage cannot be mistaken for a leaf's.
+
+### 5.3 The tree
+
+Starting from the sorted, de-duplicated leaves:
+
+1. Hash each commitment with `hashLeaf` to produce the bottom level.
+2. While the level holds more than one node, produce the next level by taking nodes in pairs, left to right, and computing `hashNode(left, right)` for each pair.
+3. **If a level holds an odd number of nodes, the last node is carried up to the next level unchanged.** It is *not* hashed again, and it is *not* paired with itself. Duplicating it would let two different leaf sets produce the same root.
+4. The single remaining node is the batch root.
+
+A batch of one leaf therefore has a root equal to `hashLeaf(commitment)`, and its proof path is empty.
+
+### 5.4 Inclusion proof
 
 An inclusion proof carries the commitment, a path of sibling hashes with a direction flag on each, the root, a batch identifier, a sealing time, and optionally the anchor.
 
-Verification folds the path from the commitment to the root and compares with the stated root. This requires no network access. Whether that root was anchored, and when, is a separate lookup against the chain - deliberately separate, so that a proof can be checked offline.
+Field names, so that two implementations can exchange a proof:
 
-Leaf and interior nodes are domain-separated: leaves are hashed with prefix 00, interior nodes with 01. An odd node at any level is **promoted, not duplicated** - duplication permits two different leaf sets to produce the same root.
+| Field | Type | Meaning |
+|---|---|---|
+| `commitment` | hex string | The commitment being proven |
+| `path` | array | Ordered from the leaf upward. Empty for a single-leaf batch |
+| `path[].sibling` | hex string | The other node at that level |
+| `path[].siblingIsLeft` | boolean | **True when the sibling is the left operand** and the node folded so far is the right one |
+| `root` | hex string | The root the path folds to |
+| `batchId` | string | Issuer-scoped batch identifier |
+| `sealedAt` | RFC 3339, UTC, second precision | When the batch was sealed |
+| `anchor` | object | Optional, per section 3.2 |
 
-**A proof path has a maximum accepted depth.** An implementation must reject a path longer than 64 elements. An unbounded path is an unbounded amount of work handed to a verifier by whoever supplies the proof.
+**`siblingIsLeft` describes the sibling, not the node being folded.** The inverse reading is the single most likely divergence in this section, and roughly half of any given proof still verifies under it, which makes the error hard to see.
 
-### 5.2 Pending and anchored
+Verification:
+
+    node = hashLeaf(proof.commitment)
+    for each step in proof.path, in order:
+        if step.siblingIsLeft:  node = hashNode(step.sibling, node)
+        else:                   node = hashNode(node, step.sibling)
+    the proof is internally consistent if node equals proof.root
+
+This requires no network access. Whether that root was anchored, and when, is a separate lookup against the chain - deliberately separate, so that a proof can be checked entirely offline.
+
+**A path has a maximum accepted depth of 64.** An implementation must reject a longer path rather than fold it. 64 levels covers any batch anyone will build, and an unbounded path is an unbounded amount of work handed to a verifier by whoever supplied the proof.
+
+### 5.5 Pending and anchored
 
 A proof without an anchor is **pending**: the record is in a sealed batch whose root has not yet been published. This is a real state and must be reported as such rather than presented as anchored. It upgrades when the root is anchored; nothing about the record changes.
 
-**A batch root establishes a date no earlier than its anchoring transaction.** Where a batch is sealed well before it is anchored, the interval is not evidence of anything. The date a verifier may rely on is the date the transaction was confirmed, not the batch's own sealing time, which is a claim by whoever assembled the batch.
+**A batch root establishes a date no earlier than its anchoring transaction.** Where a batch is sealed well before it is anchored, the interval is not evidence of anything. The date a verifier may rely on is the date the transaction was confirmed, not the batch's own `sealedAt`, which is a claim by whoever assembled the batch.
 
 ---
 
@@ -339,7 +405,7 @@ Until it is, an implementation must not present `integrity` to a holder as a dis
 
 **That the record is unaltered.** Recompute the commitment from the committed fields per section 4 and compare. A match establishes that the record is exactly as it was when sealed.
 
-**That an inclusion proof is internally consistent.** Fold the path per section 5.1 and compare with the stated root.
+**That an inclusion proof is internally consistent.** Fold the path per section 5.4 and compare with the stated root.
 
 **That an attestation is authentic and belongs to this record.** Verify the signature against the attester's public key per section 7, and confirm that the attestation's `subjectCommitment` is this record's commitment. Both are required; a valid signature on an attestation about a different record establishes nothing about this one.
 
@@ -371,13 +437,15 @@ Stated plainly, because a claim that overreaches is worse than no claim.
 
 An implementation is conformant if it reproduces the published test vectors exactly.
 
-Vectors cover canonicalisation - key ordering, omitted versus null, array order preservation, NFC normalisation, nested sorting, numeric and boolean forms - and commitment computation across a range of record shapes, including the requirement that changing the anchor does not change the commitment.
+Vectors cover canonicalisation - key ordering, omitted versus null, array order preservation, NFC normalisation, nested sorting, numeric and boolean forms - commitment computation across a range of record shapes, including the requirement that changing the anchor does not change the commitment, and inclusion proofs across batch sizes chosen so that an implementation which duplicates an odd node rather than promoting it will disagree.
 
 **Conformance is demonstrated, not asserted.** The vector set and a runner are published with the reference implementation. The runner communicates with an implementation over standard input and output, so implementations in any language can be tested.
 
 A deliberately non-conformant implementation is published alongside them, so that the suite can be shown to detect failure rather than merely to pass.
 
-**What conformance does not cover.** These vectors establish that two implementations compute identical commitments for the same record. They do not establish that a field's contents are permissible - see section 12.
+**The runner distinguishes a refusal from a failure to run.** An implementation that produces no output fails the rejection vectors rather than passing them. Before August 2026 it did not, and a command that did nothing at all scored full marks on that section - a suite that scores silence as a refusal cannot tell a correct implementation from a missing one.
+
+**What conformance does not cover.** These vectors establish that two implementations compute identical commitments and fold identical proofs for the same inputs. They do not establish that a field's contents are permissible - see section 12.
 
 ---
 
@@ -482,9 +550,9 @@ A challenge carries: `challengeId`, `subjectCommitment`, `claimCommitment`, `gro
 
 Named so that implementers do not mistake absence for oversight.
 
-**Per-field commitments.** A scheme committing each field as a leaf under a sealed root, so that a holder can prove a shown value is the sealed one, or prove a property of a hidden value, without disclosing the rest. This is what would make the `integrity` grant separable from full disclosure (section 8.1), and what a examiner needs in order to confirm that a test was run and returned a stated result without taking custody of the underlying data.
+**Per-field commitments.** A scheme committing each field as a leaf under a sealed root, so that a holder can prove a shown value is the sealed one, or prove a property of a hidden value, without disclosing the rest. This is what would make the `integrity` grant separable from full disclosure (section 8.1), and what an examiner needs in order to confirm that a test was run and returned a stated result without taking custody of the underlying data.
 
-**Semantic conformance.** The vectors in section 10 establish that two implementations compute identical commitments for the same record. They do not test whether a field's contents are permissible - the restriction on `payee` in section 3.5 is the first such rule. A conformance profile covering field content is not specified here, and should be defined against a requiring body's audit needs rather than guessed at in advance.
+**Semantic conformance.** The vectors in section 10 establish that two implementations compute identical commitments and fold identical proofs for the same inputs. They do not test whether a field's contents are permissible - the restriction on `payee` in section 3.5 is the first such rule. A conformance profile covering field content is not specified here, and should be defined against a requiring body's audit needs rather than guessed at in advance.
 
 ---
 

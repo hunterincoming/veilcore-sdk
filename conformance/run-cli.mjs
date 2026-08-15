@@ -125,7 +125,17 @@ for (const v of vectors.commitments) {
   });
   console.log(`  ${ok ? 'PASS' : 'FAIL'}  ${v.name}`);
 }
-
+console.log('\nInclusion proofs');
+for (const v of vectors.inclusion ?? []) {
+  const r = await ask('fold', { commitment: v.commitment, path: v.path });
+  const ok = r.kind === 'ok' && r.value === v.expectedRoot;
+  ok ? pass++ : failures.push({
+    name: v.name,
+    expected: v.expectedRoot,
+    actual: r.kind === 'ok' ? r.value : `${r.kind} — ${r.why}`,
+  });
+  console.log(`  ${ok ? 'PASS' : 'FAIL'}  ${v.name}`);
+}
 // Rejections. Until August 2026 the suite only tested agreement on VALID input, which
 // is why three implementations could pass everything while disagreeing about nulls, key
 // collisions and non-finite numbers. An implementation must refuse these, not resolve

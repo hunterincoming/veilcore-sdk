@@ -139,7 +139,26 @@ def committed_fields(env):
 def compute_commitment(env):
     return hashlib.sha256(canonicalise(committed_fields(env)).encode("utf-8")).hexdigest()
 
+def hash_leaf(commitment):
+    """Leaves and interior nodes are domain-separated so a leaf can never be
+    presented as an interior node."""
+    return hashlib.sha256(("00" + commitment).encode("utf-8")).hexdigest()
 
+
+def hash_node(left, right):
+    return hashlib.sha256(("01" + left + right).encode("utf-8")).hexdigest()
+
+
+def fold_proof(commitment, path):
+    if len(path) > 64:
+        raise ValueError("proof path exceeds maximum depth (spec 5.1)")
+    node = hash_leaf(commitment)
+    for step in path:
+        if step["siblingIsLeft"]:
+            node = hash_node(step["sibling"], node)
+        else:
+            node = hash_node(node, step["sibling"])
+    return node
 def main():
     job = json.loads(sys.stdin.read())
     op = job["op"]
@@ -147,10 +166,11 @@ def main():
         print(json.dumps({"result": canonicalise(job["input"])}))
     elif op == "commit":
         print(json.dumps({"result": compute_commitment(job["input"])}))
+    elif op == "fold":
+        print(json.dumps({"result": fold_proof(job["input"]["commitment"], job["input"]["path"])}))
     else:
         print(json.dumps({"error": f"unknown op {op}"}))
         sys.exit(1)
-
 
 if __name__ == "__main__":
     main()
