@@ -148,6 +148,7 @@ export const buildBatch = async (
  * network at all.
  */
 export const verifyInclusion = async (proof: InclusionProof): Promise<boolean> => {
+  if (proof.path.length > 64) return false;
   let node = await hashLeaf(proof.commitment);
   for (const step of proof.path) {
     node = step.siblingIsLeft

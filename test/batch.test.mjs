@@ -71,3 +71,9 @@ test('a large batch still proves every member', async () => {
 test('an empty batch is refused rather than producing a meaningless root', async () => {
   await assert.rejects(() => buildBatch([], 'B-EMPTY'));
 });
+test('a path deeper than the maximum is refused before it is folded', async () => {
+  const batch = await buildBatch(commits, 'B-001');
+  const step = { sibling: 'a'.repeat(64), siblingIsLeft: true };
+  const deep = { ...batch.proofs[commits[0]], path: Array(65).fill(step) };
+  assert.equal(await verifyInclusion(deep), false);
+});
