@@ -108,6 +108,20 @@ Fields: `parentRecordId`, `parentCommitment`, `role`, `declaredBy`, `verified`, 
 
 `declaredBy` distinguishes a holder's own assertion of descent from one confirmed by an attester. These are different evidence and must not be conflated.
 
+### 3.5 Terms, and the payment instruction
+
+Terms are issued and revoked after sealing, and are therefore not covered by the commitment (section 4.2). What the terms say can change; what the record says cannot.
+
+Terms may carry a `paymentInstruction` recording what is owed. Fields: `obligationRef`, an issuer-scoped identifier for the obligation this settles; `amount`, a fixed value or a formula, as an opaque string; `unit`, a currency or unit code, recorded and never converted; `payee`, an identifier resolvable by the parties; and optionally `trigger`, the event or date on which the obligation becomes due.
+
+**An implementation must treat `amount` as opaque** and must not evaluate or compute with it. A format that computes an amount has taken a position on what is owed.
+
+**An issuer must not place a financial account identifier in `payee`** - bank account or routing numbers, card numbers, IBANs, or blockchain addresses. An identifier is resolvable by the parties to the agreement; settlement detail in a permanent record is a liability to everyone named in it. This is a requirement on issuers rather than a canonicalisation rule, so it sits outside the conformance vectors of section 10, which establish only that two implementations compute identical commitments. Validation of field content belongs to a separate conformance profile, defined when a body states what it needs to audit.
+
+**A record does not carry a payment instruction.** Records state what is true of a subject; an obligation exists only between parties to an agreement.
+
+The instruction is recorded. Performance is not: nothing in this format moves funds, holds them, or confirms that anyone paid.
+
 ---
 
 ## 4 - The commitment
@@ -317,6 +331,8 @@ Vectors cover canonicalisation - key ordering, omitted versus null, array order 
 
 A deliberately non-conformant implementation is published alongside them, so that the suite can be shown to detect failure rather than merely to pass.
 
+**What conformance does not cover.** These vectors establish that two implementations compute identical commitments for the same record. They do not establish that a field's contents are permissible - see section 12.
+
 ---
 
 ## 11 - Design constraints
@@ -334,6 +350,8 @@ Recorded because they explain choices that would otherwise look arbitrary, and b
 **Nothing is deleted.** Corrections supersede, retractions annotate, and history is preserved.
 
 **Chain-specific operations are confined to anchoring.** Everything else must be computable with a SHA-256 function and nothing more.
+
+**The format records obligations and never performs them.** An amount owed can be expressed in terms; nothing in this format moves funds or confirms that anyone paid.
 
 **Where a claim cannot be supported, it is stated as unsupported.** A pending anchor is reported as pending; an unsigned attestation is reported as unsigned.
 
@@ -404,7 +422,7 @@ A challenge carries: `challengeId`, `subjectCommitment`, `claimCommitment`, `gro
 
 Named so that implementers do not mistake absence for oversight.
 
-**Payment instruction in terms.** Where terms carry an obligation, how a settlement instruction is expressed. The obligation is recorded; performance is not.
+**Semantic conformance.** The vectors in section 10 establish that two implementations compute identical commitments for the same record. They do not test whether a field's contents are permissible - the restriction on `payee` in section 3.5 is the first such rule. A conformance profile covering field content is not specified here, and should be defined against a requiring body's audit needs rather than guessed at in advance.
 
 ---
 
