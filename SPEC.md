@@ -242,7 +242,7 @@ Starting from the sorted, de-duplicated leaves:
 
 1. Hash each commitment with `hashLeaf` to produce the bottom level.
 2. While the level holds more than one node, produce the next level by taking nodes in pairs, left to right, and computing `hashNode(left, right)` for each pair.
-3. **If a level holds an odd number of nodes, the last node is carried up to the next level unchanged.** It is *not* hashed again, and it is *not* paired with itself. Duplicating it would let two different leaf sets produce the same root.
+3. **If a level holds an odd number of nodes, the last node is carried up to the next level unchanged.** It is *not* hashed again, and it is *not* paired with itself. Duplicating it would let two different leaf sets produce the same root. **A promoted node contributes no step to the paths beneath it.** Nothing was combined at that level, so there is nothing to record.
 4. The single remaining node is the batch root.
 
 A batch of one leaf therefore has a root equal to `hashLeaf(commitment)`, and its proof path is empty.
