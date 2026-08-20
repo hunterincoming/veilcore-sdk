@@ -1,0 +1,142 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "veilcore/profile/seed-lot/v1",
+  "title": "Seed lots",
+  "description": "A lot, not a variety. The seed world certifies per lot: ISTA issues one certificate per lot, OECD's schemes label per lot, and a state certifying agency's determination attaches to a lot rather than to the variety it belongs to. The variety has its own record; this record says that THIS quantity of seed is of that variety, produced in that season by that grower, and tested with these results. The link to the variety is a parent, not a field, which is why this profile does not extend plant-variety/v1. Deliberately small: the fewer fields a certifying agency has to agree with us about, the more likely it adopts anything at all.",
+  "type": "object",
+  "required": [
+    "nonce",
+    "generationClass"
+  ],
+  "properties": {
+    "nonce": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64,}$"
+    },
+    "generationClass": {
+      "enum": [
+        "breeder",
+        "foundation",
+        "registered",
+        "certified",
+        "unclassified"
+      ],
+      "description": "The generation class this lot is offered as. These are the classes US certifying agencies work in, and they are a descent chain rather than four independent grades: certified descends from registered, registered from foundation, foundation from breeder. A record claiming a class without a parent lot of the class above it is claiming a generation it cannot show, which is exactly what the descent mechanism is for. `unclassified` is the honest value for seed produced outside a certification scheme."
+    },
+    "productionYear": {
+      "type": "integer",
+      "description": "The year the lot was harvested. Two lots of the same variety from different seasons are different lots, never the same record corrected."
+    },
+    "originCountry": {
+      "type": "string",
+      "pattern": "^[A-Z]{2}$",
+      "description": "ISO 3166-1 alpha-2 of the country of production. Required by the OECD Seed Schemes for movement between participating countries, and the field a purchaser in another jurisdiction asks about first."
+    },
+    "quantityKg": {
+      "type": "number",
+      "description": "Weight of the lot as sealed. Recorded because a lot that has been split is a new lot with its own record, and the original quantity is what makes a split checkable."
+    },
+    "germinationPercent": {
+      "type": "number",
+      "minimum": 0,
+      "maximum": 100,
+      "description": "Germination as tested. Substantiate with an attestation from the testing laboratory: this profile records the claim, the attestation records who stands behind it."
+    },
+    "purePercent": {
+      "type": "number",
+      "minimum": 0,
+      "maximum": 100,
+      "description": "Pure seed fraction by weight. The complement is other crop seed, weed seed and inert matter; a purity analysis reports all four and the report hash carries the detail."
+    },
+    "moisturePercent": {
+      "type": "number",
+      "minimum": 0,
+      "maximum": 100,
+      "description": "Moisture content as tested. Determines whether stated germination survives storage, which is why a purchaser reads it alongside germination rather than after it."
+    },
+    "seedTreatment": {
+      "type": "string",
+      "description": "Chemical or biological treatment applied, as labelled. A treated lot and the same lot untreated are different lots."
+    },
+    "sealedBy": {
+      "type": "string",
+      "description": "The party that sealed the container, where sealing is what ISTA's rules make the lot a lot. Not the same as the holder of this record."
+    },
+    "notes": {
+      "type": "string"
+    },
+    "internalReference": {
+      "type": "string"
+    }
+  },
+  "x-veilcore": {
+    "extends": null,
+    "extendsNote": "Deliberately extends nothing. A seed lot is not a kind of variety, and inheriting breedingMethod or sportOrigin would put variety facts on a lot record where a certifying agency would rightly ask which one the determination attaches to.",
+    "subjectType": "plant-genetic-material",
+    "lotDesignation": "Use the envelope's subject.internalDesignation for the lot designation, and the record identifier for the reference a third party resolves. ISTA requires a lot designation unique to its certificate; that is a rule about the issuer's practice, which the format records rather than enforces.",
+    "parentRoles": [
+      "variety",
+      "parent-lot",
+      "blend-component"
+    ],
+    "parentRolesNote": "`variety` points at the variety record this lot is of, and there is exactly one. `parent-lot` points at the lot of the class above, which is what a generation claim rests on. `blend-component` is for a lot assembled from several, where every component is a parent and none is the parent.",
+    "provableFields": [
+      { "field": "germinationPercent", "kind": "uint", "scale": 10 },
+      { "field": "purePercent", "kind": "uint", "scale": 10 },
+      { "field": "moisturePercent", "kind": "uint", "scale": 10 },
+      { "field": "quantityKg", "kind": "uint", "scale": 1 },
+      { "field": "productionYear", "kind": "uint", "scale": 1 },
+      { "field": "generationClass", "kind": "bytes" },
+      { "field": "originCountry", "kind": "bytes" },
+      { "field": "seedTreatment", "kind": "bytes" }
+    ],
+    "provableFieldsNote": "The fields a purchaser or an agency asks about as a threshold rather than a value: germination at or above a standard, moisture at or below one, a class in an accepted set. Numeric fields are scaled to integers because a proof system compares integers and 98.5 is not one; scale 10 means tenths of a percent, so 98.5 is committed as 985. Ordering here is the ordering of the content tree, and changing it produces a different schema.",
+    "correctionSeverity": {
+      "generationClass": {
+        "descent": "material",
+        "terms": "material"
+      },
+      "productionYear": {
+        "descent": "material",
+        "terms": "material"
+      },
+      "originCountry": {
+        "descent": "material",
+        "terms": "material"
+      },
+      "seedTreatment": {
+        "descent": "cosmetic",
+        "terms": "material"
+      },
+      "germinationPercent": {
+        "descent": "cosmetic",
+        "terms": "material"
+      },
+      "purePercent": {
+        "descent": "cosmetic",
+        "terms": "material"
+      },
+      "moisturePercent": {
+        "descent": "cosmetic",
+        "terms": "material"
+      },
+      "quantityKg": {
+        "descent": "cosmetic",
+        "terms": "material"
+      },
+      "sealedBy": {
+        "descent": "cosmetic",
+        "terms": "material"
+      },
+      "notes": {
+        "descent": "cosmetic",
+        "terms": "cosmetic"
+      },
+      "internalReference": {
+        "descent": "cosmetic",
+        "terms": "cosmetic"
+      }
+    },
+    "correctionSeverityNote": "Test results are cosmetic for descent and material for terms, and the split is the point: a corrected germination figure does not change what the seed is, but it changes what a purchaser agreed to buy. Generation class, production year and country of origin are material for both, because each is a claim about where the lot came from rather than about how it performed."
+  }
+}

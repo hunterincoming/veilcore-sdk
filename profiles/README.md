@@ -19,6 +19,13 @@ records is either universal or crop-specific.
 extra fields, published as a demonstration that a domain can extend without permission
 and without anything upstream changing.
 
+**`seed-lot-v1.json`** — a lot, not a variety. The seed world certifies per lot: ISTA
+issues one certificate per lot, the OECD schemes label per lot, and a certifying agency's
+determination attaches to a lot rather than to the variety it belongs to. Extends nothing,
+because a lot is not a kind of variety; the link to the variety is a parent. Generation
+classes — breeder, foundation, registered, certified — are a descent chain of lots rather
+than four independent grades, so declared descent already carries them.
+
 ## Why they are small
 
 A profile a body has to accept wholesale is a profile they have to negotiate. A profile of
@@ -47,6 +54,12 @@ registry of profiles, because a registry of profiles is a body that can refuse o
 names one profile, and an implementation either recognises it or does not.
 
 **`parentRoles`** — the vocabulary for declared descent in your domain.
+
+**`provableFields`** — where a domain expects claims to be proven about single fields
+rather than the whole record, the fields to commit and in what order. Numeric values are
+scaled to integers because a proof system compares integers and 98.5 is not one; a scale
+of 10 means tenths, so 98.5 commits as 985. The order is the order of the content tree,
+and changing it produces a different schema.
 
 **`correctionSeverity`** — for each field, whether a correction is material for descent
 and for terms. See §6.2 of the specification. You may classify your own fields and may not
