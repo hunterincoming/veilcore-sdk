@@ -30,7 +30,7 @@ The obvious remedies fail in specific ways.
 
 **Registering with a central authority** requires an authority to exist, to be trusted by every party to a future dispute, and to still exist when the dispute arises. Rights in plant material run twenty-five to thirty years.
 
-**And a mandate does not by itself produce evidence.** In December 2025 a US court found California's cannabis seed-to-sale tracking system non-compliant with its enabling statute because its reports were effectively useless in evidence - the system recorded claims that still required human interpretation. Universal mandate, RFID on every plant, and no usable evidence at the end.
+**And a mandate does not by itself produce evidence.** In December 2025 a US court found California's cannabis track-and-trace system non-compliant with its enabling statute. The statute requires the database to be designed to flag irregularities for investigation; the court held that generating large volumes of reports and raw transaction data does not satisfy it, because nothing identifies irregular activity by objective criteria and analysts review manually without an established definition of what an irregularity is. A final judgment in August 2026 gave the department six months to define those criteria. Universal mandate, RFID on every plant, eight years, and a system that records without establishing anything.
 
 This specification describes a form of record that fixes a date without storage, without disclosure, without a trusted authority, and which produces an answer rather than a document to be interpreted.
 
