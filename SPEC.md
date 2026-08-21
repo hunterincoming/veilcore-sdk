@@ -68,7 +68,7 @@ Optional: `subject`, `identification`, `registrations`, `attestations`, `parents
 
 **The test for whether a field belongs here rather than in a profile:** would an ornamental propagator, a livestock herd book, and a microbial culture collection all need it? Propagation type fails that test — seed versus vegetative means nothing to a herd book — so it lives in the plant profile.
 
-`subjectType` is one of `plant-genetic-material`, `animal-genetic-material`, `plant-variety`, `other`. `sealedAt` is RFC 3339, UTC, second precision. `extensions` keys must be reverse-DNS.
+`subjectType` is one of `plant-genetic-material`, `animal-genetic-material`, `plant-variety`, `other`. `sealedAt` is RFC 3339, UTC, second precision. `extensions` keys shall be reverse-DNS.
 
 ### 3.2 The anchor
 
@@ -98,7 +98,7 @@ An attestation is a third party's statement about the subject: a laboratory repo
 
 **`subjectCommitment` binds the attestation to one record and is required.** It carries the commitment of the record the attestation is about. Without it an attestation is a statement about nothing in particular: a valid signed attestation issued for one record could be copied into another record and would verify there, which would let any party attach a laboratory's genuine signature to material the laboratory never saw. The binding is inside the signed material (section 7), so moving an attestation between records breaks its signature.
 
-**An attestation naming a `subjectCommitment` that does not match the record carrying it is invalid**, and an implementation must reject the record rather than report the attestation as merely unverified. A mismatch is not a weak claim; it is a claim about a different record.
+**An attestation naming a `subjectCommitment` that does not match the record carrying it is invalid**, and an implementation shall reject the record rather than report the attestation as merely unverified. A mismatch is not a weak claim; it is a claim about a different record.
 
 **The document itself never enters the record.** Only its hash. A laboratory retains its report and produces it if required; the hash establishes that a produced document is the one that was attested to.
 
@@ -110,7 +110,7 @@ Fields: `parentRecordId`, `parentCommitment`, `role`, `declaredBy`, `verified`, 
 
 `parentCommitment` binds to content rather than to an identifier, so a renamed or re-registered parent still resolves. `role` uses the profile's vocabulary - a plant profile may define seed-parent; a livestock profile may define sire.
 
-`declaredBy` distinguishes a holder's own assertion of descent from one confirmed by an attester. These are different evidence and must not be conflated.
+`declaredBy` distinguishes a holder's own assertion of descent from one confirmed by an attester. These are different evidence, and the format does not conflate them.
 
 ### 3.5 Terms, and the payment instruction
 
@@ -118,9 +118,9 @@ Terms are issued and revoked after sealing, and are therefore not covered by the
 
 Terms may carry a `paymentInstruction` recording what is owed. Fields: `obligationRef`, an issuer-scoped identifier for the obligation this settles; `amount`, a fixed value or a formula, as an opaque string; `unit`, a currency or unit code, recorded and never converted; `payee`, an identifier resolvable by the parties; and optionally `trigger`, the event or date on which the obligation becomes due.
 
-**An implementation must treat `amount` as opaque** and must not evaluate or compute with it. A format that computes an amount has taken a position on what is owed.
+**An implementation shall treat `amount` as opaque** and shall not evaluate or compute with it. A format that computes an amount has taken a position on what is owed.
 
-**An issuer must not place a financial account identifier in `payee`** - bank account or routing numbers, card numbers, IBANs, or blockchain addresses. An identifier is resolvable by the parties to the agreement; settlement detail in a permanent record is a liability to everyone named in it. This is a requirement on issuers rather than a canonicalisation rule, so it sits outside the conformance vectors of section 10, which establish only that two implementations compute identical commitments. Validation of field content belongs to a separate conformance profile, defined when a body states what it needs to audit.
+**An issuer shall not place a financial account identifier in `payee`** - bank account or routing numbers, card numbers, IBANs, or blockchain addresses. An identifier is resolvable by the parties to the agreement; settlement detail in a permanent record is a liability to everyone named in it. This is a requirement on issuers rather than a canonicalisation rule, so it sits outside the conformance vectors of section 10, which establish only that two implementations compute identical commitments. Validation of field content belongs to a separate conformance profile, defined when a body states what it needs to audit.
 
 **A record does not carry a payment instruction.** Records state what is true of a subject; an obligation exists only between parties to an agreement.
 
@@ -154,15 +154,15 @@ It does **not** cover `anchor` (a statement about the commitment) or `terms` (is
 
 ### 4.3 The nonce
 
-`profileData` must contain a `nonce`: at least 32 bytes of random data, hex-encoded, generated when the record is sealed.
+`profileData` shall contain a `nonce`: at least 32 bytes of random data, hex-encoded, generated when the record is sealed.
 
-**The nonce must be generated by a cryptographically secure pseudorandom number generator.** `crypto.getRandomValues` in a browser, `crypto.randomBytes` in Node, `secrets` in Python, `getrandom` in Rust. A nonce from a general-purpose random function - `Math.random`, `rand()`, a seeded generator - is predictable to anyone who can observe or guess the seed, and a predictable nonce defeats the property the nonce exists to provide.
+**The nonce shall be generated by a cryptographically secure pseudorandom number generator.** `crypto.getRandomValues` in a browser, `crypto.randomBytes` in Node, `secrets` in Python, `getrandom` in Rust. A nonce from a general-purpose random function - `Math.random`, `rand()`, a seeded generator - is predictable to anyone who can observe or guess the seed, and a predictable nonce defeats the property the nonce exists to provide.
 
 **Without it the commitment is binding but not hiding.** Fields such as a variety name, a breeder name and a date are guessable. An observer could compute candidate commitments and confirm a guess against a published one. The nonce makes that infeasible.
 
 **A nonce is never reused across records.** Two records sharing a nonce leak the fact that they were sealed by the same party using the same source, and reduce the work required to attack either.
 
-The nonce must be retained. A commitment cannot be recomputed without it, and a record whose commitment cannot be recomputed cannot be verified by anyone, including its holder.
+The nonce shall be retained. A commitment cannot be recomputed without it, and a record whose commitment cannot be recomputed cannot be verified by anyone, including its holder.
 
 ### 4.4 Canonical serialisation
 
@@ -170,13 +170,13 @@ A commitment is worthless if two implementations serialise the same record diffe
 
 These rules follow **RFC 8785 (JSON Canonicalization Scheme)** where they overlap with it. Where this specification is stricter, it says so.
 
-1. **UTF-8**, normalised to **Unicode NFC** — **both keys and string values**. Normalise before sorting. If two keys in the same object are equal after normalisation, **the record is invalid**; an implementation must reject it rather than pick one, because picking one means two implementations pick differently.
+1. **UTF-8**, normalised to **Unicode NFC** — **both keys and string values**. Normalise before sorting. If two keys in the same object are equal after normalisation, **the record is invalid**; an implementation shall reject it rather than pick one, because picking one means two implementations pick differently.
 
-2. **Object keys sorted by Unicode code point.** **This is not JavaScript's default sort**, which compares UTF-16 code units and orders characters above U+FFFF incorrectly relative to characters in the range U+E000–U+FFFF. An implementation in JavaScript must sort by code point explicitly. This is a real divergence, not a theoretical one: `{"｡":1,"😀":2}` orders differently under the two rules.
+2. **Object keys sorted by Unicode code point.** **This is not JavaScript's default sort**, which compares UTF-16 code units and orders characters above U+FFFF incorrectly relative to characters in the range U+E000–U+FFFF. An implementation in JavaScript shall sort by code point explicitly. This is a real divergence, not a theoretical one: `{"｡":1,"😀":2}` orders differently under the two rules.
 
 3. **No insignificant whitespace.**
 
-4. **A null is invalid anywhere in a committed field**, at any nesting depth. Absent optional fields are omitted; a field whose value is null makes the record invalid and an implementation must reject it. Earlier drafts said an omitted field and a null field must not differ, which is unimplementable without also saying whether a nested null is dropped or serialised — implementations diverged on exactly that. Rejection is the only rule with one reading.
+4. **A null is invalid anywhere in a committed field**, at any nesting depth. Absent optional fields are omitted; a field whose value is null makes the record invalid and an implementation shall reject it. Earlier drafts said an omitted field and a null field must not differ, which is unimplementable without also saying whether a nested null is dropped or serialised — implementations diverged on exactly that. Rejection is the only rule with one reading.
 
 5. **Array order is preserved and never sorted.** Parent order is meaningful in some domains.
 
@@ -212,7 +212,7 @@ A batch is built from a set of commitments. Every rule here affects the root, so
 
 **Leaves are sorted in ascending lexicographic order** of the hexadecimal string, compared by code point. Sorting is what makes a root independent of the order commitments arrived in, so two parties assembling the same set get the same root.
 
-**An empty batch is refused.** An implementation must reject it rather than publish the hash of nothing, which would be a root that proves nothing and to which anything could later be claimed to belong.
+**An empty batch is refused.** An implementation shall reject it rather than publish the hash of nothing, which would be a root that proves nothing and to which anything could later be claimed to belong.
 
 ### 5.2 Hashing
 
@@ -276,11 +276,11 @@ Verification:
 
 This requires no network access. Whether that root was anchored, and when, is a separate lookup against the chain - deliberately separate, so that a proof can be checked entirely offline.
 
-**A path has a maximum accepted depth of 64.** An implementation must reject a longer path rather than fold it. 64 levels covers any batch anyone will build, and an unbounded path is an unbounded amount of work handed to a verifier by whoever supplied the proof.
+**A path has a maximum accepted depth of 64.** An implementation shall reject a longer path rather than fold it. 64 levels covers any batch anyone will build, and an unbounded path is an unbounded amount of work handed to a verifier by whoever supplied the proof.
 
 ### 5.5 Pending and anchored
 
-A proof without an anchor is **pending**: the record is in a sealed batch whose root has not yet been published. This is a real state and must be reported as such rather than presented as anchored. It upgrades when the root is anchored; nothing about the record changes.
+A proof without an anchor is **pending**: the record is in a sealed batch whose root has not yet been published. This is a real state and shall be reported as such rather than presented as anchored. It upgrades when the root is anchored; nothing about the record changes.
 
 **A batch root establishes a date no earlier than its anchoring transaction.** Where a batch is sealed well before it is anchored, the interval is not evidence of anything. The date a verifier may rely on is the date the transaction was confirmed, not the batch's own `sealedAt`, which is a claim by whoever assembled the batch.
 
@@ -314,7 +314,7 @@ Cosmetic for both: `notes`, `internalReference`, `phenotypeSelection`.
 
 **Anything not classified is material for both.** The default is deliberate: an unrecognised change is not assumed harmless.
 
-**A supersedes chain must not contain a cycle**, and an implementation must reject a record whose supersedes chain returns to a record already seen while walking it. A cycle is either an error or an attempt to make a chain unwalkable.
+**A supersedes chain shall not contain a cycle**, and an implementation shall reject a record whose supersedes chain returns to a record already seen while walking it. A cycle is either an error or an attempt to make a chain unwalkable.
 
 **A profile publisher may extend this table for its own fields, but may not reclassify an envelope field.** This table is the part of the specification most in need of review by people who adjudicate disputes in a given domain, and it should be expected to change.
 
@@ -334,7 +334,7 @@ An attestation is worth what its attester is worth, and that requires knowing wh
 
 **A trust registry maps a public key to a claimed identity.** Any party may operate one. A registry records what an attester claims about themselves, including any external accreditation and who issued it.
 
-**A registry must not vouch.** It records that a named accreditor accredited the attester, and a verifier decides whether that accreditor means anything to them. A body that both defines an evidence standard and certifies the parties using it has a conflict that a respondent will attack on that ground alone.
+**A registry shall not vouch.** It records that a named accreditor accredited the attester, and a verifier decides whether that accreditor means anything to them. A body that both defines an evidence standard and certifies the parties using it has a conflict that a respondent will attack on that ground alone.
 
 Nothing inside a system can establish that a laboratory is a laboratory. That comes from outside - for testing laboratories, ISO/IEC 17025 accreditation is the existing anchor. The registry's role is to record which external authority vouched, in a form a verifier can check independently.
 
@@ -385,7 +385,7 @@ A holder grants specific facts to specific recipients. Grants are named for **wh
 `terms-existence` - terms exist, and their status.
 `terms-full` - the terms themselves.
 
-**Ungranted facts are absent from the disclosure, not concealed within it.** A recipient must not be able to recover an ungranted fact by inspecting what they were given.
+**Ungranted facts are absent from the disclosure, not concealed within it.** A recipient shall not be able to recover an ungranted fact by inspecting what they were given.
 
 ### 8.1 What `integrity` currently costs
 
@@ -395,7 +395,7 @@ Stated plainly because the alternative is a grant that promises more than the me
 
 **A per-field commitment scheme is what makes it separable**, by committing each field as a leaf and sealing a root, so that a holder can demonstrate that a shown value is the sealed one without showing the rest. That scheme is not specified in this document (section 12).
 
-Until it is, an implementation must not present `integrity` to a holder as a disclosure narrower than full disclosure of the committed fields. A grant that a holder believes is narrow, and is not, is worse than no grant.
+Until it is, an implementation shall not present `integrity` to a holder as a disclosure narrower than full disclosure of the committed fields. A grant that a holder believes is narrow, and is not, is worse than no grant.
 
 ---
 
@@ -435,6 +435,21 @@ Stated plainly, because a claim that overreaches is worse than no claim.
 
 ## 10 - Conformance
 
+**Requirement language.** In this specification **shall** and **shall not** state
+requirements, **should** states a recommendation, **may** states permission, and **can**
+states a possibility or capability, following ISO/IEC Directives Part 2. Prose that uses
+none of those words is explanation and states no requirement. The distinction matters
+beyond style: an accreditation body cannot place a document on a laboratory's scope of
+accreditation unless its requirements are stated as requirements.
+
+**Requirements fall on two different parties, and only one of them is testable here.**
+Most requirements below fall on an implementation, and the vectors test them. A few fall
+on an issuer, a holder, a registry or a challenger — that an issuer shall not put an
+account identifier in `payee` (section 3.5), that a holder shall retain the nonce (section
+4.3), that a registry shall not vouch (section 7), that a challenger shall seal their own
+claim first (section 11.7). Those are requirements, and no vector can establish them.
+A conformance profile covering party conduct is not defined here (section 12).
+
 An implementation is conformant if it reproduces the published test vectors exactly.
 
 Vectors cover canonicalisation - key ordering, omitted versus null, array order preservation, NFC normalisation, nested sorting, numeric and boolean forms - commitment computation across a range of record shapes, including the requirement that changing the anchor does not change the commitment, and inclusion proofs across batch sizes chosen so that an implementation which duplicates an odd node rather than promoting it will disagree.
@@ -463,7 +478,7 @@ Recorded because they explain choices that would otherwise look arbitrary, and b
 
 **Nothing is deleted.** Corrections supersede, retractions annotate, and history is preserved.
 
-**Chain-specific operations are confined to anchoring.** Everything else must be computable with a SHA-256 function and nothing more.
+**Chain-specific operations are confined to anchoring.** Everything else is computable with a SHA-256 function and nothing more.
 
 **The format records obligations and never performs them.** An amount owed can be expressed in terms; nothing in this format moves funds or confirms that anyone paid.
 
@@ -475,7 +490,7 @@ Recorded because they explain choices that would otherwise look arbitrary, and b
 
 ## 11.5 - Resolution across registries
 
-If anyone may operate a registry, a verifier holding a record identifier must be able to find the one that issued it.
+If anyone may operate a registry, a verifier holding a record identifier needs to be able to find the one that issued it.
 
 **There is no central directory, and none is planned.** A study of failed persistent-identifier systems found the common cause was reliance on a central authority or infrastructure; even DOI carries this weakness, because prefix allocation sits with a single organisation. A format whose resolution depends on one party has that party as a permanent single point of failure.
 
@@ -534,7 +549,7 @@ Three properties keep this from becoming a way to harass a competitor.
 
 **A challenge never alters the record.** It changes what a verifier is told about it. The record remains exactly as sealed, its commitment unchanged, because a record a stranger can alter is not evidence.
 
-**A challenger must seal a record of their own claim first**, and name its commitment in the challenge. Filing therefore costs something, is auditable, and puts the challenger's assertion on the same footing as the one they contest. A challenge naming no claim is refused.
+**A challenger shall seal a record of their own claim first**, and name its commitment in the challenge. Filing therefore costs something, is auditable, and puts the challenger's assertion on the same footing as the one they contest. A challenge naming no claim is refused.
 
 **A challenge is signed.** An anonymous challenge is free to make and impossible to answer.
 
