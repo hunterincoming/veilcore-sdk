@@ -2,8 +2,6 @@
 
 **[Integrating VeilCore](INTEGRATING.md)** — start here if you are adding this to existing software.
 
-**[Records in evidence](EVIDENCE.md)** — for counsel: authentication, hearsay, and what these records do not prove.
-
 **[Records in evidence](EVIDENCE.md)** — for counsel: what a party can establish, how it is
 authenticated across jurisdictions, and what it does not prove.
 

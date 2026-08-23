@@ -26,5 +26,25 @@
       "import": "./dist/index.js",
       "types": "./dist/index.d.ts"
     }
-  }
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/hunterincoming/veilcore-sdk.git"
+  },
+  "homepage": "https://veilcore.org",
+  "bugs": {
+    "url": "https://github.com/hunterincoming/veilcore-sdk/issues"
+  },
+  "author": "VeilCore",
+  "keywords": [
+    "provenance",
+    "plant-genetics",
+    "seed",
+    "records",
+    "commitment",
+    "merkle",
+    "attestation",
+    "standards",
+    "tamper-evident"
+  ]
 }
