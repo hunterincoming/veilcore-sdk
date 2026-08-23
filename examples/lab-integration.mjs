@@ -29,7 +29,7 @@ const intake = {
   formatVersion: '0.1',
   recordId: 'LAB-2026-00417',
   subjectType: 'plant-genetic-material',
-  profile: 'veilcore/profile/cannabis/v0.1',
+  profile: 'veilcore/profile/plant-variety/v1',
   commitment: '',
   commitmentAlgorithm: 'sha256/canonical-json/v1',
   anchor: { chain: 'midnight', network: 'undeployed' },
@@ -39,7 +39,8 @@ const intake = {
   attestations: [],
   profileData: {
     cultivarName: 'Client submission 417',
-    breedingMethod: 'Clone / cutting',
+    propagationType: 'vegetative',
+    breedingMethod: 'clonal-selection',
     custodyContext: 'Received from client, 12 plantlets, chain-of-custody form signed',
     // The nonce makes the commitment hiding as well as binding. Without it, a
     // guessable description could be confirmed by computing candidates.

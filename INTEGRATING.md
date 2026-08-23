@@ -39,7 +39,7 @@ const record = {
   formatVersion: '0.1',
   recordId: yourOwnIdentifier,
   subjectType: 'plant-genetic-material',
-  profile: 'veilcore/profile/cannabis/v0.1',
+  profile: 'veilcore/profile/plant-variety/v1',
   commitmentAlgorithm: 'sha256/canonical-json/v1',
   anchor: { chain: 'midnight', network: 'undeployed' },
   sealedAt: new Date().toISOString().replace(/\.\d{3}Z$/, 'Z'),
