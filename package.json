@@ -7,8 +7,9 @@
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
   "files": [
-    "dist",
-    "conformance"
+    "bin",
+    "conformance",
+    "dist"
   ],
   "scripts": {
     "build": "tsc",
@@ -46,5 +47,8 @@
     "attestation",
     "standards",
     "tamper-evident"
-  ]
+  ],
+  "bin": {
+    "veilcore": "bin/veilcore.mjs"
+  }
 }
