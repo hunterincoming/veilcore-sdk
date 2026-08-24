@@ -7,9 +7,14 @@
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
   "files": [
+    "dist",
     "bin",
     "conformance",
-    "dist"
+    "profiles",
+    "examples",
+    "SPEC.md",
+    "INTEGRATING.md",
+    "EVIDENCE.md"
   ],
   "scripts": {
     "build": "tsc",
