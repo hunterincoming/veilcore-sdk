@@ -57,15 +57,43 @@ for (const v of vectors.commitments) {
 // Rejections. A suite that only tests valid input cannot catch two implementations
 // disagreeing about what is INVALID, which is where every divergence found in the
 // August 2026 external review actually lived.
+console.log('\nRejections');
 for (const v of vectors.rejections ?? []) {
   const input = v.construct === 'non-finite' ? { n: Infinity } : v.input;
   let rejected = false;
   try {
-    canonicalise(input);
+    impl.canonicalise(input);
   } catch {
     rejected = true;
   }
   check('rejections', v.name, 'rejected', rejected ? 'rejected' : 'accepted');
+  console.log(`  ${rejected ? 'PASS' : 'FAIL'}  ${v.name}`);
+}
+
+// Inclusion proofs. Not run at all until now: this runner reported "Conformant"
+// without ever folding a path.
+if (vectors.inclusion?.length) {
+  console.log('\nInclusion proofs');
+  if (typeof impl.verifyInclusion !== 'function') {
+    console.error('  implementation does not export verifyInclusion()');
+    fail += vectors.inclusion.length;
+  } else {
+    for (const v of vectors.inclusion) {
+      // The vector is a fold: commitment plus path should produce expectedRoot.
+      // verifyInclusion folds and compares, so a proof naming the expected root
+      // verifies only if the fold agrees with it.
+      let actual;
+      try {
+        actual = (await impl.verifyInclusion({
+          commitment: v.commitment,
+          path: v.path,
+          root: v.expectedRoot,
+        })) ? 'folds to the stated root' : 'does not fold to the stated root';
+      } catch (e) { actual = `threw: ${e.message}`; }
+      check('inclusion', v.name, 'folds to the stated root', actual);
+      console.log(`  ${actual === 'folds to the stated root' ? 'PASS' : 'FAIL'}  ${v.name}`);
+    }
+  }
 }
 
 console.log(`\n${pass} passed, ${fail} failed`);
