@@ -1,0 +1,121 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "veilcore/profile/tissue-culture-accession/v1",
+  "title": "Tissue culture accessions",
+  "description": "An accession in culture, not a variety. A laboratory takes custody of material from a named source on a date and moves it through stages, at a generation depth, under a medium it will not disclose. What the material is belongs to the variety; this profile carries what happened to it in the laboratory. Extends nothing, because an accession is not a kind of variety; the link to the variety is a parent.",
+  "type": "object",
+  "required": [
+    "nonce",
+    "stage",
+    "generation"
+  ],
+  "properties": {
+    "nonce": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64,}$"
+    },
+    "stage": {
+      "enum": [
+        "stage-0",
+        "stage-I",
+        "stage-II",
+        "stage-III",
+        "stage-IV"
+      ],
+      "description": "Murashige staging, used across micropropagation regardless of species: 0 mother stock preparation, I establishment, II multiplication, III rooting, IV acclimatisation. A record is sealed at a stage; material moving to the next stage is a new record with this one as its parent."
+    },
+    "generation": {
+      "type": "integer",
+      "minimum": 0,
+      "description": "Subculture depth. Zero is material rooted directly out of sterile culture; each subsequent transfer increments it. This is a commercial claim as much as a technical one - material at generation zero is priced differently from material that has been grown out and returned - and somaclonal variation accumulates with depth."
+    },
+    "explantType": {
+      "enum": [
+        "meristem",
+        "shoot-tip",
+        "nodal-segment",
+        "leaf-disc",
+        "callus",
+        "anther",
+        "embryo",
+        "other"
+      ],
+      "description": "The tissue taken. Material for descent because it determines what a pathogen screening result means: meristem culture excludes systemic infection in a way a nodal segment does not."
+    },
+    "mediumReference": {
+      "type": "string",
+      "description": "A reference to a formulation, deliberately not the formulation. Media are the laboratory's own work and are commonly the most valuable thing it holds. Committing a reference fixes which medium was used without publishing it; the formulation itself is disclosed to a counterparty only if the laboratory chooses to."
+    },
+    "indexingStatus": {
+      "enum": [
+        "not-indexed",
+        "clean",
+        "contaminated",
+        "discarded"
+      ],
+      "description": "Result of culturing a segment on a medium formulated to grow bacterial and fungal contaminants. Material for both, because clean against contaminated is the claim the accession exists to support. Substantiate with an attestation from whoever performed it."
+    },
+    "initiatedOn": {
+      "type": "string",
+      "format": "date",
+      "description": "The date the accession entered culture. Distinct from the envelope's sealedAt, which is when the record was written, and from the subject's claimedCreationDate, which belongs to the variety."
+    },
+    "notes": {
+      "type": "string"
+    },
+    "internalReference": {
+      "type": "string"
+    }
+  },
+  "x-veilcore": {
+    "parentRoles": [
+      "accession-source",
+      "explant-source",
+      "subculture-parent",
+      "mother-block"
+    ],
+    "parentRolesNote": "accession-source is the depositor's material as received, which is the parent that answers who deposited what and when. explant-source is the plant the explant was taken from. subculture-parent is the record one generation up, which is what makes generation depth checkable rather than asserted.",
+    "provableFields": [
+      { "field": "generation", "kind": "integer", "scale": 1 },
+      { "field": "stage", "kind": "bytes" },
+      { "field": "explantType", "kind": "bytes" },
+      { "field": "indexingStatus", "kind": "bytes" }
+    ],
+    "provableFieldsNote": "What a purchaser or a certifying body asks as a threshold rather than a value: generation at or below a stated depth, a stage or an indexing status in an accepted set. Generation is already an integer and needs no scaling. Ordering here is the ordering of the content tree, and changing it produces a different schema.",
+    "correctionSeverity": {
+      "stage": {
+        "descent": "cosmetic",
+        "terms": "material"
+      },
+      "generation": {
+        "descent": "material",
+        "terms": "material"
+      },
+      "explantType": {
+        "descent": "material",
+        "terms": "material"
+      },
+      "mediumReference": {
+        "descent": "cosmetic",
+        "terms": "cosmetic"
+      },
+      "indexingStatus": {
+        "descent": "material",
+        "terms": "material"
+      },
+      "initiatedOn": {
+        "descent": "material",
+        "terms": "material"
+      },
+      "notes": {
+        "descent": "cosmetic",
+        "terms": "cosmetic"
+      },
+      "internalReference": {
+        "descent": "cosmetic",
+        "terms": "cosmetic"
+      }
+    },
+    "correctionSeverityNote": "Generation, explant type and indexing status are material for both, because each is a claim about what the material is rather than about how it was handled. Stage is cosmetic for descent - a plant legitimately moves through stages and a corrected stage does not change its ancestry - and material for terms, because a purchaser buying rooted material did not buy material still in multiplication. Medium reference is cosmetic for both: which formulation was used does not change what the material is or what was agreed about it."
+  }
+}
