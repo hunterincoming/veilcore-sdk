@@ -86,22 +86,36 @@ export const verifyAgainstRegistry = async (
     return verdict;
   }
 
-  // An empty chain is not a clean one. The registry verifies the ancestors it is
-  // handed, so asking with none returns ok over nothing checked — and a caller who
-  // omitted the inconvenient generation gets the same answer as one with no
-  // ancestors at all. Reporting that as cleanDescent: true was a pass on a question
-  // nobody asked.
-  if (!opts.chain || opts.chain.length === 0) {
+  // The caller is not expected to know the pedigree. The registry holds the declared
+  // graph and the verifier does not, so asking them to supply a chain asked for the
+  // one thing they came to find out — and an empty chain then returned ok over
+  // nothing checked. Ancestors are fetched here and only fall back to the caller's
+  // list when the registry cannot be asked.
+  let chain = opts.chain;
+  if (!chain || chain.length === 0) {
+    try {
+      const res = await fetch(`${base}/lineage/ancestors/${encodeURIComponent(env.commitment)}`);
+      const body: unknown = await res.json();
+      const declared = (body as { ancestors?: unknown })?.ancestors;
+      if (Array.isArray(declared) && declared.every((a) => typeof a === 'string')) {
+        chain = declared as string[];
+      }
+    } catch {
+      // fall through to the message below
+    }
+  }
+
+  if (!chain || chain.length === 0) {
     reasons.push(
-      'clean descent was not checked: no ancestors were supplied, and an empty chain ' +
-        'establishes nothing about a record that has ancestors',
+      'clean descent was not checked: no ancestry is declared for this record, and an ' +
+        'empty chain establishes nothing about a record that has ancestors',
     );
   } else {
     try {
       const res = await fetch(`${base}/lineage/verify`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ record: env.commitment, chain: opts.chain }),
+        body: JSON.stringify({ record: env.commitment, chain }),
       });
       const descent: unknown = await res.json();
       const ok = typeof descent === 'object' && descent !== null && (descent as { ok?: unknown }).ok === true;
