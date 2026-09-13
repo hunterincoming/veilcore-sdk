@@ -330,6 +330,10 @@ An attestation is worth what its attester is worth, and that requires knowing wh
 
 **The attester holds a keypair and signs.** The signature - not the name - is what binds the statement to a party. Ed25519 over the canonical serialisation of the attestation, excluding the signature fields.
 
+**The signed material is, exhaustively:** `attestationId`, `type`, `subjectCommitment`, `documentHash`, `hashAlgorithm`, `issuedAt`, and the attester's `publicKey`, `displayName`, `role` and `accreditation`. Absent optional fields are omitted rather than serialised as null, per section 4.4.
+
+The attester's identity is inside the signature in full, not by its key alone. An implementation that signs the key and leaves `displayName`, `role` or `accreditation` outside it produces attestations anyone holding one can rewrite: a small laboratory's genuine report becomes an accredited one, the signature byte-identical and still verifying, and section 7.2 reports the forged tier because those are the fields it reads. This is stated exhaustively because it was implemented narrowly here first, and the narrow reading was a faithful one of an earlier wording.
+
 **The signed material includes `subjectCommitment`** (section 3.3). This is what makes a signature a statement about one record rather than a portable credential that verifies anywhere it is pasted.
 
 **A trust registry maps a public key to a claimed identity.** Any party may operate one. A registry records what an attester claims about themselves, including any external accreditation and who issued it.
@@ -355,6 +359,8 @@ An attestation is reported as `unsigned` (recorded but not signed - a claim abou
 **Strength is reported, never enforced.** A verifier decides what is sufficient for their purpose. A registry that ruled on this would be substituting its judgement for theirs.
 
 ### 7.3 Key rotation, expiry and compromise
+
+**Specified here, not yet implemented.** The reference implementation verifies an attestation against the key carried inside it and reports a boolean. It performs no registry lookup, does not compare `issuedAt` against a validity interval, and has no `suspect` state. Everything in this section describes what a conforming verifier shall do once a registry exists to be consulted; no registry does. Stated plainly because a reader planning around rotation would otherwise assume it is handled, and because section 7.1's remedy for a lost key points at a mechanism nothing implements.
 
 Rights in plant material run twenty-five to thirty years. No signing key should be assumed to survive that, and a format that does not say what happens when a key changes hands has left its longest-lived records undefended.
 
