@@ -61,7 +61,22 @@ export type SignedAttestation = {
 export const attestationPayload = (a: Omit<SignedAttestation, 'signature' | 'signatureAlgorithm'>): string =>
   canonicalise({
     attestationId: a.attestationId,
-    attester: { publicKey: a.attester.publicKey },
+    // THE WHOLE IDENTITY, not just the key. Signing publicKey alone left displayName,
+    // role and accreditation outside the signature, so anyone holding a genuine
+    // attestation could rewrite them and it would still verify: a small lab's report
+    // becomes an accredited one, signature untouched, and the strength tiers that
+    // distinguish "signed" from "signed and accredited" read exactly those fields.
+    //
+    // They are still CLAIMS — an attester asserting ISO 17025 accreditation is not the
+    // same as holding it, and a verifier checks with the named accreditor. What signing
+    // them establishes is that the attester made the claim, rather than someone
+    // downstream adding it.
+    attester: {
+      publicKey: a.attester.publicKey,
+      ...(a.attester.displayName === undefined ? {} : { displayName: a.attester.displayName }),
+      ...(a.attester.role === undefined ? {} : { role: a.attester.role }),
+      ...(a.attester.accreditation === undefined ? {} : { accreditation: a.attester.accreditation }),
+    },
     documentHash: a.documentHash,
     hashAlgorithm: a.hashAlgorithm,
     issuedAt: a.issuedAt,
