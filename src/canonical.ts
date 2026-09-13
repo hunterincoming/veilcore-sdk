@@ -83,6 +83,22 @@ export const canonicalise = (value: unknown): string => {
   if (Array.isArray(value)) return `[${value.map(canonicalise).join(',')}]`;
 
   if (typeof value === 'object') {
+    // A Date, Map, Set or RegExp is an object to `typeof` and has no own enumerable
+    // properties, so it would serialise as `{}` — a commitment covering none of its
+    // content, computed without complaint. Another implementation handed the same
+    // logical record produces something else or refuses, which is the divergence
+    // this file exists to prevent. A plain object and a class instance are fine:
+    // their own enumerable properties are exactly what JSON carries.
+    const proto = Object.getPrototypeOf(value);
+    const isPlain = proto === Object.prototype || proto === null || Object.keys(value).length > 0;
+    if (!isPlain) {
+      throw new Error(
+        `${value.constructor?.name ?? 'this object'} cannot be committed: it has no own ` +
+        'enumerable properties and would serialise as {}. Convert it to a plain value first ' +
+        '(a Date to an ISO 8601 string, a Map to an object).',
+      );
+    }
+
     const src = value as Record<string, unknown>;
     // Omit absent optionals. A present null is rejected above, not silently dropped.
     const present = Object.keys(src).filter((k) => src[k] !== undefined);
