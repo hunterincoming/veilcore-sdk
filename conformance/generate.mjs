@@ -14,7 +14,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import { writeFileSync, readFileSync } from 'node:fs';
-import { canonicalise, computeCommitment, buildBatch, COMMITMENT_ALGORITHM } from '../dist/index.js';
+import { canonicalise, computeCommitment, buildBatch, attestationPayload, COMMITMENT_ALGORITHM } from '../dist/index.js';
 
 const base = {
   formatVersion: '0.1',
@@ -122,6 +122,68 @@ const batchCases = [
   { name: 'seven leaves, deeper path', commitments: Array.from({ length: 7 }, (_, i) => `${i}`.repeat(64)) },
 ];
 
+// Attestation payloads. The bytes an attester signs, which until September 2026 no
+// vector covered — so three implementations could disagree about what a signature
+// protects and the suite would report all three conformant. It found exactly that:
+// the TypeScript payload signed the attester's key and left displayName, role and
+// accreditation outside the signature, which let anyone holding a genuine
+// attestation rewrite them and still verify.
+const attestationCases = [
+  {
+    name: 'minimal attestation',
+    attestation: {
+      attestationId: 'att_0001',
+      type: 'laboratory-report',
+      subjectCommitment: 'a'.repeat(64),
+      attester: { publicKey: 'b'.repeat(64) },
+      documentHash: 'c'.repeat(64),
+      hashAlgorithm: 'sha256',
+      issuedAt: '2026-01-01T00:00:00Z',
+    },
+  },
+  {
+    name: 'attester display name is inside the signed material',
+    attestation: {
+      attestationId: 'att_0002',
+      type: 'laboratory-report',
+      subjectCommitment: 'a'.repeat(64),
+      attester: { publicKey: 'b'.repeat(64), displayName: 'Example Laboratory' },
+      documentHash: 'c'.repeat(64),
+      hashAlgorithm: 'sha256',
+      issuedAt: '2026-01-01T00:00:00Z',
+    },
+  },
+  {
+    name: 'attester role is inside the signed material',
+    attestation: {
+      attestationId: 'att_0003',
+      type: 'laboratory-report',
+      subjectCommitment: 'a'.repeat(64),
+      attester: { publicKey: 'b'.repeat(64), role: 'laboratory' },
+      documentHash: 'c'.repeat(64),
+      hashAlgorithm: 'sha256',
+      issuedAt: '2026-01-01T00:00:00Z',
+    },
+  },
+  {
+    name: 'accreditation is inside the signed material',
+    attestation: {
+      attestationId: 'att_0004',
+      type: 'laboratory-report',
+      subjectCommitment: 'a'.repeat(64),
+      attester: {
+        publicKey: 'b'.repeat(64),
+        displayName: 'Example Laboratory',
+        role: 'laboratory',
+        accreditation: { scheme: 'ISO/IEC 17025', identifier: 'L-1234', accreditor: 'A2LA' },
+      },
+      documentHash: 'c'.repeat(64),
+      hashAlgorithm: 'sha256',
+      issuedAt: '2026-01-01T00:00:00Z',
+    },
+  },
+];
+
 const out = {
   formatVersion: '0.1',
   generatedAt: new Date().toISOString(),
@@ -129,6 +191,7 @@ const out = {
   commitments: [],
   inclusion: [],
   rejections: [],
+  attestations: [],
 };
 
 for (const c of canonicalCases) {
@@ -183,8 +246,13 @@ try {
   if (e?.code !== 'ENOENT') throw e; // no existing file is fine; anything else is not
 }
 
+for (const c of attestationCases) {
+  out.attestations.push({ name: c.name, attestation: c.attestation, expectedPayload: attestationPayload(c.attestation) });
+}
+
 writeFileSync(target, JSON.stringify(out, null, 2));
 console.log(
   `generated ${out.canonicalisation.length} canonicalisation, ${out.commitments.length} commitment, ` +
-  `${out.inclusion.length} inclusion and ${out.rejections.length} rejection vectors`
+  `${out.inclusion.length} inclusion, ${out.rejections.length} rejection and ${out.attestations.length} attestation vectors`
 );
+

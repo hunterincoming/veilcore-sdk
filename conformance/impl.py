@@ -139,6 +139,31 @@ def committed_fields(env):
 def compute_commitment(env):
     return hashlib.sha256(canonicalise(committed_fields(env)).encode("utf-8")).hexdigest()
 
+
+def attestation_payload(a):
+    """The bytes an attester signs, per specification section 7.
+
+    The attester's identity goes in whole, not by its key alone. Signing the key
+    and leaving displayName, role and accreditation outside it lets anyone holding
+    a genuine attestation rewrite them while the signature still verifies, and
+    section 7.2 then reports a strength tier the attester never claimed.
+    """
+    att = a["attester"]
+    attester = {"publicKey": att["publicKey"]}
+    for key in ("displayName", "role", "accreditation"):
+        if att.get(key) is not None:
+            attester[key] = att[key]
+
+    return canonicalise({
+        "attestationId": a["attestationId"],
+        "attester": attester,
+        "documentHash": a["documentHash"],
+        "hashAlgorithm": a["hashAlgorithm"],
+        "issuedAt": a["issuedAt"],
+        "subjectCommitment": a["subjectCommitment"],
+        "type": a["type"],
+    })
+
 def hash_leaf(commitment):
     """Leaves and interior nodes are domain-separated so a leaf can never be
     presented as an interior node."""
@@ -164,6 +189,8 @@ def main():
     op = job["op"]
     if op == "canonicalise":
         print(json.dumps({"result": canonicalise(job["input"])}))
+    elif op == "attestationPayload":
+        print(json.dumps({"result": attestation_payload(job["input"])}), flush=True)
     elif op == "commit":
         print(json.dumps({"result": compute_commitment(job["input"])}))
     elif op == "fold":

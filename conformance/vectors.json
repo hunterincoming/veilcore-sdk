@@ -1,6 +1,6 @@
 {
   "formatVersion": "0.1",
-  "generatedAt": "2026-08-15T17:28:31.844Z",
+  "generatedAt": "2026-09-13T17:49:48.577Z",
   "canonicalisation": [
     {
       "name": "keys sorted by code point",
@@ -564,6 +564,77 @@
       "name": "non-finite numbers are invalid",
       "reason": "spec 4.4 rule 8. Not expressible in JSON, so the runner constructs it.",
       "construct": "non-finite"
+    }
+  ],
+  "attestations": [
+    {
+      "name": "minimal attestation",
+      "attestation": {
+        "attestationId": "att_0001",
+        "type": "laboratory-report",
+        "subjectCommitment": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "attester": {
+          "publicKey": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
+        },
+        "documentHash": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+        "hashAlgorithm": "sha256",
+        "issuedAt": "2026-01-01T00:00:00Z"
+      },
+      "expectedPayload": "{\"attestationId\":\"att_0001\",\"attester\":{\"publicKey\":\"bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb\"},\"documentHash\":\"cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc\",\"hashAlgorithm\":\"sha256\",\"issuedAt\":\"2026-01-01T00:00:00Z\",\"subjectCommitment\":\"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\",\"type\":\"laboratory-report\"}"
+    },
+    {
+      "name": "attester display name is inside the signed material",
+      "attestation": {
+        "attestationId": "att_0002",
+        "type": "laboratory-report",
+        "subjectCommitment": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "attester": {
+          "publicKey": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+          "displayName": "Example Laboratory"
+        },
+        "documentHash": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+        "hashAlgorithm": "sha256",
+        "issuedAt": "2026-01-01T00:00:00Z"
+      },
+      "expectedPayload": "{\"attestationId\":\"att_0002\",\"attester\":{\"displayName\":\"Example Laboratory\",\"publicKey\":\"bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb\"},\"documentHash\":\"cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc\",\"hashAlgorithm\":\"sha256\",\"issuedAt\":\"2026-01-01T00:00:00Z\",\"subjectCommitment\":\"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\",\"type\":\"laboratory-report\"}"
+    },
+    {
+      "name": "attester role is inside the signed material",
+      "attestation": {
+        "attestationId": "att_0003",
+        "type": "laboratory-report",
+        "subjectCommitment": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "attester": {
+          "publicKey": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+          "role": "laboratory"
+        },
+        "documentHash": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+        "hashAlgorithm": "sha256",
+        "issuedAt": "2026-01-01T00:00:00Z"
+      },
+      "expectedPayload": "{\"attestationId\":\"att_0003\",\"attester\":{\"publicKey\":\"bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb\",\"role\":\"laboratory\"},\"documentHash\":\"cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc\",\"hashAlgorithm\":\"sha256\",\"issuedAt\":\"2026-01-01T00:00:00Z\",\"subjectCommitment\":\"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\",\"type\":\"laboratory-report\"}"
+    },
+    {
+      "name": "accreditation is inside the signed material",
+      "attestation": {
+        "attestationId": "att_0004",
+        "type": "laboratory-report",
+        "subjectCommitment": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "attester": {
+          "publicKey": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+          "displayName": "Example Laboratory",
+          "role": "laboratory",
+          "accreditation": {
+            "scheme": "ISO/IEC 17025",
+            "identifier": "L-1234",
+            "accreditor": "A2LA"
+          }
+        },
+        "documentHash": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+        "hashAlgorithm": "sha256",
+        "issuedAt": "2026-01-01T00:00:00Z"
+      },
+      "expectedPayload": "{\"attestationId\":\"att_0004\",\"attester\":{\"accreditation\":{\"accreditor\":\"A2LA\",\"identifier\":\"L-1234\",\"scheme\":\"ISO/IEC 17025\"},\"displayName\":\"Example Laboratory\",\"publicKey\":\"bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb\",\"role\":\"laboratory\"},\"documentHash\":\"cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc\",\"hashAlgorithm\":\"sha256\",\"issuedAt\":\"2026-01-01T00:00:00Z\",\"subjectCommitment\":\"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa\",\"type\":\"laboratory-report\"}"
     }
   ]
 }

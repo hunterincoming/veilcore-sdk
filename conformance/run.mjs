@@ -70,6 +70,29 @@ for (const v of vectors.rejections ?? []) {
   console.log(`  ${rejected ? 'PASS' : 'FAIL'}  ${v.name}`);
 }
 
+// Attestation payloads. The bytes an attester signs. An implementation that builds
+// these differently disagrees about what a signature protects, and until these
+// vectors existed nothing asked — the TypeScript payload signed the attester's key
+// and left displayName, role and accreditation outside it.
+if (vectors.attestations?.length) {
+  console.log('\nAttestation payloads');
+  if (typeof impl.attestationPayload !== 'function') {
+    // Not exposing it fails rather than skipping. A missing check that reports
+    // nothing is how the inclusion vectors went unrun for weeks.
+    fail += vectors.attestations.length;
+    failures.push(['attestations', 'attestationPayload not exposed by this implementation', 'a function', 'nothing']);
+    console.log('  FAIL  attestationPayload not exposed');
+  } else {
+    for (const v of vectors.attestations) {
+      let actual;
+      try { actual = await impl.attestationPayload(v.attestation); }
+      catch (e) { actual = `threw: ${e.message}`; }
+      check('attestations', v.name, v.expectedPayload, actual);
+      console.log(`  ${v.expectedPayload === actual ? 'PASS' : 'FAIL'}  ${v.name}`);
+    }
+  }
+}
+
 // Inclusion proofs. Not run at all until now: this runner reported "Conformant"
 // without ever folding a path.
 if (vectors.inclusion?.length) {

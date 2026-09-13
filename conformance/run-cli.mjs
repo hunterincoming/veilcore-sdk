@@ -8,6 +8,7 @@
 // result on stdout:
 //
 //   in:  {"op":"canonicalise","input":{...}}   out: {"result":"{...}"}
+//   in:  {"op":"attestationPayload","input":{...}}  out: {"result":"{...}"}
 //   in:  {"op":"commit","input":{...}}         out: {"result":"<hex>"}
 //
 // An implementation refuses an invalid record either by writing {"error":"..."} (or
@@ -125,6 +126,18 @@ for (const v of vectors.commitments) {
   });
   console.log(`  ${ok ? 'PASS' : 'FAIL'}  ${v.name}`);
 }
+console.log('\nAttestation payloads');
+for (const v of vectors.attestations ?? []) {
+  const r = await ask('attestationPayload', v.attestation);
+  const ok = r.kind === 'ok' && r.value === v.expectedPayload;
+  ok ? pass++ : failures.push({
+    name: v.name,
+    expected: v.expectedPayload,
+    actual: r.kind === 'ok' ? r.value : `${r.kind} — ${r.why}`,
+  });
+  console.log(`  ${ok ? 'PASS' : 'FAIL'}  ${v.name}`);
+}
+
 console.log('\nInclusion proofs');
 for (const v of vectors.inclusion ?? []) {
   const r = await ask('fold', { commitment: v.commitment, path: v.path });
