@@ -51,15 +51,18 @@ export const verifyAgainstRegistry = async (
   try {
     const res = await fetch(`${base}/verify/${encodeURIComponent(env.recordId)}`);
     if (res.status === 404) {
+      // Not a stopping point. The lineage graph is keyed by commitment, not by
+      // whether this registry stored the record, so a buyer handed a record
+      // directly by a breeder can still learn whether an ancestor is encumbered —
+      // which is the question they came with. Returning here answered a different
+      // one and stopped.
       verdict.known = false;
       reasons.push('the registry does not hold a record with this identifier');
-      return verdict;
-    }
+    } else {
     const remote: unknown = await res.json();
     if (typeof remote !== 'object' || remote === null) {
       reasons.push('the registry answered with something this client could not read');
-      return verdict;
-    }
+    } else {
     const body = remote as { found?: unknown; recordFingerprint?: unknown; commitment?: unknown };
     verdict.known = body.found === true;
 
@@ -80,6 +83,8 @@ export const verifyAgainstRegistry = async (
       if (!verdict.matchesRegistry) {
         reasons.push('the registry holds a different version of this record');
       }
+    }
+    }
     }
   } catch {
     reasons.push('the registry could not be reached — the local integrity check still passed');
