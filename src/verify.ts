@@ -55,28 +55,62 @@ export const verifyAgainstRegistry = async (
       reasons.push('the registry does not hold a record with this identifier');
       return verdict;
     }
-    const remote = await res.json();
-    verdict.known = Boolean(remote?.found);
-    verdict.matchesRegistry = remote?.recordFingerprint === env.commitment;
-    if (!verdict.matchesRegistry) {
-      reasons.push('the registry holds a different version of this record');
+    const remote: unknown = await res.json();
+    if (typeof remote !== 'object' || remote === null) {
+      reasons.push('the registry answered with something this client could not read');
+      return verdict;
+    }
+    const body = remote as { found?: unknown; recordFingerprint?: unknown; commitment?: unknown };
+    verdict.known = body.found === true;
+
+    // Registries carry the commitment under different names. Comparing against only
+    // one meant a registry using the other reported "a different version" when the
+    // record matched, which is an alarm a holder cannot act on.
+    const theirs =
+      typeof body.commitment === 'string'
+        ? body.commitment
+        : typeof body.recordFingerprint === 'string'
+          ? body.recordFingerprint
+          : undefined;
+
+    if (theirs === undefined) {
+      reasons.push('the registry did not return a commitment, so its copy could not be compared');
+    } else {
+      verdict.matchesRegistry = theirs === env.commitment;
+      if (!verdict.matchesRegistry) {
+        reasons.push('the registry holds a different version of this record');
+      }
     }
   } catch {
     reasons.push('the registry could not be reached — the local integrity check still passed');
     return verdict;
   }
 
-  try {
-    const res = await fetch(`${base}/lineage/verify`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ record: env.commitment, chain: opts.chain ?? [] }),
-    });
-    const descent = await res.json();
-    verdict.cleanDescent = Boolean(descent?.ok);
-    if (!descent?.ok && descent?.reason) reasons.push(descent.reason);
-  } catch {
-    reasons.push('clean-descent could not be checked');
+  // An empty chain is not a clean one. The registry verifies the ancestors it is
+  // handed, so asking with none returns ok over nothing checked — and a caller who
+  // omitted the inconvenient generation gets the same answer as one with no
+  // ancestors at all. Reporting that as cleanDescent: true was a pass on a question
+  // nobody asked.
+  if (!opts.chain || opts.chain.length === 0) {
+    reasons.push(
+      'clean descent was not checked: no ancestors were supplied, and an empty chain ' +
+        'establishes nothing about a record that has ancestors',
+    );
+  } else {
+    try {
+      const res = await fetch(`${base}/lineage/verify`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ record: env.commitment, chain: opts.chain }),
+      });
+      const descent: unknown = await res.json();
+      const ok = typeof descent === 'object' && descent !== null && (descent as { ok?: unknown }).ok === true;
+      verdict.cleanDescent = ok;
+      const reason = (descent as { reason?: unknown })?.reason;
+      if (!ok) reasons.push(typeof reason === 'string' ? reason : 'clean descent was not established');
+    } catch {
+      reasons.push('clean-descent could not be checked');
+    }
   }
 
   return verdict;
