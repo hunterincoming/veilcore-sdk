@@ -54,6 +54,17 @@ export const formatQualifiedId = (authority: string, local: string): string =>
  *
  * One HTTPS request to a domain the issuer controls. No central directory is consulted,
  * and none exists to be consulted.
+ *
+ * ⚠️ WHAT THIS DOES NOT DO, and section 11.5.1 says a verifier should: it does not pin
+ * the registry's key across lookups, and it does not check whether the domain still
+ * belongs to whoever it belonged to when the record was received. Whoever holds the
+ * domain today answers for it. A lapsed domain acquired by someone else resolves as
+ * the registry for every record naming that authority, and this function cannot tell.
+ *
+ * The defence is elsewhere and the spec states it: resolution is not evidence, and the
+ * anchor governs. A verifier relying on a record should be comparing the registry's
+ * public key against the one they recorded when they received it, which is a decision
+ * only the verifier can make because only they know what they saw before.
  */
 export const resolveRegistry = async (authority: string): Promise<RegistryDescriptor | null> => {
   try {
@@ -61,8 +72,29 @@ export const resolveRegistry = async (authority: string): Promise<RegistryDescri
       headers: { Accept: 'application/json' },
     });
     if (!res.ok) return null;
-    const d = (await res.json()) as RegistryDescriptor;
-    return d && typeof d.api === 'string' ? d : null;
+    const d: unknown = await res.json();
+    if (typeof d !== 'object' || d === null) return null;
+    const desc = d as RegistryDescriptor;
+    if (typeof desc.api !== 'string') return null;
+
+    // The api URL must belong to the authority that published it. Without this, the
+    // whole argument for resolving through a name the issuer controls stops at the
+    // first hop: the descriptor could name any host, and a verifier following it
+    // would fetch from somewhere the issuer does not control on the strength of a
+    // domain they do. For a verifier running server-side that is a request-forgery
+    // primitive inside a function called "resolve a record".
+    let api: URL;
+    try {
+      api = new URL(desc.api);
+    } catch {
+      return null;
+    }
+    if (api.protocol !== 'https:') return null;
+    const host = api.hostname.toLowerCase();
+    const auth = authority.toLowerCase();
+    if (host !== auth && !host.endsWith(`.${auth}`)) return null;
+
+    return desc;
   } catch {
     return null;
   }
