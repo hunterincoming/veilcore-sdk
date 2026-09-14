@@ -9,7 +9,7 @@
  *
  *   node canonical-checks.mjs      (from the veilcore-sdk root)
  */
-import { canonicalise } from './dist/index.js';
+import { canonicalise } from '../dist/index.js';
 
 let failures = 0;
 const ok = (name, cond, detail) => {

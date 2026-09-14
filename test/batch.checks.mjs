@@ -7,7 +7,7 @@
  *
  *   node batch-checks.mjs
  */
-import { buildBatch, verifyInclusion } from './dist/index.js';
+import { buildBatch, verifyInclusion } from '../dist/index.js';
 
 let failures = 0;
 const ok = (n, c, d) => { if (c) console.log(`OK   ${n}`); else { console.error(`FAIL ${n}${d ? `\n     ${d}` : ''}`); failures++; } };

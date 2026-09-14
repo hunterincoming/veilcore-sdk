@@ -10,7 +10,7 @@
  *
  *   node attestation-checks.mjs
  */
-import { generateKeypair, signAttestation, verifyAttestation } from './dist/index.js';
+import { generateKeypair, signAttestation, verifyAttestation } from '../dist/index.js';
 
 let failures = 0;
 const ok = (n, c, d) => { if (c) console.log(`OK   ${n}`); else { console.error(`FAIL ${n}${d ? `\n     ${d}` : ''}`); failures++; } };

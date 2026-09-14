@@ -18,9 +18,10 @@
   ],
   "scripts": {
     "build": "tsc",
-    "test": "node --test test/*.test.mjs",
+    "test": "node --test test/*.test.mjs && npm run checks && npm run conformance",
     "conformance": "node conformance/run.mjs",
-    "conformance:generate": "node conformance/generate.mjs"
+    "conformance:generate": "node conformance/generate.mjs",
+    "checks": "for f in test/*.checks.mjs; do node \"$f\" || exit 1; done"
   },
   "devDependencies": {
     "@types/node": "^26.2.0",
