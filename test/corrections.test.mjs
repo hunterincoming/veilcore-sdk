@@ -13,7 +13,12 @@ const base = {
   commitmentAlgorithm: 'sha256/canonical-json/v1',
   anchor: { chain: 'midnight', network: 'undeployed' },
   sealedAt: '2026-01-01T00:00:00Z', holder: { id: 'h1' }, parents: [], attestations: [],
-  profileData: { cultivarName: 'Original', breederName: 'B', notes: '', nonce: '0'.repeat(64) },
+  // The envelope carries what every subject has. This fixture used to put cultivarName
+  // and breederName in profileData, which no profile defines — so these tests agreed
+  // with the classification table and both disagreed with the records the product
+  // actually produces.
+  subject: { name: 'Original', originator: 'B', claimedCreationDate: '2020' },
+  profileData: { notes: '', nonce: '0'.repeat(64) },
 };
 const edit = (path, value) => {
   const c = structuredClone(base);
@@ -29,7 +34,10 @@ test('a typo in notes is cosmetic for both', () => {
 });
 
 test('a cultivar name change is cosmetic for descent, material for terms', () => {
-  const s = classifyCorrection(diffRecords(base, edit('profileData.cultivarName', 'Renamed')));
+  // subject.name, not profileData.cultivarName. No profile defines a cultivarName —
+  // the envelope carries it — so this test passed against a classification entry for a
+  // field nothing produces, while a real rename fell through to material for both.
+  const s = classifyCorrection(diffRecords(base, edit('subject.name', 'Renamed')));
   assert.equal(s.descent, 'cosmetic', 'the plant did not change');
   assert.equal(s.terms, 'material', 'the name may be the licensed thing');
 });
@@ -39,14 +47,23 @@ test('changing parents is material for descent', () => {
   assert.equal(s.descent, 'material');
 });
 
-test('a correction does not report its own seal time as a change', () => {
-  // A correcting record is a new record and is always sealed later than the one it
+test('a correction sealed later does not report its seal time as a change', () => {
+  // A correcting record is a new record and is ordinarily sealed later than the one it
   // supersedes. Reporting that as a change would make every correction material and the
-  // classification meaningless. Backdating is prevented instead by the original record
-  // never being altered or deleted: its own seal time and anchor remain checkable.
-  const s = classifyCorrection(diffRecords(base, edit('sealedAt', '2020-01-01T00:00:00Z')));
+  // classification meaningless.
+  const s = classifyCorrection(diffRecords(base, edit('sealedAt', '2030-01-01T00:00:00Z')));
   assert.equal(s.descent, 'cosmetic');
   assert.equal(s.terms, 'cosmetic');
+});
+
+test('a correction sealed EARLIER is reported', () => {
+  // The original record remains checkable, which is the real defence. But a downstream
+  // party handed only the correction and its supersedes block would otherwise read a
+  // cosmetic change with no fields listed, and have no reason to go looking for the
+  // record it replaced. A backdate is named rather than left silent.
+  const s = classifyCorrection(diffRecords(base, edit('sealedAt', '2020-01-01T00:00:00Z')));
+  assert.equal(s.descent, 'material');
+  assert.equal(s.terms, 'material');
 });
 
 test('one material change makes the whole correction material', () => {

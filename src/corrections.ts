@@ -41,8 +41,23 @@ const CLASSIFICATION: Record<string, SeverityClass> = {
   'subjectType': { descent: 'material', terms: 'material' },
   'profile': { descent: 'material', terms: 'material' },
 
+  // Subject — what the record is about. These were written as profileData.cultivarName
+  // and profileData.breederName, which no profile defines: the envelope carries them as
+  // subject.name and subject.originator. So the reasoning below never fired, and a
+  // renamed variety fell through to UNKNOWN and was reported material for descent when
+  // the material had not changed.
+  'subject.name': { descent: 'cosmetic', terms: 'material' },
+  'subject.originator': { descent: 'cosmetic', terms: 'material' },
+  'subject.claimedCreationDate': { descent: 'cosmetic', terms: 'material' },
+  'subject.taxon': { descent: 'material', terms: 'material' },
+  'subject.internalDesignation': { descent: 'cosmetic', terms: 'cosmetic' },
+
+  // Identification is the evidence the record rests on: changing a marker panel or the
+  // laboratory that produced it changes what the record establishes.
+  'identification': { descent: 'material', terms: 'material' },
+  'registrations': { descent: 'material', terms: 'material' },
+
   // Profile — description.
-  'profileData.cultivarName': { descent: 'cosmetic', terms: 'material' },
   'profileData.breederName': { descent: 'cosmetic', terms: 'material' },
   'profileData.breedingMethod': { descent: 'material', terms: 'cosmetic' },
   'profileData.claimedCreationDate': { descent: 'cosmetic', terms: 'material' },
@@ -87,11 +102,24 @@ export const diffRecords = (before: Envelope, after: Envelope): FieldChange[] =>
     if (
       f === 'commitment' ||
       f === 'recordId' ||
-      f === 'sealedAt' ||
       f === 'profileData.nonce' ||
       f.startsWith('anchor') ||
       f.startsWith('supersedes')
     ) continue;
+
+    // sealedAt is its own case and used to sit in the list above, which meant the
+    // classification table's entry for it could never fire. A correcting record does
+    // have its own seal time, so a LATER one is ordinary and skipped. An EARLIER one
+    // is not: it moves the date the record claims, which is the thing this format
+    // exists to establish, and it was reported as a cosmetic correction with no
+    // changed fields at all.
+    if (f === 'sealedAt') {
+      const from = Date.parse(String(a[f] ?? ''));
+      const to = Date.parse(String(b[f] ?? ''));
+      if (Number.isNaN(from) || Number.isNaN(to) || to >= from) continue;
+      changes.push({ field: 'sealedAt', from: a[f], to: b[f], severity: UNKNOWN });
+      continue;
+    }
     if (JSON.stringify(a[f]) === JSON.stringify(b[f])) continue;
     changes.push({ field: f, from: a[f], to: b[f], severity: CLASSIFICATION[f] ?? UNKNOWN });
   }
