@@ -73,7 +73,13 @@ export type Challenge = {
 export const challengePayload = (c: Omit<Challenge, 'signature' | 'signatureAlgorithm' | 'response' | 'resolution' | 'state'>): string =>
   canonicalise({
     challengeId: c.challengeId,
-    challenger: { publicKey: c.challenger.publicKey },
+    // The whole challenger identity, not the key alone. Signing only the key left
+    // displayName outside the signature, so a challenge filed from an unknown key
+    // could be relabelled as coming from a named institution and still verify.
+    challenger: {
+      publicKey: c.challenger.publicKey,
+      ...(c.challenger.displayName === undefined ? {} : { displayName: c.challenger.displayName }),
+    },
     claimCommitment: c.claimCommitment,
     filedAt: c.filedAt,
     ground: c.ground,
@@ -93,20 +99,30 @@ export type ContestedStatus = {
   open: number;
   answered: number;
   resolved: number;
+  /** Filed and later withdrawn. Reported, because it happened. */
+  withdrawn: number;
   grounds: ChallengeGround[];
   /** Plain words for a reader who is not a lawyer. */
   summary: string;
 };
 
 export const contestedStatus = (challenges: Challenge[]): ContestedStatus => {
+  // Withdrawn challenges are not live, but they are not nothing either. Filtering them
+  // out entirely meant a record that had been contested and had the challenge
+  // withdrawn reported "Nobody has contested this record" — which is false, and it is
+  // the sentence a verifier reads. The type above says a withdrawal remains on record;
+  // this is where that has to be true.
+  const withdrawn = challenges.filter((c) => c.state === 'withdrawn').length;
   const live = challenges.filter((c) => c.state !== 'withdrawn');
   const open = live.filter((c) => c.state === 'open').length;
   const answered = live.filter((c) => c.state === 'answered').length;
   const resolved = live.filter((c) => c.state === 'resolved').length;
 
   let summary: string;
-  if (!live.length) {
+  if (!live.length && !withdrawn) {
     summary = 'Nobody has contested this record.';
+  } else if (!live.length) {
+    summary = `Contested once and withdrawn. ${withdrawn} challenge${withdrawn > 1 ? 's were' : ' was'} filed and later withdrawn by the challenger. Nothing is outstanding, and a withdrawal is not a finding either way.`;
   } else if (resolved && !open && !answered) {
     summary = 'This record was contested and the matter was resolved outside this system. The resolution is recorded and you can check it with the authority named.';
   } else if (open) {
@@ -117,7 +133,7 @@ export const contestedStatus = (challenges: Challenge[]): ContestedStatus => {
 
   return {
     contested: live.length > 0,
-    open, answered, resolved,
+    open, answered, resolved, withdrawn,
     grounds: [...new Set(live.map((c) => c.ground))],
     summary,
   };
