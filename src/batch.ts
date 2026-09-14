@@ -148,7 +148,20 @@ export const buildBatch = async (
  * network at all.
  */
 export const verifyInclusion = async (proof: InclusionProof): Promise<boolean> => {
+  // A malformed proof does not verify; it does not throw. A proof file is something a
+  // holder keeps for years and hands to an examiner, so it arrives truncated, edited
+  // or half-copied, and the obvious `if (!await verifyInclusion(p))` should report
+  // that rather than take the caller's process down. Reading .path off null or
+  // undefined did exactly that.
+  if (typeof proof !== 'object' || proof === null) return false;
+  if (typeof proof.commitment !== 'string' || typeof proof.root !== 'string') return false;
+  if (!Array.isArray(proof.path)) return false;
   if (proof.path.length > 64) return false;
+  for (const step of proof.path) {
+    if (typeof step !== 'object' || step === null) return false;
+    if (typeof step.sibling !== 'string' || typeof step.siblingIsLeft !== 'boolean') return false;
+  }
+
   let node = await hashLeaf(proof.commitment);
   for (const step of proof.path) {
     node = step.siblingIsLeft
