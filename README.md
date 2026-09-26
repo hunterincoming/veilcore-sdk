@@ -69,9 +69,10 @@ A commitment is plain SHA-256 over a canonical serialisation, so any implementat
 any language reproduces it. Anchoring to a chain is a separate step, and only that step
 is chain-specific.
 
-Three independent implementations pass the same 41 conformance vectors: this package
-(TypeScript), a Python implementation in `conformance/impl.py`, and a Rust
-implementation at https://github.com/hunterincoming/veilcore-rs
+Three implementations in different languages pass the same 41 conformance vectors: this
+package (TypeScript), a Python implementation in `conformance/impl.py`, and a Rust
+implementation at https://github.com/hunterincoming/veilcore-rs. All three have the same
+author. An implementation by an unrelated party is the test this format still needs.
 
 ```
 npm test
