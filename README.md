@@ -121,7 +121,7 @@ A commitment is worthless if two implementations hash the same record differentl
 ## The record shape
 
 Three layers. The **envelope** is domain-blind: no field in it names a crop, an animal,
-or a cannabis concept. The **profile** carries the subject fields. The **disclosure
+or any subject-specific concept. The **profile** carries the subject fields. The **disclosure
 vocabulary** names what a holder can grant.
 
 The test for any proposed envelope field: would a Dutch orchid propagator, a wagyu herd
@@ -133,7 +133,7 @@ Write a JSON schema listing your fields, publish it at a path you control, and n
 `profile`. There is no registry of profiles, because a registry of profiles is a body
 that can refuse one.
 
-Published here: `plant-variety-v1`, `seed-lot-v1` and `cannabis-v0.1`.
+Published here: `plant-variety-v1`, `seed-lot-v1`, `tissue-culture-accession-v1` and `cannabis-v0.1`.
 
 ---
 

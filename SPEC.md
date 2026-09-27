@@ -30,7 +30,7 @@ The obvious remedies fail in specific ways.
 
 **Registering with a central authority** requires an authority to exist, to be trusted by every party to a future dispute, and to still exist when the dispute arises. Rights in plant material run twenty-five to thirty years.
 
-**And a mandate does not by itself produce evidence.** In December 2025 a US court found California's cannabis track-and-trace system non-compliant with its enabling statute. The statute requires the database to be designed to flag irregularities for investigation; the court held that generating large volumes of reports and raw transaction data does not satisfy it, because nothing identifies irregular activity by objective criteria and analysts review manually without an established definition of what an irregularity is. A final judgment in August 2026 gave the department six months to define those criteria. Universal mandate, RFID on every plant, eight years, and a system that records without establishing anything.
+**And a mandate does not by itself produce evidence.** Record-keeping rules say that records must exist; they rarely say how anyone later establishes that a record existed when it claims to. The Recommended Uniform State Seed Law, the model law maintained for US states, requires a complete record for each lot - its origin, treatment, germination, purity, kind and variety - and attaches no evidentiary standard to it. The records exist; what they prove depends on who is asked to believe them.
 
 This specification describes a form of record that fixes a date without storage, without disclosure, without a trusted authority, and which produces an answer rather than a document to be interpreted.
 
@@ -48,7 +48,7 @@ A record has three layers. This separation is what allows the format to be used 
 
 **The envelope** is domain-blind. No field in it names a crop, an animal, a plant part, or any subject-specific concept. The test for any proposed envelope field is whether an ornamental propagator, a livestock herd book, and a microbial culture collection would all need it.
 
-**The profile** carries the subject fields. A profile is identified by a versioned string and defined by a JSON schema its publisher maintains. The cannabis profile is one profile; a body working with fruit varieties or livestock defines its own and reuses everything else.
+**The profile** carries the subject fields. A profile is identified by a versioned string and defined by a JSON schema its publisher maintains. The plant-variety profile is one profile; a body working with fruit varieties or livestock defines its own and reuses everything else.
 
 **The disclosure vocabulary** names what a holder may grant to a recipient, so that holder, recipient and any adjudicator describe the same disclosure in the same words.
 
@@ -528,11 +528,11 @@ Domains lapse. A registry that closes in 2031 leaves its domain to be bought by 
 
 ## 11.6 - Profiles, and who governs them
 
-A profile defines the subject fields for a domain. The cannabis profile is one; a body working with fruit varieties, ornamentals or livestock defines its own.
+A profile defines the subject fields for a domain. The plant-variety profile is one; a body working with fruit varieties, ornamentals or livestock defines its own.
 
 **Nobody grants permission to define a profile.** A profile is identified by an authority and a name, resolved the same way a record is:
 
-    veilcore/profile/cannabis/v0.1        published by the authors of this specification
+    veilcore/profile/plant-variety/v1     published by the authors of this specification
     jp.go.maff/profile/variety/v1         published by whoever controls jp.go.maff
 
 An authority publishes a JSON schema at a path it controls, and any implementation can fetch it. There is no registry of profiles, because a registry of profiles is a body that can refuse one.
