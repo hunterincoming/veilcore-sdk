@@ -46,6 +46,17 @@ const canonicalCases = [
   { name: 'negative exponent uses ECMAScript form, not zero-padded', input: { n: 1e-7 } },
   { name: 'decomposed key is normalised to NFC before sorting', input: { 'e\u0301': 1 } },
   { name: 'integers within the safe range', input: { a: 0, b: -1, c: 9007199254740991 } },
+  // Added October 2026 after a three-way differential run (27,000 inputs) found the
+  // TypeScript, Python and Rust implementations disagreeing on numbers and on unpaired
+  // surrogates. Given as JSON text, because what matters is how each implementation reads
+  // the text: JSON has no way to write 95.0 that survives a JavaScript round trip.
+  { name: 'a float with an integral value serialises as an integer (95.0)', inputText: '{"germinationPercent":95.0}' },
+  { name: 'exponent input below 1e21 serialises in full (1e15)', inputText: '{"n":1e15}' },
+  { name: 'small numbers use ECMAScript exponent form (1.5e-7)', inputText: '{"n":1.5E-7}' },
+  { name: 'shortest digits that round-trip (0.1, 92.5, 12.75)', inputText: '{"a":0.1,"b":92.5,"c":12.75}' },
+  { name: 'negative zero serialises as 0', inputText: '{"n":-0.0}' },
+  { name: 'the largest safe integer, written as a float', inputText: '{"n":9007199254740991.0}' },
+  { name: 'a surrogate pair written as escapes is one character', inputText: '{"k":"\\ud83d\\ude00"}' },
 ];
 
 const commitmentCases = [
@@ -105,8 +116,45 @@ const rejectionCases = [
   },
   {
     name: 'non-finite numbers are invalid',
-    construct: 'non-finite',
-    reason: 'spec 4.4 rule 8. Not expressible in JSON, so the runner constructs it.',
+    // As text: a value built in JavaScript and sent through JSON.stringify arrives as
+    // null, so the CLI runner was testing null rejection under this name.
+    inputText: '{"n":1e999}',
+    reason: 'spec 4.4 rule 8. 1e999 overflows a double to infinity.',
+  },
+  {
+    name: 'an integer above 2^53 - 1 is invalid',
+    inputText: '{"n":9007199254740992}',
+    reason: 'spec 4.4 rule 8. JavaScript rounds 9007199254740993 to this value and Python keeps it exact.',
+  },
+  {
+    name: 'a large integer written in full is invalid',
+    inputText: '{"n":123456789012345678}',
+    reason: 'spec 4.4 rule 8',
+  },
+  {
+    name: 'a float above 2^53 - 1 is invalid (1e16)',
+    inputText: '{"n":1e16}',
+    reason: 'spec 4.4 rule 8',
+  },
+  {
+    name: 'a negative number below -(2^53 - 1) is invalid',
+    inputText: '{"n":-1.5e300}',
+    reason: 'spec 4.4 rule 8',
+  },
+  {
+    name: 'an unpaired high surrogate is invalid',
+    inputText: '{"k":"X\\ud800"}',
+    reason: 'spec 4.4 rule 1. It has no UTF-8 form; an encoder substitutes U+FFFD, so different strings would commit alike.',
+  },
+  {
+    name: 'an unpaired low surrogate is invalid',
+    inputText: '{"k":"\\udfff"}',
+    reason: 'spec 4.4 rule 1',
+  },
+  {
+    name: 'an unpaired surrogate in a key is invalid',
+    inputText: '{"\\ud800":1}',
+    reason: 'spec 4.4 rule 1',
   },
 ];
 
@@ -195,7 +243,11 @@ const out = {
 };
 
 for (const c of canonicalCases) {
-  out.canonicalisation.push({ name: c.name, input: c.input, expected: canonicalise(c.input) });
+  if (c.inputText !== undefined) {
+    out.canonicalisation.push({ name: c.name, inputText: c.inputText, expected: canonicalise(JSON.parse(c.inputText)) });
+  } else {
+    out.canonicalisation.push({ name: c.name, input: c.input, expected: canonicalise(c.input) });
+  }
 }
 
 for (const c of commitmentCases) {
@@ -217,9 +269,15 @@ for (const c of batchCases) {
 
 for (const c of rejectionCases) {
   const v = { name: c.name, reason: c.reason };
-  if (c.construct) v.construct = c.construct;
+  if (c.inputText !== undefined) v.inputText = c.inputText;
   else v.input = c.input;
   out.rejections.push(v);
+}
+
+// Built before the shrink check below, which otherwise saw an empty attestations section
+// and refused every run.
+for (const c of attestationCases) {
+  out.attestations.push({ name: c.name, attestation: c.attestation, expectedPayload: attestationPayload(c.attestation) });
 }
 
 // Refuse to shrink the suite. A generated file that quietly drops vectors reports success
@@ -244,10 +302,6 @@ try {
   }
 } catch (e) {
   if (e?.code !== 'ENOENT') throw e; // no existing file is fine; anything else is not
-}
-
-for (const c of attestationCases) {
-  out.attestations.push({ name: c.name, attestation: c.attestation, expectedPayload: attestationPayload(c.attestation) });
 }
 
 writeFileSync(target, JSON.stringify(out, null, 2));

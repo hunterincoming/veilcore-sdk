@@ -16,6 +16,49 @@ import sys
 import unicodedata
 
 
+MAX_SAFE = 2**53 - 1
+
+
+def _number(value):
+    """
+    Serialise a number per RFC 8785 3.2.2.3: ECMAScript's Number.prototype.toString.
+
+    JSON gives no way to tell 95 from 95.0, and JavaScript cannot, so a float with an
+    integral value serialises as an integer. Magnitudes above 2^53 - 1 are invalid (spec
+    4.4 rule 8): past it a double no longer holds every integer, and implementations that
+    keep big integers exactly disagree with those that round.
+    """
+    if isinstance(value, float) and (value != value or value in (float("inf"), float("-inf"))):
+        raise ValueError("non-finite numbers cannot be committed")
+    if abs(value) > MAX_SAFE:
+        raise ValueError("numbers above 2^53 - 1 in magnitude cannot be committed: use a string (spec 4.4 rule 8)")
+    if isinstance(value, int):
+        return str(value)
+    if value == 0:
+        return "0"  # covers -0.0, which ECMAScript writes as 0
+    # repr() is the shortest round-trip digits, as ECMAScript's are. Re-lay them out
+    # by the ECMAScript rules (Number::toString, steps 6-10).
+    sign = "-" if value < 0 else ""
+    mantissa, _, exp = repr(abs(value)).partition("e")
+    whole, _, frac = mantissa.partition(".")
+    digits = (whole + frac).lstrip("0")
+    point = len(whole) + (int(exp) if exp else 0)  # position of the point in whole+frac
+    lead = len(whole + frac) - len((whole + frac).lstrip("0"))
+    n = point - lead  # ECMAScript's n: value = 0.digits * 10^n
+    digits = digits.rstrip("0") or "0"
+    k = len(digits)
+    if k <= n <= 21:
+        out = digits + "0" * (n - k)
+    elif 0 < n <= 21:
+        out = digits[:n] + "." + digits[n:]
+    elif -6 < n <= 0:
+        out = "0." + "0" * (-n) + digits
+    else:
+        e = n - 1
+        out = digits[0] + ("." + digits[1:] if k > 1 else "") + "e" + ("+" if e >= 0 else "-") + str(abs(e))
+    return sign + out
+
+
 def canonicalise(value):
     """
     Canonical serialisation, per specification section 4.4.
@@ -33,19 +76,7 @@ def canonicalise(value):
         return "false"
 
     if isinstance(value, (int, float)):
-        if isinstance(value, float):
-            if value != value or value in (float("inf"), float("-inf")):
-                raise ValueError("non-finite numbers cannot be committed")
-            # RFC 8785 3.2.2.3: ECMAScript shortest round-trip. Python pads exponents
-            # to two digits and ECMAScript does not, so 1e-07 becomes 1e-7.
-            out = repr(value)
-            if "e" in out:
-                mantissa, exponent = out.split("e")
-                sign = "-" if exponent.startswith("-") else ""
-                digits = exponent.lstrip("+-").lstrip("0") or "0"
-                out = f"{mantissa}e{sign}{digits}"
-            return out
-        return str(value)
+        return _number(value)
 
     if isinstance(value, str):
         return _escape(unicodedata.normalize("NFC", value))
@@ -84,6 +115,9 @@ def _escape(s):
     out = ['"']
     for ch in s:
         c = ord(ch)
+        if 0xD800 <= c <= 0xDFFF:
+            # An unpaired surrogate has no UTF-8 form (spec 4.4 rule 1).
+            raise ValueError("a string with an unpaired surrogate cannot be committed: it is not valid Unicode")
         if ch == '"':
             out.append('\\"')
         elif ch == "\\":

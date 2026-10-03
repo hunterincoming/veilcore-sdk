@@ -170,7 +170,7 @@ A commitment is worthless if two implementations serialise the same record diffe
 
 These rules follow **RFC 8785 (JSON Canonicalization Scheme)** where they overlap with it. Where this specification is stricter, it says so.
 
-1. **UTF-8**, normalised to **Unicode NFC** — **both keys and string values**. Normalise before sorting. If two keys in the same object are equal after normalisation, **the record is invalid**; an implementation shall reject it rather than pick one, because picking one means two implementations pick differently.
+1. **UTF-8**, normalised to **Unicode NFC** — **both keys and string values**. Normalise before sorting. If two keys in the same object are equal after normalisation, **the record is invalid**; an implementation shall reject it rather than pick one, because picking one means two implementations pick differently. **A string containing an unpaired surrogate is invalid** (keys included): it has no UTF-8 form, an encoder that substitutes U+FFFD makes different strings commit alike, and some languages cannot represent it at all.
 
 2. **Object keys sorted by Unicode code point.** **This is not JavaScript's default sort**, which compares UTF-16 code units and orders characters above U+FFFF incorrectly relative to characters in the range U+E000–U+FFFF. An implementation in JavaScript shall sort by code point explicitly. This is a real divergence, not a theoretical one: `{"｡":1,"😀":2}` orders differently under the two rules.
 
@@ -184,7 +184,7 @@ These rules follow **RFC 8785 (JSON Canonicalization Scheme)** where they overla
 
 7. **Strings** escaped per RFC 8785 section 3.2.2.2 — the shortest escaping, using the two-character forms where they exist and lowercase `\uXXXX` otherwise.
 
-8. **Numbers** are serialised per RFC 8785 section 3.2.2.3, which is ECMAScript's shortest round-trip representation. `1e-7` serialises as `1e-7`, never `1e-07`. Non-finite values are invalid.
+8. **Numbers** are serialised per RFC 8785 section 3.2.2.3, which is ECMAScript's shortest round-trip representation. `1e-7` serialises as `1e-7`, never `1e-07`; `95.0` serialises as `95`, since JSON cannot distinguish them and JavaScript does not. Non-finite values are invalid. **A number whose magnitude exceeds 2^53 − 1 (9007199254740991) is invalid**, integer or not: beyond it a double no longer holds every integer, and an implementation that reads big integers exactly disagrees with one that rounds them. Such a value belongs in a string. This is stricter than RFC 8785.
 
    **A profile may require integers.** Where a value carries a laboratory measurement, a profile publisher should consider requiring it as a string rather than a float: implementations agree on integers within ±2^53 and on strings, and every remaining disagreement about numbers lives in the space between.
 

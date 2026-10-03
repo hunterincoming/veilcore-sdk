@@ -41,7 +41,7 @@ if (typeof impl.computeCommitment !== 'function') {
 console.log('Canonicalisation');
 for (const v of vectors.canonicalisation) {
   let actual;
-  try { actual = impl.canonicalise(v.input); } catch (e) { actual = `threw: ${e.message}`; }
+  try { actual = impl.canonicalise(v.inputText !== undefined ? JSON.parse(v.inputText) : v.input); } catch (e) { actual = `threw: ${e.message}`; }
   check('canonicalisation', v.name, v.expected, actual);
   console.log(`  ${v.expected === actual ? 'PASS' : 'FAIL'}  ${v.name}`);
 }
@@ -59,10 +59,9 @@ for (const v of vectors.commitments) {
 // August 2026 external review actually lived.
 console.log('\nRejections');
 for (const v of vectors.rejections ?? []) {
-  const input = v.construct === 'non-finite' ? { n: Infinity } : v.input;
   let rejected = false;
   try {
-    impl.canonicalise(input);
+    impl.canonicalise(v.inputText !== undefined ? JSON.parse(v.inputText) : v.input);
   } catch {
     rejected = true;
   }

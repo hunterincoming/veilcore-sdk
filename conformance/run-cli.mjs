@@ -39,7 +39,9 @@ const vectors = JSON.parse(readFileSync(new URL('./vectors.json', import.meta.ur
 //   ok       the implementation answered, and this is its answer
 //   refused  the implementation said no, deliberately
 //   broken   the implementation did not run, or answered with something unreadable
-const ask = (op, input) =>
+// `inputText` is sent as written, not re-serialised: JSON.stringify turns 95.0 into 95
+// and Infinity into null, which is exactly the difference some vectors exist to test.
+const ask = (op, input, inputText) =>
   new Promise((resolve) => {
     const [bin, ...args] = cmd.split(' ');
     const p = spawn(bin, args, { cwd: fileURLToPath(new URL('..', import.meta.url)) });
@@ -79,7 +81,9 @@ p.stdout.on('data', (d) => (out += d));
       resolve({ kind: 'broken', why: `no output, exit code ${code}` });
     });
 
-    p.stdin.write(JSON.stringify({ op, input }));
+    p.stdin.write(
+      inputText !== undefined ? `{"op":${JSON.stringify(op)},"input":${inputText}}` : JSON.stringify({ op, input }),
+    );
     p.stdin.end();
   });
 
@@ -105,7 +109,7 @@ const failures = [];
 
 console.log('Canonicalisation');
 for (const v of vectors.canonicalisation) {
-  const r = await ask('canonicalise', v.input);
+  const r = await ask('canonicalise', v.input, v.inputText);
   const ok = r.kind === 'ok' && r.value === v.expected;
   ok ? pass++ : failures.push({
     name: v.name,
@@ -160,8 +164,7 @@ for (const v of vectors.inclusion ?? []) {
 // validation path survived review.
 console.log('\nRejections');
 for (const v of vectors.rejections ?? []) {
-  const input = v.construct === 'non-finite' ? { n: 1e999 } : v.input;
-  const r = await ask('canonicalise', input);
+  const r = await ask('canonicalise', v.input, v.inputText);
   const ok = r.kind === 'refused';
   ok ? pass++ : failures.push({
     name: v.name,

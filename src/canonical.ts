@@ -41,7 +41,13 @@ const nfc = (s: string): string => s.normalize('NFC');
  */
 const num = (n: number): string => {
   if (!Number.isFinite(n)) throw new Error('non-finite numbers cannot be committed');
-  if (Number.isInteger(n) && Math.abs(n) < 1e21) return String(n);
+  // Spec 4.4 rule 8: magnitudes above 2^53 - 1 are invalid. Past it, integers stop being
+  // exact in a double, so a parser that keeps big integers exactly (Python, Rust) and one
+  // that rounds them (JavaScript) commit different values for the same text. Such a
+  // value belongs in a string.
+  if (Math.abs(n) > Number.MAX_SAFE_INTEGER) {
+    throw new Error('numbers above 2^53 - 1 in magnitude cannot be committed: use a string (spec 4.4 rule 8)');
+  }
   return String(n);
 };
 
@@ -50,6 +56,12 @@ const str = (s: string): string => {
   let out = '"';
   for (const ch of nfc(s)) {
     const c = ch.codePointAt(0) as number;
+    // Iterating by code point leaves an unpaired surrogate as a lone unit. It has no
+    // UTF-8 form: an encoder replaces it with U+FFFD, so three different strings would
+    // hash alike, and Python and Rust cannot represent it at all. Spec 4.4 rule 1.
+    if (c >= 0xd800 && c <= 0xdfff) {
+      throw new Error('a string with an unpaired surrogate cannot be committed: it is not valid Unicode (spec 4.4 rule 1)');
+    }
     if (ch === '"') out += '\\"';
     else if (ch === '\\') out += '\\\\';
     else if (ch === '\b') out += '\\b';
