@@ -15,16 +15,21 @@ lives in a Test Guideline. We have the same problem and the same answer.
 method, sport origin, maturity group. Six fields, because everything else a plant breeder
 records is either universal or crop-specific.
 
-**`cannabis-v0.1.json`** — plant varieties plus phenotype selection and chemotype. Two
-extra fields, published as a demonstration that a domain can extend without permission
-and without anything upstream changing.
-
 **`seed-lot-v1.json`** — a lot, not a variety. The seed world certifies per lot: ISTA
 issues one certificate per lot, the OECD schemes label per lot, and a certifying agency's
 determination attaches to a lot rather than to the variety it belongs to. Extends nothing,
 because a lot is not a kind of variety; the link to the variety is a parent. Generation
 classes — breeder, foundation, registered, certified — are a descent chain of lots rather
 than four independent grades, so declared descent already carries them.
+
+**`tissue-culture-accession-v1.json`** — an accession in culture, not a variety. What a
+laboratory records once it takes custody of material: stage, generation depth, explant
+type, a reference to a medium it does not disclose, indexing status. Extends nothing; the
+link to the variety is a parent.
+
+**`cannabis-v0.1.json`** — plant varieties plus phenotype selection and chemotype. Two
+extra fields, published as an example of extension: a domain can extend the plant
+profile without permission and without anything upstream changing.
 
 ## Why they are small
 

@@ -54,6 +54,7 @@ test('a package passes its own verify.py with plain Python, and the TypeScript c
   const ts = await verifyEvidencePackage(files);
   assert.equal(ts.ok, true, JSON.stringify(ts.checks));
   assert.match(new TextDecoder().decode(files['README.txt']), /does not establish/i);
+  assert.match(new TextDecoder().decode(files['README.txt']), /TEST NETWORK: the ledger anchor is on midnight preprod/);
 });
 
 test('changing any byte of the record is caught by both checkers', async () => {

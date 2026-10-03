@@ -1,8 +1,8 @@
 # The VeilCore Record Format
 
-**A specification for evidence of prior possession of genetic material**
+**A specification for evidence of prior possession of plant genetic material**
 
-Version 0.1 - August 2026
+Version 0.1 - August 2026, revised October 2026
 
 ---
 
@@ -10,7 +10,7 @@ Version 0.1 - August 2026
 
 This is a draft specification, published for comment. It describes a record format and a verification procedure. It is not a description of a product.
 
-**The format is open.** Anyone may implement it. There is no licence fee, no certification requirement, and no dependency on any company for the format to function. Three implementations - in TypeScript, Python and Rust - pass the same conformance vectors. All three have the same author, so they show the vectors hold across languages, not that a third party can implement the format from this document alone. The evidence for that is narrower: a language model given only §§5–5.5, with no code and no vectors, wrote batch construction that reproduced every published batch root and inclusion vector. An implementation by an unrelated party is the test this document most needs. The vectors cover canonicalisation, commitment computation, inclusion proofs, rejections and attestation payloads; corrections and resolution are implemented in the reference implementation and are not yet part of the vector set.
+**The format is open.** Anyone may implement it. There is no licence fee, no certification requirement, and no dependency on any company for the format to function. Three implementations - in TypeScript, Python and Rust - pass the same 95 conformance vectors. All three have the same author, so they show the vectors hold across languages, not that a third party can implement the format from this document alone. The evidence for that is narrower: a language model given only §§5–5.5, with no code and no vectors, wrote batch construction that reproduced every published batch root and inclusion vector. An implementation by an unrelated party is the test this document most needs. The vectors cover canonicalisation, commitment computation, inclusion proofs, rejections, attestation payloads and field sets; corrections and resolution are implemented in the reference implementation and are not yet part of the vector set.
 
 **Verification is free and requires no account, permanently.** This is a design constraint rather than a pricing decision: a record whose verification can be withheld is not evidence.
 
@@ -38,7 +38,7 @@ This specification describes a form of record that fixes a date without storage,
 
 ## 2 - How it works, in five sentences
 
-The holder writes down what they possess, in a defined structure. That description is hashed on the holder's own equipment, together with a random value, producing a **commitment** - a 32-byte number which reveals nothing about the description and which could not have been produced from a different description. Only the commitment is published; the description never leaves the holder's possession. Later, to prove what they held, the holder produces the description and any party can recompute the commitment and compare it to the published one. If the two match, the description is the one that existed when the commitment was published.
+The holder writes down what they possess, in a defined structure. That description is hashed on the holder's own equipment, together with a random value, producing a **commitment** - a 32-byte number which reveals nothing about the description and which no one can feasibly produce from a different description. Only the commitment is published; the description never leaves the holder's possession. Later, to prove what they held, the holder produces the description and any party can recompute the commitment and compare it to the published one. If the two match, the description is the one that existed when the commitment was published.
 
 ---
 
@@ -85,7 +85,7 @@ Fields: `chain`, `network`, and optionally `contractAddress`, `txHash`, `blockHe
 | `ledger` | The commitment, or a batch root containing it, published in a public chain | No general presumption. Italy's Law 12/2019, Art. 8-ter, gives distributed-ledger timestamps the effect of an ordinary eIDAS electronic timestamp (Art. 41(1): not denied effect, no presumption), subject to technical standards; Chinese courts have accepted blockchain evidence since 2018; US courts authenticate under FRE 901(b)(9) and 902(13)-(14) |
 | `rfc3161` | A signed timestamp token from a Time Stamping Authority | Where the TSA is a Qualified Trust Service Provider on an EU trusted list, eIDAS Article 41(2) gives the qualified timestamp a presumption of accuracy (Article 42 sets what makes it qualified), and the burden falls on whoever disputes the date |
 | `notarial` | A timestamp applied by a notary or equivalent officer | Follows local rules on notarial acts |
-| `opentimestamps` | An OpenTimestamps proof (`.ots`) that the commitment, or a batch root containing it, existed by the time of a Bitcoin block. Fields: `stamps` (what file was stamped: for a batch, the root as 32 raw bytes), `ots` (the file, base64 or a URL), `calendars` | No general presumption. Independent of the issuer and of any other chain; Chinese courts check consistency across chains, and a French court accepted a blockchain timestamp as evidence of authorship in 2025 (Tribunal judiciaire de Marseille, 20 March 2025). A fresh proof is pending until the calendar's Bitcoin transaction confirms |
+| `opentimestamps` | An OpenTimestamps proof (`.ots`) that the commitment, or a batch root containing it, existed by the time of a Bitcoin block. Fields: `stamps` (what file was stamped: for a batch, the root as 32 raw bytes), `ots` (the file, base64 or a URL), `calendars` | No general presumption. Independent of the issuer and of any other chain; a French court accepted a blockchain timestamp as evidence of authorship in 2025 (Tribunal judiciaire de Marseille, 20 March 2025). A fresh proof is pending until the calendar's Bitcoin transaction confirms |
 
 An anchor with no `kind` is `ledger`, so records written before this field existed remain valid.
 
@@ -221,7 +221,7 @@ where `numericMask` names every `uint` slot. Because the masks and `k` are insid
 - a `text` value: SHA-256 of its UTF-8 after NFC normalisation (text containing an unpaired surrogate shall be refused);
 - an absent value: 32 zero bytes.
 
-**The present-marker in byte 8 is required.** Without it the number 0 and an absent value would be identical, and a record with no test result could prove "at most 0.3%".
+**The present-marker in byte 8 is required.** Without it the number 0 and an absent value would be identical, and a record with no germination test could prove "at most 0.5% other-crop seed".
 
 A value shall match its slot's declared type, and a slot the schema does not describe shall be absent. In the vectors a value is written `{"uint": "<decimal, no leading zeros>"}`, `{"text": "..."}` or `null`.
 
@@ -243,7 +243,7 @@ Because `fieldSetRoot` is in the JSON, anyone shown the JSON sees which field se
 
 **An opening** of slot *i* is its value, its salt, and the four sibling hashes from its leaf to the tree root, with the slot's bits (least significant first) saying on which side each sibling sits.
 
-**Claims** (reference: the VeilCore claims contract and `docs/claims-design.md` in the VeilCore repository) are proved against the record commitment and published on the ledger:
+**Claims** (reference: the VeilCore claims contract and its design note, forthcoming: neither is published or deployed yet) are proved against the record commitment and published on the ledger:
 
 - **value**: slot *i* holds a stated value. The value is published: this establishes authenticity, never confidentiality.
 - **range**: a `uint` slot is at least, or at most, a bound. The number is not published.
@@ -509,6 +509,8 @@ Stated plainly, because a claim that overreaches is worse than no claim.
 
 **It does not establish that the record is true.** A commitment proves that a description existed on a date and is unaltered. It does not establish that the description is accurate. Accuracy comes from attestations by parties with something to lose.
 
+**It establishes prior possession of the record, not of material.** What is shown is that a party held this description, with its nonce, by the date of the anchor. It does not show that any material is the subject described, or that material was ever in their hands.
+
 **It does not identify material physically.** Whether a specimen is the subject described requires comparison of characteristics or genetic analysis. What the record establishes is that the description, and any analysis attached to it, existed before the dispute - which is what makes a later comparison meaningful rather than circular.
 
 **It does not establish that anything still exists.** Inspection is the only answer to that.
@@ -554,7 +556,7 @@ Recorded because they explain choices that would otherwise look arbitrary, and b
 
 **Verification is free and requires no account, permanently.** A record whose verification can be withheld is not evidence. Fees may attach to creating a record; never to checking one.
 
-**The format itself is free to implement, permanently.** There is no licence fee for using this specification and no permission required. Certification that an implementation is conformant is a separate service, offered by the authors and by anyone else who cares to offer it; the conformance vectors are published, so any party can test any implementation without asking. A format that charges for its own use does not become infrastructure.
+**The format itself is free to implement, permanently.** There is no licence fee for using this specification and no permission required. Certification that an implementation is conformant would be a separate service that anyone could offer; none is offered today. The conformance vectors are published, so any party can test any implementation without asking. A format that charges for its own use does not become infrastructure.
 
 **The subject never leaves the holder.** Only commitments and document hashes are published.
 
@@ -661,7 +663,7 @@ This document is published for comment, and specific correction is more useful t
 
 **Implementations:** TypeScript (reference, published under Apache 2.0 with the conformance vectors), Python, and Rust. All three pass the same vectors.
 
-**Contact:** Hunter Roberts, VeilCore - hunterfrancisroberts@gmail.com
+**Contact:** Hunter Roberts, VeilCore - hunter@veilcore.org
 
 ---
 

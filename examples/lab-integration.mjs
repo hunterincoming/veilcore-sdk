@@ -7,8 +7,8 @@
 // Nothing here touches a VeilCore account, and no sample description is sent
 // anywhere. Run it with:
 //
-//     npm install veilcore-records
-//     node lab-integration.mjs
+//     npm install && npm run build      (in a clone of this repository)
+//     node examples/lab-integration.mjs
 //
 // SPDX-License-Identifier: Apache-2.0
 

@@ -16,8 +16,8 @@
 // the disclosure actually sits. It runs with nothing but this package - no
 // account, no network, no ledger:
 //
-//     npm install veilcore-records
-//     node distinctness.mjs
+//     npm install && npm run build      (in a clone of this repository)
+//     node examples/distinctness.mjs
 //
 // SPDX-License-Identifier: Apache-2.0
 
@@ -194,13 +194,12 @@ console.log(`
    Establishing distinctness WITHOUT the examiner seeing either panel needs a
    per-field commitment scheme: each locus committed as a leaf under a sealed
    root, so a claim can be proven about the panel while every value stays
-   closed. Section 12 of the specification describes that as not yet specified
-   here, and states what specifying it would have to settle.
-
-   An independent implementation of that shape exists and has been exercised
-   against records in this format. It establishes that two sealed panels differ
-   at k or more loci - a threshold the examiner sets - without disclosing a
-   single value.
+   closed. Section 4.5 of the specification defines one: field sets, up to
+   sixteen values per record. A "distinct" claim over them establishes that two
+   sealed panels differ in at least k comparable values - a threshold fixed in the
+   published schema - without disclosing a single value. It is reported as a
+   count, never as a determination of distinctness, which is the office's. The
+   claims contract that proves it is not yet published or deployed.
 
    Two properties of it are worth knowing before an office relies on one.
 
@@ -218,7 +217,7 @@ console.log(`
    do not have.
 
    Verification does not require us. The result is recorded in state a verifier
-   reads directly, so an office confirms a determination years later without
+   reads directly, so an office confirms the claim years later without
    asking anyone - which is the same constraint as section 11: a record must
    survive its registry.`);
 

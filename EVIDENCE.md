@@ -2,21 +2,21 @@
 
 **What a client can establish, how it is proved, and what it does not prove**
 
-Version 0.1 - August 2026 - draft for comment
+Version 0.1 - August 2026, revised October 2026 - draft for comment
 
 ---
 
 ## Summary
 
-VeilCore is a records system for genetic material - plant varieties, breeding lines, cultures. It lets a holder establish four things that are ordinarily difficult or impossible to establish without disclosing the material itself:
+VeilCore is a records system for plant genetics - plant varieties, breeding lines, seed lots, cultures. It lets a holder establish four things that are ordinarily difficult or impossible to establish without disclosing the material itself:
 
 **That they held it, from a date.** Provable to a third party, without revealing what "it" is.
 
-**What it descends from, and what obligations came with it.** Including obligations that bind offspring which do not yet exist.
+**What it descends from, and what obligations came with it.** Including obligations that carry to offspring declared as descendants later.
 
 **What a second party confirmed about it.** A laboratory's receipt, its report, signed by the laboratory and retractable only by them.
 
-**What terms a counterparty agreed to, and whether those terms are still live.** Countersigned, bound to the material, and revocable - with the revocation visible to anyone who checks.
+**What terms a counterparty agreed to, and whether those terms are still live.** Countersigned, bound to the record, and revocable - with the revocation visible to anyone who checks.
 
 Each of these is separately disclosable. A holder decides which facts a given recipient sees. **The genetics themselves are never disclosable through the system at all.**
 
@@ -34,21 +34,21 @@ The alternatives are worse. Depositing a specimen requires storage that is infea
 
 **What VeilCore provides:** the holder describes the material and commits to that description - a 32-byte hash, published, revealing nothing. Later they produce the description and anyone can confirm it is the one committed to.
 
-**And they can prove it without producing it.** A zero-knowledge circuit lets a holder demonstrate they know the secret behind a published commitment without revealing the secret. In practice: a breeder can satisfy a counterparty that they hold the material a record describes, while the description stays private.
+**And they can prove it without producing it.** A zero-knowledge circuit lets a holder demonstrate they know the secret behind a published commitment without revealing the secret. In practice: a breeder can satisfy a counterparty that they hold the record behind a published commitment, and so held it by the commitment's date, while the description stays private. That is possession of the record, not proof that any material is the subject it describes (section 4).
 
 **Why this matters commercially:** a breeding programme makes hundreds of selections annually, most of which will never be registered and any of which might later need defending. Committing all of them costs almost nothing. Choosing in advance which will matter is not possible.
 
-### 1.2 Identity bound to genetics, not to a name
+### 1.2 A laboratory report bound to the record, not just a name
 
-A record can bind a laboratory's genetic analysis to itself: the report is hashed, the hash committed with the record, and the report never leaves the holder.
+A record can bind a laboratory's genetic analysis to itself: the report file is hashed, the hash committed with the record, and the report never leaves the holder.
 
-The consequence is that a claim attaches to genetics rather than to a cultivar name. Names are reused, renamed and disputed; a genetic fingerprint is not. Where two parties claim the same material, the fingerprints either match or they do not, and the earlier committed record is identifiable.
+The consequence is that a claim rests on a specific analysis rather than only on a cultivar name, which is reused, renamed and disputed. The hash identifies the report file, not the genotype: two reports on the same plant, from different laboratories or different runs, have unrelated hashes. Where two parties claim the same material, each produces the report they committed; the hashes show that each report is the one committed and which was committed first, and whether the material is the same is settled by comparing the reports' marker data.
 
 **What it does not do:** it does not sequence anything, and it does not tell you whether a plant in a field is the material described. That requires comparison against the actual sample. What the record establishes is that the description and the analysis existed before the dispute - which is what makes a later comparison meaningful rather than circular.
 
 ### 1.3 Descent, and obligations that travel with it
 
-A record can declare what it descends from. Where a licence carried an obligation on offspring - a royalty on descendants, a restriction on further propagation - that obligation attaches to the genetics rather than to the transaction.
+A record can declare what it descends from. Where a licence carried an obligation on offspring - a royalty on descendants, a restriction on further propagation - that obligation is recorded against the record, and reaches descendants that are declared from it, rather than ending with the transaction.
 
 **The practical problem this addresses:** genetic material is self-replicating. A licensee who buys a cutting can produce a thousand more, and the licensor is paid once. Terms that bind only the original transaction bind almost nothing.
 
@@ -68,11 +68,11 @@ A holder's own record is their own account. A second party confirming it is mate
 
 ### 1.5 Licensing, and revocation as the enforcement mechanism
 
-The system carries a full agreement lifecycle: draft, issued, countersigned by both parties, active, expired or revoked. Terms are bound to the record and to the genetic fingerprint, so what was licensed is not a matter of recollection.
+The system carries an agreement lifecycle: draft, issued, countersigned by both parties, active, expired or revoked. Terms name the record and the hash of any report bound to it, so what was licensed is not a matter of recollection.
 
 **Royalty obligations are recorded as live obligations** with a running owed amount. The system records what is owed; it does not process payments and does not hold funds.
 
-**Revocation is the enforcement mechanism, and it is worth understanding why.** Nobody can police an unreported grow - not the licensor, and not any records system. But a licensee whose licence is revoked cannot show clean title to the next buyer, the next laboratory, or any scheme that requires a record for entry. The licensor is not policing the plant. They are making the licensee's paper worthless.
+**Revocation is the enforcement mechanism, and it is worth understanding why.** Nobody can police an unreported grow - not the licensor, and not any records system. But a licensee whose licence is revoked cannot show a live licence to the next buyer, the next laboratory, or any scheme that requires a record for entry. The licensor is not policing the plant. They are making the licensee's paper worthless.
 
 This is the honest answer to "royalties on genetics are unenforceable." They are unenforceable by pursuit. They are enforceable by making non-compliance visible at the point where the licensee needs to prove something to someone else.
 
@@ -106,9 +106,9 @@ A party producing "a VeilCore record" is producing all three.
 
 **FRE 901(a)** requires evidence sufficient to support a finding that the item is what the proponent claims. The standard is permissive, and challenges to integrity ordinarily go to weight rather than admissibility.
 
-A VeilCore record has an unusual property here: **it authenticates itself arithmetically.** Given the record, anyone recomputes the hash and compares. There is no methodology to attack, no proprietary tool to validate, and no expert judgement to impeach.
+A VeilCore record has an unusual property here: **it authenticates itself arithmetically.** Given the record, anyone recomputes the hash and compares. The method is published and reproducible, and needs no proprietary tool or expert judgement; what remains open to challenge is narrower - the published serialisation rules and the anchor lookup.
 
-**FRE 901(b)(9) - evidence about a process or system** is the natural route. The process is SHA-256 over a published serialisation. Three independent implementations, in different programming languages, produce identical results on published test vectors - unusually strong support for the accuracy of the process.
+**FRE 901(b)(9) - evidence about a process or system** is the natural route. The process is SHA-256 over a published serialisation. Three implementations, in different programming languages, produce identical results on the published test vectors. All three were written by the same author, so they show the rules give one answer across languages; no third-party implementation exists yet.
 
 **FRE 902(13)** permits that foundation to be established by certification rather than live testimony. Note the limit the Advisory Committee states plainly: a 902(13) certification establishes authenticity only, and any hearsay exception must be established separately.
 
@@ -162,7 +162,7 @@ Stated plainly, because a party who overstates will be corrected in front of the
 
 **It does not identify physical material.** Whether a plant is the subject described requires comparison of characteristics or genetic analysis.
 
-**It does not prove possession.** It proves a party described material, and - where a zero-knowledge proof is offered - that they hold a secret bound to that description. It does not prove the material was ever in their hands.
+**It does not prove possession of material.** It proves prior possession of the record: that a party held a description, and its nonce, by the date the commitment was anchored, and - where a zero-knowledge proof is offered - that they still hold that secret. It does not prove that any material is the subject described, or that material was ever in their hands.
 
 **It does not prove anything still exists.** Inspection is the only answer to that.
 
@@ -178,7 +178,7 @@ Stated plainly, because a party who overstates will be corrected in front of the
 
 ## 5 - Corrections, retractions and challenges
 
-**Nothing is ever deleted.** A record is never edited and never voided. A correction issues a new record superseding the old, and both remain. An opponent can see what a record said before it was corrected - which is the price of the original remaining usable as evidence.
+**Corrections never delete.** A record is never edited and never voided. (A holder may remove a registry's copy of their own record; the commitment and any anchor remain.) A correction issues a new record superseding the old, and both remain. An opponent can see what a record said before it was corrected - which is the price of the original remaining usable as evidence.
 
 **Severity is classified, not chosen.** The system determines from which field changed whether descendants are affected and whether existing agreements are. A holder cannot mark their own correction harmless.
 
@@ -192,7 +192,7 @@ Stated plainly, because a party who overstates will be corrected in front of the
 
 ## 6 - Independence from the registry
 
-**Verification does not require the registry that issued a record, or its continued existence.** A holder with their record, nonce and proof verifies against the public ledger using open-source software.
+**Verification does not require the registry that issued a record, or its continued existence.** A holder with their record, nonce and proof verifies against the public ledger using open-source software. (VeilCore anchors are on test networks today; see section 8.)
 
 This matters for rights running twenty-five to thirty years. It also forecloses an argument an opponent would otherwise make - that the evidence depends on a commercial party with an interest in the outcome.
 
@@ -224,7 +224,9 @@ The detailed analysis is written against the United States Federal Rules of Evid
 
 **No VeilCore record has been offered in evidence anywhere.** The system is new. This describes how it is designed to be used, not how a court has treated it.
 
-Corrections to hunterfrancisroberts@gmail.com.
+**VeilCore is not yet anchored on a production network.** Anchors made so far are on test networks, which can be reset and carry no evidentiary weight. A date from a test-network anchor should not be relied on.
+
+Corrections to hunter@veilcore.org.
 
 ---
 
@@ -238,7 +240,7 @@ Indicative, not a form.
 2. The commitment is SHA-256 over a canonical serialisation defined in the published specification.
 3. Recomputing from the produced record yields the published value.
 4. That value appears in the identified transaction, block and time.
-5. The process is published and reproducible; three independent implementations agree on published test vectors.
+5. The process is published and reproducible; three implementations in different languages, all by the same author, agree on the published test vectors.
 
 **Hearsay foundation under 803(6), separately:**
 

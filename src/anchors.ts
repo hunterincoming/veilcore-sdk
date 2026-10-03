@@ -68,7 +68,7 @@ export const standingOf = (a: Anchor): AnchorStanding => {
     return {
       kind: 'opentimestamps',
       presumption: false,
-      note: `An OpenTimestamps proof that ${a.stamps ?? 'the commitment'} existed by the time of a Bitcoin block, through ${a.calendars?.length ? a.calendars.join(', ') : 'public calendar servers'}. Independent of VeilCore and of Midnight: check it with the OpenTimestamps client (ots verify) against Bitcoin. No general presumption attaches; Chinese courts check consistency across chains, and a French court accepted a blockchain timestamp as evidence of authorship in 2025. A fresh proof is pending until the calendar's transaction confirms (ots upgrade). Not checked here.`,
+      note: `An OpenTimestamps proof that ${a.stamps ?? 'the commitment'} existed by the time of a Bitcoin block, through ${a.calendars?.length ? a.calendars.join(', ') : 'public calendar servers'}. Independent of VeilCore and of Midnight: check it with the OpenTimestamps client (ots verify) against Bitcoin. No general presumption attaches; a French court accepted a blockchain timestamp as evidence of authorship in 2025. A fresh proof is pending until the calendar's transaction confirms (ots upgrade). Not checked here.`,
     };
   }
 

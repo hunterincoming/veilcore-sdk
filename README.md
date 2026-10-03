@@ -1,17 +1,26 @@
 # veilcore-records
 
-A breeder cannot prove a variety is theirs without showing the genetics. An examiner
+A breeder cannot prove they held a variety first without showing the genetics. An examiner
 cannot confirm a test was run without taking custody of data they would rather not hold.
 A laboratory cannot demonstrate chain of custody without exposing its client list. In
 each case the party holding the evidence has to overshare or establish nothing.
 
-This is an open record format for material whose value is bound up in what must stay
-private. You prove what you held and when, and prove a specific claim about it, without
-handing over the underlying data.
+This is an open record format for plant genetics, and other material whose value is
+bound up in what must stay private. You prove what you held and when, and prove a
+specific claim about it, without handing over the underlying data.
 
 **Verification requires SHA-256 and nothing from us.** No account, no service, no
 permission, no fee. A record outlives the party that issued it, the registry that
 listed it, and this package.
+
+> **The npm release lags this repository.** `veilcore-records` 0.13.0 on npm predates the
+> October 2026 number and string rules and fails 7 of the current conformance vectors.
+> Until 0.14 or later is published, clone and build:
+>
+> ```
+> git clone https://github.com/hunterincoming/veilcore-sdk
+> cd veilcore-sdk && npm install && npm run build
+> ```
 
 ---
 
@@ -21,7 +30,9 @@ listed it, and this package.
 npx veilcore-records verify record.json
 ```
 
-Reports whether the commitment holds, what the attestations establish, and what the
+From a clone of this repository, `node bin/veilcore.mjs verify record.json` does the same.
+
+It reports whether the commitment holds, what the attestations establish, and what the
 anchor does and does not date. Exit status is 0 when the answer is yes, 1 when it is no.
 `seal`, `diff`, `canonical` and `inclusion` are the other commands.
 
@@ -76,7 +87,7 @@ A commitment is plain SHA-256 over a canonical serialisation, so any implementat
 any language reproduces it. Anchoring to a chain is a separate step, and only that step
 is chain-specific.
 
-Three implementations in different languages pass the same 77 conformance vectors: this
+Three implementations in different languages pass the same 95 conformance vectors: this
 package (TypeScript), a Python implementation in `conformance/impl.py`, and a Rust
 implementation at https://github.com/hunterincoming/veilcore-rs. All three have the same
 author. An implementation by an unrelated party is the test this format still needs.
@@ -93,15 +104,15 @@ node conformance/run-cli.mjs "python3 conformance/impl.py"
 ```
 
 The vectors cover canonicalisation, commitments, what an implementation must REFUSE,
-the inclusion fold, the bytes an attester signs, and field sets (SPEC 4.5: sixteen values
-committed one by one, so a holder can later prove one fact about one value on chain
-without showing the rest). That last set was added in
-September 2026, after this implementation was found to sign an attester's key while
-leaving their display name and claimed accreditation outside the signature — anyone
-holding a genuine attestation could rewrite those and it still verified. Three
+the inclusion fold, the bytes an attester signs, and field sets. The attestation set was
+added in September 2026, after this implementation was found to sign an attester's key
+while leaving their display name and claimed accreditation outside the signature —
+anyone holding a genuine attestation could rewrite those and it still verified. Three
 implementations agreeing on how to hash a record says nothing about whether they
 agree on what a signature protects, and until there were vectors for it, nothing
-asked.
+asked. The field-set vectors (SPEC 4.5: sixteen values committed one by one, so a holder
+can later prove one fact about one value on chain without showing the rest) were added
+in October 2026.
 
 Section 5 was written from a clean-room test. Given only that section — no code, no
 vectors, no conversation — a language model produced a Go implementation that reproduced
@@ -152,10 +163,11 @@ The commitment above establishes that a whole record is unaltered. Establishing 
 claim — that a sealed figure meets a threshold, that two records differ at k or more
 fields — without disclosing the record needs a per-field commitment scheme.
 
-Section 12 of the specification states what specifying one would have to settle, and an
-independent implementation of that shape has been exercised against records in this
-format. `examples/acr-trait-verification.mjs` and `examples/distinctness.mjs` show what
-a certifying body receives and what stays with the holder.
+Section 4.5 of the specification defines one: field sets, up to sixteen values committed
+as separate leaves. The claims themselves (value, range, distinct, unchanged) are proved
+by a VeilCore claims contract that is not yet published or deployed.
+`examples/acr-trait-verification.mjs` and `examples/distinctness.mjs` show what a
+certifying body receives and what stays with the holder.
 
 ---
 

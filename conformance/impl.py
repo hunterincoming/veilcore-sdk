@@ -2,7 +2,7 @@
 VeilCore record commitment — reference implementation in Python.
 
 Written from the specification rules, not translated from the JavaScript. That is the
-point: if two independent implementations agree, the specification is unambiguous. If
+point: if two implementations agree, the specification gives one answer for those inputs. If
 they disagree, the specification is wrong and the format cannot be adopted by anyone.
 
 Standard library only. No dependencies, no chain runtime.

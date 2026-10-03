@@ -13,8 +13,8 @@
 // an agency receives. It runs with nothing but this package - no account, no
 // network, no ledger:
 //
-//     npm install veilcore-records
-//     node acr-trait-verification.mjs
+//     npm install && npm run build      (in a clone of this repository)
+//     node examples/acr-trait-verification.mjs
 //
 // SPDX-License-Identifier: Apache-2.0
 
@@ -168,12 +168,10 @@ console.log(`
 
    Establishing the threshold without disclosing the figure needs a per-field
    commitment scheme: each field committed as a leaf under a sealed root, so a
-   claim can be proven about one field while the rest stay closed. Section 12 of
-   the specification describes that as not yet specified here, and states the
-   five things specifying it would have to settle.
-
-   An independent implementation of that shape exists and has been exercised
-   against records in this format. Two properties of it are worth knowing before
+   claim can be proven about one field while the rest stay closed. Section 4.5
+   of the specification defines one: field sets, up to sixteen values per record.
+   The claims over them are proved by a VeilCore claims contract that is not yet
+   published or deployed. Two properties of the design are worth knowing before
    an agency relies on one.
 
    A claim the sealed data does not support CANNOT BE CONSTRUCTED. It fails on

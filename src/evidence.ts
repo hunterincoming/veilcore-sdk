@@ -43,11 +43,33 @@ const sha256 = async (bytes: Uint8Array): Promise<string> => {
   return nodeCrypto.createHash('sha256').update(bytes).digest('hex');
 };
 
+// A date from a test network, or from no anchor at all, is not evidence. Say so at the top.
+const datingWarning = (input: EvidenceInput): string[] => {
+  const proofAnchor = input.proof?.anchor;
+  const recordAnchor = input.record.anchor;
+  if (!proofAnchor && recordAnchor && (recordAnchor.kind ?? 'ledger') !== 'ledger') return [];
+  const a = proofAnchor ?? recordAnchor;
+  if (!a) return [];
+  const bitcoin = input.opentimestamps ? ' The OpenTimestamps proof, once confirmed, is the only date here.' : '';
+  if (a.network === 'undeployed') {
+    return [`NOT ANCHORED ON A LEDGER: the record states no ledger anchor.${bitcoin}`, ''];
+  }
+  if (a.network !== 'mainnet') {
+    return [
+      `TEST NETWORK: the ledger anchor is on ${a.chain} ${a.network}, which can be reset.`,
+      `A date from a test network carries no evidentiary weight.${bitcoin}`,
+      '',
+    ];
+  }
+  return [];
+};
+
 const guide = (input: EvidenceInput, commitment: string): string => {
   const p = input.proof;
   const lines = [
     'VEILCORE EVIDENCE PACKAGE',
     '',
+    ...datingWarning(input),
     `Record:      ${input.record.recordId}`,
     `Commitment:  ${commitment}`,
     `Sealed at:   ${input.record.sealedAt} (the holder's statement; the anchor below is the independent date)`,
@@ -71,7 +93,8 @@ const guide = (input: EvidenceInput, commitment: string): string => {
     '     transaction named in inclusion-proof.json; look it up in any explorer or indexer for',
     '     that network. Where root.bin.ots is present, confirm it against Bitcoin with the',
     '     OpenTimestamps client: `ots upgrade root.bin.ots` then `ots verify root.bin.ots`.',
-    '     Either date stands on its own; neither depends on VeilCore still existing.',
+    '     Either date stands on its own; neither depends on VeilCore still existing. A date',
+    '     from a test network (preview, preprod, undeployed) is not evidence.',
     '  3. The same checks can be made with the TypeScript or Rust implementations, or written',
     '     from the specification (SPEC sections 4, 5 and 9), which is public.',
     '',
@@ -113,8 +136,9 @@ I, [NAME], declare:
    [on LEDGER in transaction TX at block HEIGHT on DATE] [and stamped with OpenTimestamps,
    confirmed in Bitcoin block HEIGHT on DATE].
 
-5. A copy of the record is identical to the original if and only if it produces the same
-   commitment.
+5. A copy that produces the same commitment is, with overwhelming probability, identical to
+   the original: producing a different record with the same SHA-256 commitment is not
+   computationally feasible. A copy that produces a different commitment is not identical.
 
 I declare under penalty of perjury under the laws of [JURISDICTION] that the foregoing is
 true and correct.
