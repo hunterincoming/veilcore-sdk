@@ -82,8 +82,8 @@ Fields: `chain`, `network`, and optionally `contractAddress`, `txHash`, `blockHe
 
 | `kind` | What it is | Where it carries most weight |
 |---|---|---|
-| `ledger` | The commitment, or a batch root containing it, published in a public chain | No general presumption. Italian Law 12/2019 grants blockchain timestamps the effect of an eIDAS timestamp; Chinese Internet Courts have accepted blockchain evidence since 2018; US courts authenticate under FRE 901(b)(9) |
-| `rfc3161` | A signed timestamp token from a Time Stamping Authority | Where the TSA is a Qualified Trust Service Provider on an EU trusted list, eIDAS Article 42 attaches a presumption of accuracy, and the burden falls on whoever disputes the date |
+| `ledger` | The commitment, or a batch root containing it, published in a public chain | No general presumption. Italy's Law 12/2019, Art. 8-ter, gives distributed-ledger timestamps the effect of an ordinary eIDAS electronic timestamp (Art. 41(1): not denied effect, no presumption), subject to technical standards; Chinese courts have accepted blockchain evidence since 2018; US courts authenticate under FRE 901(b)(9) and 902(13)-(14) |
+| `rfc3161` | A signed timestamp token from a Time Stamping Authority | Where the TSA is a Qualified Trust Service Provider on an EU trusted list, eIDAS Article 41(2) gives the qualified timestamp a presumption of accuracy (Article 42 sets what makes it qualified), and the burden falls on whoever disputes the date |
 | `notarial` | A timestamp applied by a notary or equivalent officer | Follows local rules on notarial acts |
 
 An anchor with no `kind` is `ledger`, so records written before this field existed remain valid.
