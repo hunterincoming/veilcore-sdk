@@ -21,11 +21,13 @@ export type SubjectType =
  *
  * `ledger` publishes the commitment (or a batch root containing it) in a public chain.
  * `rfc3161` is a signed timestamp token from a Time Stamping Authority. Where that TSA
- * is a Qualified Trust Service Provider on an EU trusted list, eIDAS Article 42 attaches
+ * is a Qualified Trust Service Provider on an EU trusted list, eIDAS Article 41(2) gives
  * a presumption of accuracy and shifts the burden to whoever disputes the date.
  * `notarial` records a timestamp applied by a notary or equivalent officer.
+ * `opentimestamps` is an OpenTimestamps proof (a .ots file) that the commitment, or a
+ * batch root containing it, existed by the time of a Bitcoin block.
  */
-export type AnchorKind = 'ledger' | 'rfc3161' | 'notarial';
+export type AnchorKind = 'ledger' | 'rfc3161' | 'notarial' | 'opentimestamps';
 
 /** Where a commitment is anchored, if anywhere. */
 export type Anchor = {
@@ -54,6 +56,14 @@ export type Anchor = {
 
   // For kind: 'notarial'
   notary?: { name: string; jurisdiction: string; reference: string };
+
+  // For kind: 'opentimestamps'
+  /** What the .ots stamps, e.g. "the batch root as 32 raw bytes (root.bin)". */
+  stamps?: string;
+  /** The .ots file: base64, or a URL to fetch it from. */
+  ots?: string;
+  /** The calendar servers that answered. */
+  calendars?: string[];
 };
 
 /**
@@ -61,9 +71,10 @@ export type Anchor = {
  *
  * A commitment may be bound to a time by more than one mechanism, and different
  * jurisdictions recognise different ones. An EU court applies the eIDAS presumption to a
- * qualified timestamp; Italian law grants blockchain anchors the same effect under Law
- * 12/2019; Chinese Internet Courts have accepted blockchain evidence since 2018; a US
- * court authenticates either under FRE 901(b)(9).
+ * qualified timestamp (Art. 41(2)); Italian law gives distributed-ledger timestamps the
+ * effect of an ordinary eIDAS timestamp (Law 12/2019, Art. 8-ter); Chinese courts have
+ * accepted blockchain evidence since 2018 and check consistency across chains; a US court
+ * authenticates under FRE 901(b)(9) or 902(13)-(14).
  *
  * Carrying several costs almost nothing, because each binds the same commitment. It also
  * keeps jurisdiction-specific rules out of this format entirely: a court reads the

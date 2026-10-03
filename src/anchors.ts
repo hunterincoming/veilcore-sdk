@@ -31,6 +31,7 @@ export const effectiveAnchors = (env: Envelope): Anchor[] =>
     if (kind === 'ledger') return Boolean(a.txHash) && a.network !== 'undeployed';
     if (kind === 'rfc3161') return Boolean(a.token);
     if (kind === 'notarial') return Boolean(a.notary?.reference);
+    if (kind === 'opentimestamps') return Boolean(a.ots);
     return false;
   });
 
@@ -60,6 +61,14 @@ export const standingOf = (a: Anchor): AnchorStanding => {
       note: qualified
         ? `Timestamp token from ${a.tsa ?? 'a Time Stamping Authority'}, stated as qualified under ${a.qualified?.scheme}. Where that status holds, eIDAS Article 41(2) gives a qualified timestamp a presumption of accuracy across EU member states, and the burden falls on whoever disputes the date. Not checked here: verify the token's signature and imprint, and the provider's trusted-list entry, before relying on this.`
         : `Timestamp token from ${a.tsa ?? 'a Time Stamping Authority'} without stated qualified status. Admissible, but carrying no presumption: it can be challenged like any other evidence.`,
+    };
+  }
+
+  if (kind === 'opentimestamps') {
+    return {
+      kind: 'opentimestamps',
+      presumption: false,
+      note: `An OpenTimestamps proof that ${a.stamps ?? 'the commitment'} existed by the time of a Bitcoin block, through ${a.calendars?.length ? a.calendars.join(', ') : 'public calendar servers'}. Independent of VeilCore and of Midnight: check it with the OpenTimestamps client (ots verify) against Bitcoin. No general presumption attaches; Chinese courts check consistency across chains, and a French court accepted a blockchain timestamp as evidence of authorship in 2025. A fresh proof is pending until the calendar's transaction confirms (ots upgrade). Not checked here.`,
     };
   }
 
