@@ -16,7 +16,15 @@ export const anchorsOf = (env: Envelope): Anchor[] => {
   return Array.isArray(a) ? a : [a];
 };
 
-/** Anchors that actually establish a time, as opposed to declaring an intention to. */
+/**
+ * Anchors complete enough to be checked, as opposed to declaring an intention to anchor.
+ *
+ * NOT VERIFIED HERE. This looks only at what the record states: a transaction hash, a
+ * token, a notarial reference. Whether the transaction published this commitment, whether
+ * the token's signature and imprint check out, and whether the notary recorded it are
+ * lookups (SPEC 9.2) this package does not make. A record can state an anchor that does
+ * not exist.
+ */
 export const effectiveAnchors = (env: Envelope): Anchor[] =>
   anchorsOf(env).filter((a) => {
     const kind = a.kind ?? 'ledger';
@@ -50,7 +58,7 @@ export const standingOf = (a: Anchor): AnchorStanding => {
       kind: 'rfc3161',
       presumption: qualified,
       note: qualified
-        ? `Timestamp token from ${a.tsa ?? 'a Time Stamping Authority'}, stated as qualified under ${a.qualified?.scheme}. Where that status holds, eIDAS Article 42 attaches a presumption of accuracy across EU member states and the burden falls on whoever disputes the date. Verify the provider's listing before relying on this.`
+        ? `Timestamp token from ${a.tsa ?? 'a Time Stamping Authority'}, stated as qualified under ${a.qualified?.scheme}. Where that status holds, eIDAS Article 41(2) gives a qualified timestamp a presumption of accuracy across EU member states, and the burden falls on whoever disputes the date. Not checked here: verify the token's signature and imprint, and the provider's trusted-list entry, before relying on this.`
         : `Timestamp token from ${a.tsa ?? 'a Time Stamping Authority'} without stated qualified status. Admissible, but carrying no presumption: it can be challenged like any other evidence.`,
     };
   }
@@ -58,15 +66,17 @@ export const standingOf = (a: Anchor): AnchorStanding => {
   if (kind === 'notarial') {
     return {
       kind: 'notarial',
-      presumption: true,
-      note: `Timestamp applied by ${a.notary?.name ?? 'a notary'} in ${a.notary?.jurisdiction ?? 'an unnamed jurisdiction'}. Weight follows local rules on notarial acts, which in most civil-law systems is considerable.`,
+      // Weight varies too much by jurisdiction to report a presumption generally: a civil-law
+      // notarial act and a US notary's stamp are very different things.
+      presumption: false,
+      note: `Timestamp applied by ${a.notary?.name ?? 'a notary'} in ${a.notary?.jurisdiction ?? 'an unnamed jurisdiction'}. Weight follows local rules on notarial acts: considerable in most civil-law systems, much less where a notary only witnesses a signature. Not checked here.`,
     };
   }
 
   return {
     kind: 'ledger',
     presumption: false,
-    note: `Published on ${a.chain}${a.network ? ` (${a.network})` : ''}. No general presumption attaches, with exceptions: Italian Law 12/2019 grants blockchain timestamps the effect of an eIDAS timestamp, Chinese Internet Courts have accepted blockchain evidence since 2018, and several US states have enacted authentication presumptions. Elsewhere the date is provable but is proved rather than presumed.`,
+    note: `Stated as published on ${a.chain}${a.network ? ` (${a.network})` : ''}. No general presumption attaches. Italy's Law 12/2019 (Art. 8-ter) gives distributed-ledger timestamps the effect of an ordinary eIDAS electronic timestamp (Art. 41(1), no presumption), subject to technical standards; Chinese courts have accepted blockchain evidence since 2018; in the US, Vermont (12 V.S.A. §1913) has a statute on blockchain records. Elsewhere the date is provable but is proved rather than presumed. Not checked here: confirm the transaction published this commitment (SPEC 9.2).`,
   };
 };
 
@@ -79,12 +89,12 @@ export const standingOf = (a: Anchor): AnchorStanding => {
 export const datingSummary = (env: Envelope): string => {
   const live = effectiveAnchors(env);
   if (!live.length) {
-    return 'This record is intact but not anchored. Its date rests on whoever holds it, not on anything independent.';
+    return 'This record states no anchor that could be checked. Its date rests on whoever holds it, not on anything independent.';
   }
   const kinds = live.map((a) => standingOf(a));
   const presumed = kinds.filter((k) => k.presumption);
   if (presumed.length) {
-    return `Anchored ${live.length} way${live.length > 1 ? 's' : ''}, including ${presumed.length} carrying a documented legal presumption of accuracy in at least one jurisdiction.`;
+    return `States ${live.length} anchor${live.length > 1 ? 's' : ''}, including ${presumed.length} stated as qualified, which would carry a legal presumption of accuracy in the EU if confirmed. None is checked by this summary: confirm each (SPEC 9.2) before relying on the date.`;
   }
-  return `Anchored ${live.length} way${live.length > 1 ? 's' : ''}. The date is independently provable; whether it is presumed depends on where you are.`;
+  return `States ${live.length} anchor${live.length > 1 ? 's' : ''}. If confirmed (SPEC 9.2), the date is independently provable; whether it is presumed depends on where you are.`;
 };

@@ -45,8 +45,8 @@ test('an undeployed anchor establishes nothing', () => {
 test('a qualified timestamp is reported as carrying a presumption', () => {
   const s = standingOf(qualified);
   assert.equal(s.presumption, true);
-  assert.match(s.note, /Article 42/);
-  assert.match(s.note, /Verify the provider/, 'the claim is the attester\'s, not ours');
+  assert.match(s.note, /Article 41\(2\)/, 'the presumption is in Art. 41(2); Art. 42 only defines qualified');
+  assert.match(s.note, /Not checked here/, 'the claim is the attester\'s, not ours, and this package does not verify tokens');
 });
 
 test('an unqualified timestamp is reported as carrying none', () => {
@@ -58,7 +58,9 @@ test('an unqualified timestamp is reported as carrying none', () => {
 test('a ledger anchor names where it is recognised, without overclaiming', () => {
   const s = standingOf(ledger);
   assert.equal(s.presumption, false, 'no general presumption attaches to a chain anchor');
-  assert.match(s.note, /Italian Law 12\/2019/);
+  assert.match(s.note, /Art\. 8-ter/);
+  assert.match(s.note, /no presumption/, 'Italy gives an ordinary, not a qualified, timestamp effect');
+  assert.doesNotMatch(s.note, /several US states/, 'only states actually checked are named');
   assert.match(s.note, /proved rather than presumed/);
 });
 
@@ -68,8 +70,9 @@ test('an unanchored record says so plainly', () => {
 
 test('several anchors are summarised without claiming more than one supports', () => {
   const both = datingSummary({ ...base, anchor: [ledger, qualified] });
-  assert.match(both, /2 ways/);
+  assert.match(both, /2 anchors/);
   assert.match(both, /presumption/);
+  assert.match(both, /None is checked/, 'a stated anchor is not a verified one');
   const chainOnly = datingSummary({ ...base, anchor: [ledger] });
   assert.match(chainOnly, /depends on where you are/);
 });

@@ -138,15 +138,15 @@ A record is an original electronic record; a printout accurately reflecting it i
 
 A record may carry several anchors, because jurisdictions do not agree on what establishes a date. Each binds the same commitment; a court reads the one its own law recognises. Adding an anchor never invalidates a record, so a holder may obtain a further one years after sealing.
 
-**European Union.** eIDAS Regulation 910/2014, Article 41: an electronic timestamp cannot be denied legal effect solely for being electronic. Article 42 goes further - **a qualified electronic timestamp enjoys a presumption of the accuracy of the date and of the integrity of the data bound to it.** The burden shifts: the party disputing the date must prove it wrong.
+**European Union.** eIDAS Regulation 910/2014, Article 41(1): an electronic timestamp cannot be denied legal effect solely for being electronic. Article 41(2) goes further - **a qualified electronic timestamp enjoys a presumption of the accuracy of the date and of the integrity of the data bound to it** - and Article 42 sets the requirements a timestamp must meet to be qualified. The burden shifts: the party disputing the date must prove it wrong.
 
 That presumption attaches to a qualified RFC 3161 timestamp from a Qualified Trust Service Provider on a member state's trusted list - not to a blockchain anchor. Where an EU forum is possible, obtaining one alongside is inexpensive and materially changes the position. Verify a claimed qualified status against the trusted list rather than relying on the record's assertion.
 
-**Italy.** Law 12/2019, Article 8-ter grants blockchain-based timestamps the same legal effect as an eIDAS electronic timestamp.
+**Italy.** Law 12/2019, Article 8-ter gives timestamps on distributed ledgers the effect of an ordinary eIDAS electronic timestamp under Article 41(1) - not denied effect, but carrying no presumption - and makes this subject to technical standards from AgID, which we have not found published. It also defines a distributed ledger as architecturally decentralised, which a federated network may not satisfy.
 
 **China.** Internet Courts in Hangzhou, Beijing and Guangzhou have recognised blockchain-based electronic evidence since 2018, under Supreme People's Court provisions.
 
-**United States.** As above. No federal presumption attaches to a chain anchor, though several states - Vermont's Act 157 (2016) among the earliest - have enacted statutes lowering the authentication burden.
+**United States.** As above. No federal presumption attaches to a chain anchor. FRE 902(13) and 902(14) allow electronic records and hash-verified copies to be self-authenticated by a qualified person's certification. Vermont (12 V.S.A. §1913, enacted 2016) has a statute on authenticating blockchain records; other states have considered or passed similar laws, which we have not checked one by one.
 
 **Japan.** The Plant Variety Protection and Seed Act gives applicants rights that operate before registration completes. Article 14 permits a compensation claim for use during the pending period, either after warning an infringer by presenting a document describing the applied-for variety, or without warning against a party who used it knowing of a published application. The 2026 amendment adds an export injunction over the same period. Both turn on proving what a description said and when it existed, and the Act prescribes no form for that evidence. **We are not qualified to advise on Japanese procedure and this should be confirmed by Japanese counsel.**
 
