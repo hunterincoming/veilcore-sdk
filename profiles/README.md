@@ -31,6 +31,13 @@ link to the variety is a parent.
 extra fields, published as an example of extension: a domain can extend the plant
 profile without permission and without anything upstream changing.
 
+## Field schemas
+
+**`fields/plant-variety-dus-example-v1.json`** — an EXAMPLE field schema (SPEC 4.5): twelve
+marker loci and four traits a holder can commit one by one, so a later claim can concern
+one value without showing the rest. Not adopted by any body; a real schema names the crop
+and marker panel and takes its distinctness threshold from the examining body's guidance.
+
 ## Why they are small
 
 A profile a body has to accept wholesale is a profile they have to negotiate. A profile of
