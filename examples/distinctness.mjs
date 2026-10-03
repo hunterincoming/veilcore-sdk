@@ -16,8 +16,8 @@
 // the disclosure actually sits. It runs with nothing but this package - no
 // account, no network, no ledger:
 //
-//     npm install veilcore-records
-//     node distinctness.mjs
+//     npm install && npm run build      (in a clone of this repository)
+//     node examples/distinctness.mjs
 //
 // SPDX-License-Identifier: Apache-2.0
 
@@ -197,10 +197,10 @@ console.log(`
    closed. Section 12 of the specification describes that as not yet specified
    here, and states what specifying it would have to settle.
 
-   An independent implementation of that shape exists and has been exercised
-   against records in this format. It establishes that two sealed panels differ
-   at k or more loci - a threshold the examiner sets - without disclosing a
-   single value.
+   An implementation of that shape, by a developer outside VeilCore, exists
+   and has been exercised against records in this format. It establishes that
+   two sealed panels differ at k or more loci - a threshold the examiner sets -
+   without disclosing a single value.
 
    Two properties of it are worth knowing before an office relies on one.
 

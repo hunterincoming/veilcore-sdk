@@ -1,7 +1,7 @@
 // The VeilCore record envelope.
 //
 // The envelope is domain-blind: no field here names a crop, an animal, a plant part or
-// a cannabis concept. The test for any proposed envelope field is whether a Dutch
+// a crop-specific concept. The test for any proposed envelope field is whether a Dutch
 // orchid propagator or a wagyu herd book would need it too. If not, it belongs in a
 // profile.
 //
@@ -21,7 +21,7 @@ export type SubjectType =
  *
  * `ledger` publishes the commitment (or a batch root containing it) in a public chain.
  * `rfc3161` is a signed timestamp token from a Time Stamping Authority. Where that TSA
- * is a Qualified Trust Service Provider on an EU trusted list, eIDAS Article 42 attaches
+ * is a Qualified Trust Service Provider on an EU trusted list, eIDAS Article 41(2) gives
  * a presumption of accuracy and shifts the burden to whoever disputes the date.
  * `notarial` records a timestamp applied by a notary or equivalent officer.
  */
@@ -61,9 +61,10 @@ export type Anchor = {
  *
  * A commitment may be bound to a time by more than one mechanism, and different
  * jurisdictions recognise different ones. An EU court applies the eIDAS presumption to a
- * qualified timestamp; Italian law grants blockchain anchors the same effect under Law
- * 12/2019; Chinese Internet Courts have accepted blockchain evidence since 2018; a US
- * court authenticates either under FRE 901(b)(9).
+ * qualified timestamp (Art. 41(2)); Italian law gives distributed-ledger timestamps the
+ * effect of an ordinary eIDAS timestamp, with no presumption (Law 12/2019, Art. 8-ter);
+ * Chinese courts have accepted blockchain evidence since 2018; a US court authenticates
+ * under FRE 901(b)(9) or 902(13)-(14).
  *
  * Carrying several costs almost nothing, because each binds the same commitment. It also
  * keeps jurisdiction-specific rules out of this format entirely: a court reads the
@@ -94,12 +95,12 @@ export type Attestation = {
   retractedBy?: string;
 };
 
-/** Descent. Not a cannabis idea, so it lives in the envelope. */
+/** Descent. Every domain has it, so it lives in the envelope. */
 export type ParentRef = {
   parentRecordId?: string;
   /** Binds to content rather than an identifier, so a renamed parent still resolves. */
   parentCommitment?: string;
-  /** Profile-defined vocabulary. Cannabis: seed-parent. Livestock: sire. */
+  /** Profile-defined vocabulary. Plants: seed-parent. Livestock: sire. */
   role?: string;
   /** A self-declared parent and a lab-confirmed one are different evidence. */
   declaredBy: 'holder' | 'attester';
@@ -139,7 +140,7 @@ export type Envelope = {
   formatVersion: string;
   recordId: string;
   subjectType: SubjectType;
-  /** Profile identifier and version, e.g. veilcore/profile/cannabis/v0.1 */
+  /** Profile identifier and version, e.g. veilcore/profile/plant-variety/v1 */
   profile: string;
   commitment: string;
   commitmentAlgorithm: string;

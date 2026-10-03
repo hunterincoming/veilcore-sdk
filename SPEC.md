@@ -1,8 +1,8 @@
 # The VeilCore Record Format
 
-**A specification for evidence of prior possession of genetic material**
+**A specification for evidence of prior possession of plant genetic material**
 
-Version 0.1 - August 2026
+Version 0.1 - August 2026, revised October 2026
 
 ---
 
@@ -10,7 +10,7 @@ Version 0.1 - August 2026
 
 This is a draft specification, published for comment. It describes a record format and a verification procedure. It is not a description of a product.
 
-**The format is open.** Anyone may implement it. There is no licence fee, no certification requirement, and no dependency on any company for the format to function. Three implementations - in TypeScript, Python and Rust - pass the same conformance vectors. All three have the same author, so they show the vectors hold across languages, not that a third party can implement the format from this document alone. The evidence for that is narrower: a language model given only §§5–5.5, with no code and no vectors, wrote batch construction that reproduced every published batch root and inclusion vector. An implementation by an unrelated party is the test this document most needs. The vectors cover canonicalisation, commitment computation, inclusion proofs, rejections and attestation payloads; corrections and resolution are implemented in the reference implementation and are not yet part of the vector set.
+**The format is open.** Anyone may implement it. There is no licence fee, no certification requirement, and no dependency on any company for the format to function. Three implementations - in TypeScript, Python and Rust - pass the same 55 conformance vectors. All three have the same author, so they show the vectors hold across languages, not that a third party can implement the format from this document alone. The evidence for that is narrower: a language model given only §§5–5.5, with no code and no vectors, wrote batch construction that reproduced every published batch root and inclusion vector. An implementation by an unrelated party is the test this document most needs. The vectors cover canonicalisation, commitment computation, inclusion proofs, rejections and attestation payloads; corrections and resolution are implemented in the reference implementation and are not yet part of the vector set.
 
 **Verification is free and requires no account, permanently.** This is a design constraint rather than a pricing decision: a record whose verification can be withheld is not evidence.
 
@@ -38,7 +38,7 @@ This specification describes a form of record that fixes a date without storage,
 
 ## 2 - How it works, in five sentences
 
-The holder writes down what they possess, in a defined structure. That description is hashed on the holder's own equipment, together with a random value, producing a **commitment** - a 32-byte number which reveals nothing about the description and which could not have been produced from a different description. Only the commitment is published; the description never leaves the holder's possession. Later, to prove what they held, the holder produces the description and any party can recompute the commitment and compare it to the published one. If the two match, the description is the one that existed when the commitment was published.
+The holder writes down what they possess, in a defined structure. That description is hashed on the holder's own equipment, together with a random value, producing a **commitment** - a 32-byte number which reveals nothing about the description and which no one can feasibly produce from a different description. Only the commitment is published; the description never leaves the holder's possession. Later, to prove what they held, the holder produces the description and any party can recompute the commitment and compare it to the published one. If the two match, the description is the one that existed when the commitment was published.
 
 ---
 
@@ -431,6 +431,8 @@ Stated plainly, because a claim that overreaches is worse than no claim.
 
 **It does not establish that the record is true.** A commitment proves that a description existed on a date and is unaltered. It does not establish that the description is accurate. Accuracy comes from attestations by parties with something to lose.
 
+**It establishes prior possession of the record, not of material.** What is shown is that a party held this description, with its nonce, by the date of the anchor. It does not show that any material is the subject described, or that material was ever in their hands.
+
 **It does not identify material physically.** Whether a specimen is the subject described requires comparison of characteristics or genetic analysis. What the record establishes is that the description, and any analysis attached to it, existed before the dispute - which is what makes a later comparison meaningful rather than circular.
 
 **It does not establish that anything still exists.** Inspection is the only answer to that.
@@ -476,7 +478,7 @@ Recorded because they explain choices that would otherwise look arbitrary, and b
 
 **Verification is free and requires no account, permanently.** A record whose verification can be withheld is not evidence. Fees may attach to creating a record; never to checking one.
 
-**The format itself is free to implement, permanently.** There is no licence fee for using this specification and no permission required. Certification that an implementation is conformant is a separate service, offered by the authors and by anyone else who cares to offer it; the conformance vectors are published, so any party can test any implementation without asking. A format that charges for its own use does not become infrastructure.
+**The format itself is free to implement, permanently.** There is no licence fee for using this specification and no permission required. Certification that an implementation is conformant would be a separate service that anyone could offer; none is offered today. The conformance vectors are published, so any party can test any implementation without asking. A format that charges for its own use does not become infrastructure.
 
 **The subject never leaves the holder.** Only commitments and document hashes are published.
 
@@ -573,7 +575,7 @@ Named so that implementers do not mistake absence for oversight.
 
 **Per-field commitments.** A scheme committing each field as a leaf under a sealed root, so that a holder can prove a shown value is the sealed one, or prove a property of a hidden value, without disclosing the rest. This is what would make the `integrity` grant separable from full disclosure (section 8.1), and what an examiner needs in order to confirm that a test was run and returned a stated result without taking custody of the underlying data.
 
-An independent implementation of this shape exists and has been exercised against records in this format, which is why the entry is worth more than a placeholder. It demonstrates four claim types over a sealed field set: that a shown value is exactly the sealed one; that a sealed number meets a stated threshold without the number appearing anywhere; that two records differ at k or more fields without revealing which or by how much; and that a correction changed no committed field. A claim the sealed data does not support cannot be constructed at all, so nothing is published and nothing is spent.
+An implementation of this shape, by a developer outside VeilCore, exists and has been exercised against records in this format, which is why the entry is worth more than a placeholder. It demonstrates four claim types over a sealed field set: that a shown value is exactly the sealed one; that a sealed number meets a stated threshold without the number appearing anywhere; that two records differ at k or more fields without revealing which or by how much; and that a correction changed no committed field. A claim the sealed data does not support cannot be constructed at all, so nothing is published and nothing is spent.
 
 Specifying it here would have to settle four things that exercising it made plain.
 
@@ -597,7 +599,7 @@ This document is published for comment, and specific correction is more useful t
 
 **Implementations:** TypeScript (reference, published under Apache 2.0 with the conformance vectors), Python, and Rust. All three pass the same vectors.
 
-**Contact:** Hunter Roberts, VeilCore - hunterfrancisroberts@gmail.com
+**Contact:** Hunter Roberts, VeilCore - hunter@veilcore.org
 
 ---
 

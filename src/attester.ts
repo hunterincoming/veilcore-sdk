@@ -15,7 +15,7 @@
 //     not make past attestations permanently unretractable.
 //
 // The part worth being honest about: nothing inside a system can establish that a lab
-// is a lab. That comes from outside — for cannabis testing, ISO 17025 accreditation is
+// is a lab. That comes from outside — for testing laboratories, ISO 17025 accreditation is
 // the existing anchor. The registry records who vouched, and a verifier decides whether
 // they trust the voucher. We do not vouch, because a registry that certifies its own
 // members is not neutral.

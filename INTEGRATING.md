@@ -29,8 +29,13 @@ makes it fixed, which is the thing a court, a customs officer, or a buyer can wo
 ## The smallest useful integration
 
 ```
-npm install veilcore-records
+git clone https://github.com/hunterincoming/veilcore-sdk
+cd veilcore-sdk && npm install && npm run build
 ```
+
+The npm release (`veilcore-records` 0.13.0) lags this repository and predates the
+October 2026 number and string rules; until 0.14 or later is published, clone and build
+as above, then depend on the built package (for example `npm install ../veilcore-sdk`).
 
 ```js
 import { computeCommitment, newNonce } from 'veilcore-records';
@@ -66,7 +71,8 @@ statement your user made. The difference matters in exactly the situations this 
 **3. Batch before anchoring.** Anchoring commitments individually is expensive and requires
 each user to hold a wallet. Aggregate a day's records into a Merkle tree, publish one root,
 and give each user their inclusion proof. One transaction, any number of records, and your
-users never touch a ledger.
+users never touch a ledger. VeilCore's own contract is on Midnight's test network today;
+mainnet is not live, and a test-network anchor carries no evidentiary weight.
 
 **4. Hand users their proof.** A proof is a small JSON file: the commitment, the path to the
 root, and the transaction that published it. It verifies with this package and a chain
@@ -106,8 +112,11 @@ or inside an existing system — the conformance vectors tell you whether you go
     node conformance/run-cli.mjs "your-command"
 
 Your program reads a job on standard input and writes a result on standard output. There
-are thirteen vectors. Three independent implementations pass them: TypeScript, Python and
-Rust, each written from the specification rather than from each other.
+are 55 vectors. Three implementations pass them: TypeScript, Python and Rust. All three
+have the same author, so they show the rules give one answer across languages, not that
+someone else can implement the format from the specification alone. An implementation by
+an unrelated party is the test the format still needs. The Python implementation, in
+`conformance/impl.py`, needs only the standard library.
 
 ## A complete example
 
@@ -120,4 +129,4 @@ prove years later. It runs with no accounts and no configuration:
 ## Questions and corrections
 
 The specification is published for comment, and specific correction is more useful than
-general agreement. Open an issue, or write to hunterfrancisroberts@gmail.com.
+general agreement. Open an issue, or write to hunter@veilcore.org.

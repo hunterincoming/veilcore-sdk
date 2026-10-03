@@ -18,8 +18,8 @@
 //
 // Nothing here needs an account or a network:
 //
-//     npm install veilcore-records
-//     node tissue-culture-accession.mjs
+//     npm install && npm run build      (in a clone of this repository)
+//     node examples/tissue-culture-accession.mjs
 //
 // SPDX-License-Identifier: Apache-2.0
 

@@ -13,8 +13,8 @@
 // an agency receives. It runs with nothing but this package - no account, no
 // network, no ledger:
 //
-//     npm install veilcore-records
-//     node acr-trait-verification.mjs
+//     npm install && npm run build      (in a clone of this repository)
+//     node examples/acr-trait-verification.mjs
 //
 // SPDX-License-Identifier: Apache-2.0
 
@@ -172,9 +172,9 @@ console.log(`
    the specification describes that as not yet specified here, and states the
    five things specifying it would have to settle.
 
-   An independent implementation of that shape exists and has been exercised
-   against records in this format. Two properties of it are worth knowing before
-   an agency relies on one.
+   An implementation of that shape, by a developer outside VeilCore, exists
+   and has been exercised against records in this format. Two properties of it
+   are worth knowing before an agency relies on one.
 
    A claim the sealed data does not support CANNOT BE CONSTRUCTED. It fails on
    the owner's own machine, nothing is published, and no fee is spent. An owner
