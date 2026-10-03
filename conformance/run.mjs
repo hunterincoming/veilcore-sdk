@@ -118,6 +118,37 @@ if (vectors.inclusion?.length) {
   }
 }
 
+// Field sets (SPEC 4.5). Compared as the JSON of the summary: schema id, the 32-byte slot
+// values, salts, set root and the requested openings, in that order.
+if (vectors.fieldSets?.length || vectors.fieldRejections?.length || vectors.commitmentRejections?.length) {
+  console.log('\nField sets');
+  const has = typeof impl.fieldSetSummary === 'function';
+  if (!has) {
+    console.error('  implementation does not export fieldSetSummary()');
+    fail += (vectors.fieldSets?.length ?? 0) + (vectors.fieldRejections?.length ?? 0);
+  } else {
+    for (const v of vectors.fieldSets ?? []) {
+      let actual;
+      try { actual = JSON.stringify(await impl.fieldSetSummary(v.input)); } catch (e) { actual = `threw: ${e.message}`; }
+      const expected = JSON.stringify(v.expected);
+      check('fieldSets', v.name, expected, actual);
+      console.log(`  ${expected === actual ? 'PASS' : 'FAIL'}  ${v.name}`);
+    }
+    for (const v of vectors.fieldRejections ?? []) {
+      let actual = 'accepted';
+      try { await impl.fieldSetSummary(v.input); } catch { actual = 'refused'; }
+      check('fieldRejections', v.name, 'refused', actual);
+      console.log(`  ${actual === 'refused' ? 'PASS' : 'FAIL'}  refuses: ${v.name}`);
+    }
+  }
+  for (const v of vectors.commitmentRejections ?? []) {
+    let actual = 'accepted';
+    try { await impl.computeCommitment(v.record); } catch { actual = 'refused'; }
+    check('commitmentRejections', v.name, 'refused', actual);
+    console.log(`  ${actual === 'refused' ? 'PASS' : 'FAIL'}  refuses: ${v.name}`);
+  }
+}
+
 console.log(`\n${pass} passed, ${fail} failed`);
 
 if (fail > 0) {

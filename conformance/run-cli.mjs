@@ -10,6 +10,9 @@
 //   in:  {"op":"canonicalise","input":{...}}   out: {"result":"{...}"}
 //   in:  {"op":"attestationPayload","input":{...}}  out: {"result":"{...}"}
 //   in:  {"op":"commit","input":{...}}         out: {"result":"<hex>"}
+//   in:  {"op":"fieldSet","input":{...}}       out: {"result":{"schemaDocumentDigest":"<hex>",
+//          "schemaId":"<hex>","slotValues":[...],"salts":[...],"setRoot":"<hex>",
+//          "openings":[{"slot":n,"siblings":[...],"bits":[...]}]}}  (keys in this order)
 //
 // An implementation refuses an invalid record either by writing {"error":"..."} (or
 // {"rejected":true}) or by exiting non-zero. Both are idiomatic - a Python raise and a
@@ -174,6 +177,28 @@ for (const v of vectors.rejections ?? []) {
       : `${r.kind} — ${r.why}`,
   });
   console.log(`  ${ok ? 'PASS' : 'FAIL'}  ${v.name}`);
+}
+
+// Field sets (SPEC 4.5): sealing 16 typed slot values under a schema.
+console.log('\nField sets');
+for (const v of vectors.fieldSets ?? []) {
+  const r = await ask('fieldSet', v.input);
+  const expected = JSON.stringify(v.expected);
+  const ok = r.kind === 'ok' && JSON.stringify(r.value) === expected;
+  ok ? pass++ : failures.push({ name: v.name, expected, actual: r.kind === 'ok' ? JSON.stringify(r.value) : `${r.kind} — ${r.why}` });
+  console.log(`  ${ok ? 'PASS' : 'FAIL'}  ${v.name}`);
+}
+for (const v of vectors.fieldRejections ?? []) {
+  const r = await ask('fieldSet', v.input);
+  const ok = r.kind === 'refused';
+  ok ? pass++ : failures.push({ name: v.name, expected: `refused — ${v.reason}`, actual: r.kind === 'ok' ? 'accepted' : `${r.kind} — ${r.why}` });
+  console.log(`  ${ok ? 'PASS' : 'FAIL'}  refuses: ${v.name}`);
+}
+for (const v of vectors.commitmentRejections ?? []) {
+  const r = await ask('commit', v.record);
+  const ok = r.kind === 'refused';
+  ok ? pass++ : failures.push({ name: v.name, expected: `refused — ${v.reason}`, actual: r.kind === 'ok' ? `accepted, returned ${JSON.stringify(r.value)}` : `${r.kind} — ${r.why}` });
+  console.log(`  ${ok ? 'PASS' : 'FAIL'}  refuses: ${v.name}`);
 }
 
 console.log(`\n${pass} passed, ${failures.length} failed`);

@@ -14,7 +14,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import { writeFileSync, readFileSync } from 'node:fs';
-import { canonicalise, computeCommitment, buildBatch, attestationPayload, COMMITMENT_ALGORITHM } from '../dist/index.js';
+import { canonicalise, computeCommitment, buildBatch, attestationPayload, COMMITMENT_ALGORITHM, fieldSetSummary, FIELDS_ALGORITHM } from '../dist/index.js';
 
 const base = {
   formatVersion: '0.1',
@@ -232,6 +232,42 @@ const attestationCases = [
   },
 ];
 
+// Field sets (SPEC 4.5), added October 2026 with the claims contract. Every value here is
+// plain SHA-256; the claims contract recomputes the same values in-circuit and its tests
+// check them against this file (contract/src/test/claims-vectors.test.ts).
+const exampleSchema = JSON.parse(readFileSync(new URL('../profiles/fields/plant-variety-dus-example-v1.json', import.meta.url), 'utf8'));
+const loci = ['233/233', '180/184', '201/201', '155/159', '312/318', '140/140', '222/226', '199/199', '260/264', '175/175', '290/290', '133/137'];
+const SECRET_A = '11'.repeat(32);
+const fieldSetCases = [
+  {
+    name: 'twelve loci and four traits, slots 3 and 12 opened',
+    input: { schema: exampleSchema, values: [...loci.map((t) => ({ text: t })), { uint: '9650' }, { uint: '9980' }, { uint: '6400' }, null], fieldSecret: SECRET_A, open: [3, 12, 15] },
+  },
+  {
+    name: 'the number 0 is not an absent slot',
+    input: { schema: exampleSchema, values: [...loci.map((t) => ({ text: t })), { uint: '0' }, null, { uint: '18446744073709551615' }, null], fieldSecret: '22'.repeat(32), open: [12, 13] },
+  },
+  {
+    name: 'text is NFC-normalised before hashing (decomposed e-acute)',
+    input: { schema: exampleSchema, values: [{ text: 'Caf\u0065\u0301' }, ...Array(15).fill(null)], fieldSecret: '33'.repeat(32), open: [0] },
+  },
+  {
+    name: 'every slot absent',
+    input: { schema: exampleSchema, values: Array(16).fill(null), fieldSecret: '44'.repeat(32), open: [] },
+  },
+];
+const fieldRejectionCases = [
+  { name: 'fifteen values', input: { schema: exampleSchema, values: Array(15).fill(null), fieldSecret: SECRET_A }, reason: 'a field set has exactly 16 slots' },
+  { name: 'a uint above 2^64 - 1', input: { schema: exampleSchema, values: [{ uint: '18446744073709551616' }, ...Array(15).fill(null)], fieldSecret: SECRET_A }, reason: 'uint slots hold 0 to 2^64 - 1' },
+  { name: 'a uint with a leading zero', input: { schema: exampleSchema, values: [{ uint: '07' }, ...Array(15).fill(null)], fieldSecret: SECRET_A }, reason: 'uint is a canonical decimal string' },
+  { name: 'a negative uint', input: { schema: exampleSchema, values: [{ uint: '-1' }, ...Array(15).fill(null)], fieldSecret: SECRET_A }, reason: 'uint is a canonical decimal string' },
+  { name: 'a value with both uint and text', input: { schema: exampleSchema, values: [{ uint: '1', text: 'x' }, ...Array(15).fill(null)], fieldSecret: SECRET_A }, reason: 'a slot value has exactly one kind' },
+  { name: 'a schema with k = 0', input: { schema: { ...exampleSchema, k: 0 }, values: Array(16).fill(null), fieldSecret: SECRET_A }, reason: 'k is at least 1' },
+  { name: 'a schema with k above its comparable slots', input: { schema: { ...exampleSchema, k: 13 }, values: Array(16).fill(null), fieldSecret: SECRET_A }, reason: 'k cannot exceed the comparable slots' },
+  { name: 'a schema listing a slot twice', input: { schema: { ...exampleSchema, slots: [...exampleSchema.slots, exampleSchema.slots[0]] }, values: Array(16).fill(null), fieldSecret: SECRET_A }, reason: 'each slot is described once' },
+  { name: 'an uppercase field secret', input: { schema: exampleSchema, values: Array(16).fill(null), fieldSecret: 'AB'.repeat(32) }, reason: 'hex is lowercase' },
+];
+
 const out = {
   formatVersion: '0.1',
   generatedAt: new Date().toISOString(),
@@ -240,6 +276,9 @@ const out = {
   inclusion: [],
   rejections: [],
   attestations: [],
+  fieldSets: [],
+  fieldRejections: [],
+  commitmentRejections: [],
 };
 
 for (const c of canonicalCases) {
@@ -272,6 +311,33 @@ for (const c of rejectionCases) {
   if (c.inputText !== undefined) v.inputText = c.inputText;
   else v.input = c.input;
   out.rejections.push(v);
+}
+
+for (const c of fieldSetCases) {
+  out.fieldSets.push({ name: c.name, input: c.input, expected: await fieldSetSummary(c.input) });
+}
+for (const c of fieldRejectionCases) {
+  let threw = false;
+  try { await fieldSetSummary(c.input); } catch { threw = true; }
+  if (!threw) throw new Error(`the reference implementation accepted a field rejection vector: ${c.name}`);
+  out.fieldRejections.push({ name: c.name, input: c.input, reason: c.reason });
+}
+// A record sealed with sha256/fields/v1: its commitment binds the first field set above.
+{
+  const fs = out.fieldSets[0].expected;
+  const record = { ...base, recordId: 'vc_rec_conformance_fields_01', commitmentAlgorithm: FIELDS_ALGORITHM, fieldSchema: fs.schemaId, fieldSetRoot: fs.setRoot };
+  out.commitments.push({ name: 'a sha256/fields/v1 record binds its field set', record, expectedCommitment: await computeCommitment(record) });
+  for (const [name, r] of [
+    ['a sha256/fields/v1 record without fieldSetRoot', { ...record, fieldSetRoot: undefined }],
+    ['a sha256/fields/v1 record with an uppercase fieldSetRoot', { ...record, fieldSetRoot: record.fieldSetRoot.toUpperCase() }],
+    ['a sha256/fields/v1 record without fieldSchema', { ...record, fieldSchema: undefined }],
+  ]) {
+    let threw = false;
+    try { await computeCommitment(r); } catch { threw = true; }
+    if (!threw) throw new Error(`accepted: ${name}`);
+    const clean = JSON.parse(JSON.stringify(r));
+    out.commitmentRejections.push({ name, record: clean, reason: 'sha256/fields/v1 needs fieldSchema and fieldSetRoot as lowercase hex' });
+  }
 }
 
 // Built before the shrink check below, which otherwise saw an empty attestations section
@@ -307,6 +373,7 @@ try {
 writeFileSync(target, JSON.stringify(out, null, 2));
 console.log(
   `generated ${out.canonicalisation.length} canonicalisation, ${out.commitments.length} commitment, ` +
-  `${out.inclusion.length} inclusion, ${out.rejections.length} rejection and ${out.attestations.length} attestation vectors`
+  `${out.inclusion.length} inclusion, ${out.rejections.length} rejection, ${out.attestations.length} attestation, ` +
+  `${out.fieldSets.length} field-set, ${out.fieldRejections.length} field-rejection and ${out.commitmentRejections.length} commitment-rejection vectors`
 );
 

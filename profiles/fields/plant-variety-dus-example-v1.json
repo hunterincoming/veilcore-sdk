@@ -1,0 +1,24 @@
+{
+  "id": "veilcore/fields/plant-variety-dus-example/v1",
+  "title": "EXAMPLE field schema: 12 marker loci and four traits for a plant variety",
+  "status": "example — not adopted by any body; a real schema names the crop, the panel and k from the examining body's guidance",
+  "slots": [
+    { "slot": 0, "path": "identification.data.loci[0]", "type": "text", "comparable": true },
+    { "slot": 1, "path": "identification.data.loci[1]", "type": "text", "comparable": true },
+    { "slot": 2, "path": "identification.data.loci[2]", "type": "text", "comparable": true },
+    { "slot": 3, "path": "identification.data.loci[3]", "type": "text", "comparable": true },
+    { "slot": 4, "path": "identification.data.loci[4]", "type": "text", "comparable": true },
+    { "slot": 5, "path": "identification.data.loci[5]", "type": "text", "comparable": true },
+    { "slot": 6, "path": "identification.data.loci[6]", "type": "text", "comparable": true },
+    { "slot": 7, "path": "identification.data.loci[7]", "type": "text", "comparable": true },
+    { "slot": 8, "path": "identification.data.loci[8]", "type": "text", "comparable": true },
+    { "slot": 9, "path": "identification.data.loci[9]", "type": "text", "comparable": true },
+    { "slot": 10, "path": "identification.data.loci[10]", "type": "text", "comparable": true },
+    { "slot": 11, "path": "identification.data.loci[11]", "type": "text", "comparable": true },
+    { "slot": 12, "path": "profileData.germinationPercent", "type": "uint", "scale": 100, "unit": "percent" },
+    { "slot": 13, "path": "profileData.purityPercent", "type": "uint", "scale": 100, "unit": "percent" },
+    { "slot": 14, "path": "profileData.yieldKgPerHa", "type": "uint", "scale": 1, "unit": "kg/ha" },
+    { "slot": 15, "path": "profileData.moisturePercent", "type": "uint", "scale": 100, "unit": "percent" }
+  ],
+  "k": 3
+}

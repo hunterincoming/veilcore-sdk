@@ -143,6 +143,16 @@ export type Envelope = {
   profile: string;
   commitment: string;
   commitmentAlgorithm: string;
+  /**
+   * `sha256/fields/v1` only: the id of the published field schema (hex). Committed.
+   */
+  fieldSchema?: string;
+  /**
+   * `sha256/fields/v1` only: the root of the record's field set (hex). Bound into the
+   * commitment by the algorithm itself rather than through the JSON. It reveals nothing
+   * about the values; they and the field secret stay in the holder's private copy.
+   */
+  fieldSetRoot?: string;
   /** Not committed — the anchor is about the commitment, so it cannot be inside it. */
   anchor: Anchor;
   sealedAt: string;
