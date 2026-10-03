@@ -57,6 +57,13 @@ is authenticated across jurisdictions, and what it does not prove.
 commitment procedure, anchoring, corrections, attester identity, verification. Written
 for implementers rather than users of this package.
 
+**Evidence packages.** `buildEvidencePackage({ record, proof, opentimestamps })` produces
+one folder for a lawyer, examiner or court: the record, its inclusion proof, the batch root
+and its OpenTimestamps (Bitcoin) file, a plain-English guide, a declaration template for
+counsel to adapt, and `verify.py` - this package's Python reference implementation,
+standard library only - which checks it all offline with `python3 verify.py`. Nothing in
+it depends on VeilCore still existing.
+
 Worked examples in `examples/`: adding commitments to a laboratory's existing intake
 process, an Additional Certification Requirement end to end, and establishing
 distinctness between two varieties.

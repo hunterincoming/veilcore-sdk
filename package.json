@@ -17,7 +17,7 @@
     "EVIDENCE.md"
   ],
   "scripts": {
-    "build": "tsc",
+    "build": "node scripts/embed-verifier.mjs && tsc",
     "test": "node --test test/*.test.mjs && npm run checks && npm run conformance",
     "conformance": "node conformance/run.mjs",
     "conformance:generate": "node conformance/generate.mjs",

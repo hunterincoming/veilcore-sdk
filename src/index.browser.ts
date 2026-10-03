@@ -18,3 +18,4 @@ export * from './resolve.js';
 export * from './challenge.js';
 export * from './anchors.js';
 export * from './fields.js';
+export * from './evidence.js';
