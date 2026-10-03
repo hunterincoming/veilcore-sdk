@@ -164,6 +164,13 @@ export type Envelope = {
    * about the values; they and the field secret stay in the holder's private copy.
    */
   fieldSetRoot?: string;
+  /**
+   * The ledger identity that holds this record's licences, lineage and obligations
+   * (SPEC 3.6). Committed: it binds the record's content to that identity, so the link is
+   * no longer the holder's word. `identity` is the contract's record commitment (for
+   * VeilCore on Midnight, commit(record secret)), 64 lowercase hex characters.
+   */
+  ledgerIdentity?: { chain: string; contractAddress?: string; identity: string };
   /** Not committed — the anchor is about the commitment, so it cannot be inside it. */
   anchor: Anchor;
   sealedAt: string;

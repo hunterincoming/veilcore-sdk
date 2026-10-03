@@ -165,7 +165,7 @@ def committed_fields(env):
     # canonicalise and are refused there, as any other null is: dropping them would make
     # `"supersedes": null` and no supersedes commit alike.
     for key in (
-        "extensions", "fieldSchema", "fieldSetRoot", "jurisdictionBindings", "supersedes",
+        "extensions", "fieldSchema", "fieldSetRoot", "jurisdictionBindings", "ledgerIdentity", "supersedes",
         # What every subject has, whatever domain it comes from.
         "subject", "identification", "registrations",
     ):
@@ -177,6 +177,28 @@ def committed_fields(env):
 FIELDS_ALGORITHM = "sha256/fields/v1"
 
 
+def _check_ledger_identity(env):
+    """
+    `ledgerIdentity` (spec 3.6) is committed, so its shape is checked before anything is
+    hashed: `chain` a non-empty string, `identity` and the optional `contractAddress` 64
+    lowercase hex characters, and no other key. Present as null is refused, not dropped.
+    """
+    if "ledgerIdentity" not in env:
+        return
+    li = env["ledgerIdentity"]
+    if not isinstance(li, dict):
+        raise ValueError("ledgerIdentity is an object")
+    for k in li:
+        if k not in ("chain", "contractAddress", "identity"):
+            raise ValueError(f"ledgerIdentity has an unknown field: {k}")
+    if not isinstance(li.get("chain"), str) or not li["chain"]:
+        raise ValueError("ledgerIdentity.chain is a non-empty string")
+    if not _is_hex32(li.get("identity")):
+        raise ValueError("ledgerIdentity.identity is 64 lowercase hex characters")
+    if "contractAddress" in li and not _is_hex32(li["contractAddress"]):
+        raise ValueError("ledgerIdentity.contractAddress is 64 lowercase hex characters")
+
+
 def compute_commitment(env):
     """
     `sha256/canonical-json/v1`: SHA-256 of the canonical JSON of the committed fields.
@@ -186,6 +208,7 @@ def compute_commitment(env):
 
     Any other algorithm name is refused rather than guessed.
     """
+    _check_ledger_identity(env)
     algorithm = env.get("commitmentAlgorithm")
     if algorithm == "sha256/canonical-json/v1":
         # A field-set binding means nothing under this algorithm. Present at all, even as

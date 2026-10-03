@@ -31,6 +31,7 @@ export const committedFields = (env: Envelope): Record<string, unknown> => ({
   holder: env.holder,
   identification: env.identification,
   jurisdictionBindings: env.jurisdictionBindings,
+  ledgerIdentity: env.ledgerIdentity,
   parents: env.parents === undefined ? [] : env.parents,
   profile: env.profile,
   profileData: env.profileData,
@@ -57,10 +58,24 @@ const HEX32 = /^[0-9a-f]{64}$/;
 /** Committed fields every record has (SPEC 3.1). A record missing one is refused, not hashed. */
 const REQUIRED_COMMITTED = ['formatVersion', 'recordId', 'subjectType', 'profile', 'sealedAt', 'holder', 'profileData'] as const;
 
+const checkLedgerIdentity = (li: unknown): void => {
+  if (li === undefined) return;
+  if (typeof li !== 'object' || li === null || Array.isArray(li)) throw new Error('ledgerIdentity is an object');
+  const o = li as Record<string, unknown>;
+  const allowed = new Set(['chain', 'contractAddress', 'identity']);
+  for (const k of Object.keys(o)) if (!allowed.has(k)) throw new Error(`ledgerIdentity has an unknown field: ${k}`);
+  if (typeof o.chain !== 'string' || o.chain.length === 0) throw new Error('ledgerIdentity.chain is a non-empty string');
+  if (typeof o.identity !== 'string' || !HEX32.test(o.identity)) throw new Error('ledgerIdentity.identity is 64 lowercase hex characters');
+  if (o.contractAddress !== undefined && (typeof o.contractAddress !== 'string' || !HEX32.test(o.contractAddress))) {
+    throw new Error('ledgerIdentity.contractAddress is 64 lowercase hex characters');
+  }
+};
+
 export const computeCommitment = async (env: Envelope): Promise<string> => {
   for (const k of REQUIRED_COMMITTED) {
     if ((env as Record<string, unknown>)[k] === undefined) throw new Error(`a record needs ${k}`);
   }
+  checkLedgerIdentity(env.ledgerIdentity);
   if (env.commitmentAlgorithm === 'sha256/canonical-json/v1') {
     // Field-set bindings mean nothing under this algorithm, so a record carrying them is
     // refused rather than committed with a root nothing checks (attack round B-H4).

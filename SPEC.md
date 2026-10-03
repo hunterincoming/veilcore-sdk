@@ -56,7 +56,7 @@ A record has three layers. This separation is what allows the format to be used 
 
 Required: `formatVersion`, `recordId`, `subjectType`, `profile`, `commitment`, `commitmentAlgorithm`, `anchor`, `sealedAt`, `holder`, `profileData`.
 
-Optional: `subject`, `identification`, `registrations`, `attestations`, `parents`, `terms`, `supersedes`, `jurisdictionBindings`, `extensions`, and, for records sealed under `sha256/fields/v1` (section 4.5), `fieldSchema` and `fieldSetRoot`.
+Optional: `subject`, `identification`, `registrations`, `attestations`, `parents`, `terms`, `supersedes`, `jurisdictionBindings`, `extensions`, `ledgerIdentity` (section 3.6), and, for records sealed under `sha256/fields/v1` (section 4.5), `fieldSchema` and `fieldSetRoot`.
 
 **Three of those carry what every subject has, whatever domain it comes from.** They are in the envelope rather than in a profile because the alternative is every profile redefining them, and definitions that are redefined drift.
 
@@ -127,6 +127,14 @@ Terms may carry a `paymentInstruction` recording what is owed. Fields: `obligati
 
 The instruction is recorded. Performance is not: nothing in this format moves funds, holds them, or confirms that anyone paid.
 
+### 3.6 Ledger identity
+
+A ledger contract may keep licences, lineage and obligations under an identity of its own, separate from the record's content commitment (VeilCore on Midnight does: the identity is a commitment to a secret only the holder knows, and it survives key changes). Fields: `chain`, `identity` (64 lowercase hex characters), and optionally `contractAddress` (64 lowercase hex characters).
+
+**`ledgerIdentity` is committed.** It binds the record's content to that identity: anyone shown the record learns which identity speaks for it, and only the holder of that identity can act for it on the ledger. Without it, the link between a record's content and its ledger identity is the holder's statement, and a holder could point one identity's licences at a different record.
+
+It reveals nothing about the secret behind the identity. It does link the record's content to everything that identity does on the ledger, for anyone shown the record; a holder who wants a record unlinkable leaves it out.
+
 ---
 
 ## 4 - The commitment
@@ -143,7 +151,7 @@ Binding a commitment to a ledger is a separate operation described by the anchor
 
 The commitment covers, exactly and exhaustively:
 
-`attestations`, `commitmentAlgorithm`, `extensions`, `fieldSchema`, `fieldSetRoot`, `formatVersion`, `holder`, `identification`, `jurisdictionBindings`, `parents`, `profile`, `profileData`, `recordId`, `registrations`, `sealedAt`, `subject`, `subjectType`, `supersedes`.
+`attestations`, `commitmentAlgorithm`, `extensions`, `fieldSchema`, `fieldSetRoot`, `formatVersion`, `holder`, `identification`, `jurisdictionBindings`, `ledgerIdentity`, `parents`, `profile`, `profileData`, `recordId`, `registrations`, `sealedAt`, `subject`, `subjectType`, `supersedes`.
 
 **`attestations` and `parents` are always committed**, as an empty array when absent. Every other optional field is committed only when present, and is omitted rather than serialised as null.
 

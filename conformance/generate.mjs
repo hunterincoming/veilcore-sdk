@@ -339,6 +339,10 @@ for (const c of fieldRejectionCases) {
   const fs = out.fieldSets[0].expected;
   const record = { ...base, recordId: 'vc_rec_conformance_fields_01', commitmentAlgorithm: FIELDS_ALGORITHM, fieldSchema: fs.schemaId, fieldSetRoot: fs.setRoot };
   out.commitments.push({ name: 'a sha256/fields/v1 record binds its field set', record, expectedCommitment: await computeCommitment(record) });
+  {
+    const li = { ...base, recordId: 'vc_rec_conformance_ledger_identity', ledgerIdentity: { chain: 'midnight', contractAddress: 'cd'.repeat(32), identity: 'ef'.repeat(32) } };
+    out.commitments.push({ name: 'a record naming its ledger identity commits to it', record: li, expectedCommitment: await computeCommitment(li) });
+  }
   for (const [name, r, reason] of [
     ['a sha256/fields/v1 record without fieldSetRoot', { ...record, fieldSetRoot: undefined }, 'sha256/fields/v1 needs fieldSetRoot'],
     ['a sha256/fields/v1 record with an uppercase fieldSetRoot', { ...record, fieldSetRoot: record.fieldSetRoot.toUpperCase() }, 'fieldSetRoot is 64 lowercase hex characters'],
@@ -361,13 +365,16 @@ for (const c of fieldRejectionCases) {
     ['an optional committed field written as null (subject)', { ...base, recordId: 'vc_rec_null_2', subject: null }],
     ['attestations written as null', { ...base, recordId: 'vc_rec_null_3', attestations: null }],
     ['parents written as null', { ...base, recordId: 'vc_rec_null_4', parents: null }],
+    ['a ledgerIdentity with an uppercase identity', { ...base, recordId: 'vc_rec_li_bad_1', ledgerIdentity: { chain: 'midnight', identity: 'AB'.repeat(32) } }],
+    ['a ledgerIdentity with an unknown field', { ...base, recordId: 'vc_rec_li_bad_2', ledgerIdentity: { chain: 'midnight', identity: 'ab'.repeat(32), note: 'x' } }],
+    ['a ledgerIdentity with no chain', { ...base, recordId: 'vc_rec_li_bad_3', ledgerIdentity: { identity: 'ab'.repeat(32) } }],
     ['a record with no holder', (() => { const r = { ...base, recordId: 'vc_rec_missing_1' }; delete r.holder; return r; })()],
     ['a record with no sealedAt', (() => { const r = { ...base, recordId: 'vc_rec_missing_2' }; delete r.sealedAt; return r; })()],
   ]) {
     let threw = false;
     try { await computeCommitment(r); } catch { threw = true; }
     if (!threw) throw new Error(`accepted: ${name}`);
-    out.commitmentRejections.push({ name, record: r, reason: name.startsWith('a record with no') ? 'required fields are present (SPEC 3.1)' : 'spec 4.4 rule 4: null is not a value' });
+    out.commitmentRejections.push({ name, record: r, reason: name.startsWith('a record with no') ? 'required fields are present (SPEC 3.1)' : name.includes('ledgerIdentity') ? 'ledgerIdentity is chain, identity and optional contractAddress (SPEC 3.6)' : 'spec 4.4 rule 4: null is not a value' });
   }
 }
 
