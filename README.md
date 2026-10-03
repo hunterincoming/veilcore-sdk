@@ -69,7 +69,7 @@ A commitment is plain SHA-256 over a canonical serialisation, so any implementat
 any language reproduces it. Anchoring to a chain is a separate step, and only that step
 is chain-specific.
 
-Three implementations in different languages pass the same 41 conformance vectors: this
+Three implementations in different languages pass the same 77 conformance vectors: this
 package (TypeScript), a Python implementation in `conformance/impl.py`, and a Rust
 implementation at https://github.com/hunterincoming/veilcore-rs. All three have the same
 author. An implementation by an unrelated party is the test this format still needs.
@@ -86,7 +86,9 @@ node conformance/run-cli.mjs "python3 conformance/impl.py"
 ```
 
 The vectors cover canonicalisation, commitments, what an implementation must REFUSE,
-the inclusion fold, and the bytes an attester signs. That last set was added in
+the inclusion fold, the bytes an attester signs, and field sets (SPEC 4.5: sixteen values
+committed one by one, so a holder can later prove one fact about one value on chain
+without showing the rest). That last set was added in
 September 2026, after this implementation was found to sign an attester's key while
 leaving their display name and claimed accreditation outside the signature — anyone
 holding a genuine attestation could rewrite those and it still verified. Three

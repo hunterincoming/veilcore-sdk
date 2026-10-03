@@ -56,7 +56,7 @@ A record has three layers. This separation is what allows the format to be used 
 
 Required: `formatVersion`, `recordId`, `subjectType`, `profile`, `commitment`, `commitmentAlgorithm`, `anchor`, `sealedAt`, `holder`, `profileData`.
 
-Optional: `subject`, `identification`, `registrations`, `attestations`, `parents`, `terms`, `supersedes`, `jurisdictionBindings`, `extensions`.
+Optional: `subject`, `identification`, `registrations`, `attestations`, `parents`, `terms`, `supersedes`, `jurisdictionBindings`, `extensions`, and, for records sealed under `sha256/fields/v1` (section 4.5), `fieldSchema` and `fieldSetRoot`.
 
 **Three of those carry what every subject has, whatever domain it comes from.** They are in the envelope rather than in a profile because the alternative is every profile redefining them, and definitions that are redefined drift.
 
@@ -142,13 +142,13 @@ Binding a commitment to a ledger is a separate operation described by the anchor
 
 The commitment covers, exactly and exhaustively:
 
-`attestations`, `commitmentAlgorithm`, `extensions`, `formatVersion`, `holder`, `identification`, `jurisdictionBindings`, `parents`, `profile`, `profileData`, `recordId`, `registrations`, `sealedAt`, `subject`, `subjectType`, `supersedes`.
+`attestations`, `commitmentAlgorithm`, `extensions`, `fieldSchema`, `formatVersion`, `holder`, `identification`, `jurisdictionBindings`, `parents`, `profile`, `profileData`, `recordId`, `registrations`, `sealedAt`, `subject`, `subjectType`, `supersedes`.
 
 **`attestations` and `parents` are always committed**, as an empty array when absent. Every other optional field is committed only when present, and is omitted rather than serialised as null.
 
 The list is exhaustive because a verifier that includes a different set computes a different commitment and reports a genuine record as altered. A field added to this specification without being added to this list is a field two conformant implementations will disagree about.
 
-It does **not** cover `anchor` (a statement about the commitment) or `terms` (issued and revoked after sealing).
+It does **not** cover `anchor` (a statement about the commitment) or `terms` (issued and revoked after sealing). `fieldSetRoot` is not in the serialisation; under `sha256/fields/v1` it is bound by the algorithm itself (section 4.5).
 
 **On attestations added after sealing.** Because `attestations` is committed, adding an attestation to a sealed record changes its commitment, which means it is a correction under section 6 and issues a superseding record. This is deliberate. A record whose attestation set can change without changing its commitment is a record whose evidentiary content is mutable, and the superseding record preserves the original alongside it.
 
@@ -189,6 +189,48 @@ These rules follow **RFC 8785 (JSON Canonicalization Scheme)** where they overla
    **A profile may require integers.** Where a value carries a laboratory measurement, a profile publisher should consider requiring it as a string rather than a float: implementations agree on integers within ±2^53 and on strings, and every remaining disagreement about numbers lives in the space between.
 
 Rule 1 is easy to overlook and produces a failure invisible to a human reader: an accented character composed as a single code point and the same character composed as a base letter plus a combining accent are visually identical and hash differently.
+
+### 4.5 Field sets: `sha256/fields/v1`
+
+A record may additionally commit up to sixteen values as separate leaves, so that a holder can later prove one fact about one value - that it is a stated value, that a number meets a bound, that two records differ in enough values, that a correction changed only some - without disclosing the rest. The proofs are made on a ledger (the reference is the VeilCore claims contract); everything in this section is plain SHA-256.
+
+**Hashes.** `H(tag, a, b, ...)` is SHA-256 over the concatenation of 32-byte elements, the first being the tag in UTF-8 right-padded with zero bytes to 32. A **count** is an unsigned integer below 2^64 written little-endian into 32 bytes.
+
+**Schema.** A field schema is a published JSON document with an `id`, a `title`, a `slots` list and an integer `k`. Each slot entry has `slot` (0 to 15, each at most once), `type` (`uint` or `text`), a `path` saying which value it holds, and optionally `comparable` (boolean), `unit` and `scale`. `k` is the distinctness threshold: at least 1, at most the number of comparable slots. Its id is
+
+`schemaId = H("veilcore:v1:fschema", SHA-256(canonical JSON of the schema), mask, count(k))`
+
+where `mask` is the count with bit *i* set for each comparable slot *i*. Because the comparable slots and `k` are inside the id, a claim cannot choose them.
+
+**Slot values.** Each of the sixteen slots holds 32 bytes:
+
+- a `uint` value: the number in bytes 0-7, little-endian, **byte 8 set to 1**, the rest zero;
+- a `text` value: SHA-256 of its UTF-8 after NFC normalisation (text containing an unpaired surrogate shall be refused);
+- an absent value: 32 zero bytes.
+
+**The present-marker in byte 8 is required.** Without it the number 0 and an absent value would be identical, and a record with no test result could prove "at most 0.3%".
+
+A value shall match its slot's declared type, and a slot the schema does not describe shall be absent. In the vectors a value is written `{"uint": "<decimal, no leading zeros>"}`, `{"text": "..."}` or `null`.
+
+**Salts.** `salt_i = H("veilcore:v1:fsalt", fieldSecret, count(i))`, where `fieldSecret` is 32 bytes from a cryptographically secure generator, kept with the holder's private copy of the record. **The field secret shall never be inside the committed JSON or any disclosure of it**: anyone who could derive the salts could guess low-entropy values back from their leaves.
+
+**Tree.** `leaf_i = H("veilcore:v1:field", value_i, salt_i)`; the sixteen leaves form a binary tree with `node = H("veilcore:v1:fnode", left, right)`; and
+
+`fieldSetRoot = H("veilcore:v1:fset", schemaId, treeRoot)`.
+
+**Commitment.** The envelope carries `fieldSchema` (the schema id, committed in the JSON) and `fieldSetRoot` (not in the JSON), both as 64 lowercase hex characters, and
+
+`commitment = hex(H("veilcore:v1:frecord", fieldSetRoot, jsonDigest))`
+
+where `jsonDigest` is the SHA-256 of the canonical serialisation of the committed fields exactly as in sections 4.1-4.4. A record missing either field, or carrying either in any other form, shall be refused. The nonce of section 4.3 is still required: the JSON part needs it for the same reason as before.
+
+**What a field-set record still discloses.** `fieldSetRoot` reveals nothing about the values. Disclosing the committed JSON (for `integrity`, section 8.1) no longer discloses the values in the field set.
+
+**An opening** of slot *i* is its value, its salt, and the four sibling hashes from its leaf to the tree root, with the slot's bits (least significant first) saying on which side each sibling sits. Anyone holding an opening and the record's `jsonDigest` can recompute the commitment.
+
+**Claims** (reference: the VeilCore claims contract and `docs/claims-design.md` in the VeilCore repository) are proved against the commitment and published on the ledger: that slot *i* holds a stated value (the value is published - this establishes authenticity, never confidentiality); that a `uint` slot is at least or at most a bound (the number is not published); that two records under the same schema differ in at least `k` comparable slots, counting only slots present in both (which and how many are not published); and that a correction under the same schema changed only a published set of slots. A claim may additionally carry a laboratory's signature over the field-set root, in which case it states that the laboratory sealed the values.
+
+**Limits that shall be stated wherever claims are offered.** A distinctness claim needs one party who holds both value sets (a breeder comparing its own varieties, or a laboratory that tested both); it does not let two parties compare values neither will show the other. Each published bound or value tells the world something, and a series of range claims can narrow a hidden number. Sixteen slots is the bound per record; a subject with more divides across records joined by declared descent (section 3.4). Statistical distance over thousands of values is the wrong shape for per-slot claims.
 
 ---
 
@@ -399,9 +441,9 @@ Stated plainly because the alternative is a grant that promises more than the me
 
 **Recomputing a commitment requires every committed field, including the nonce.** A recipient granted `integrity` under the commitment scheme in section 4 therefore receives the whole committed record. `integrity` is separable from the other grants in the vocabulary, but it is not yet separable in computation: granting it discloses the record.
 
-**A per-field commitment scheme is what makes it separable**, by committing each field as a leaf and sealing a root, so that a holder can demonstrate that a shown value is the sealed one without showing the rest. That scheme is not specified in this document (section 12).
+**A per-field commitment scheme is what makes it separable**, by committing each field as a leaf and sealing a root, so that a holder can demonstrate that a shown value is the sealed one without showing the rest. Section 4.5 specifies one for up to sixteen values per record.
 
-Until it is, an implementation shall not present `integrity` to a holder as a disclosure narrower than full disclosure of the committed fields. A grant that a holder believes is narrow, and is not, is worse than no grant.
+For a record sealed under `sha256/canonical-json/v1`, and for every value in the committed JSON of any record, an implementation shall not present `integrity` to a holder as a disclosure narrower than full disclosure of the committed fields. Only values in a field set can be proved one at a time. A grant that a holder believes is narrow, and is not, is worse than no grant.
 
 ---
 
@@ -458,7 +500,7 @@ A conformance profile covering party conduct is not defined here (section 12).
 
 An implementation is conformant if it reproduces the published test vectors exactly.
 
-Vectors cover canonicalisation - key ordering, omitted versus null, array order preservation, NFC normalisation, nested sorting, numeric and boolean forms - commitment computation across a range of record shapes, including the requirement that changing the anchor does not change the commitment, and inclusion proofs across batch sizes chosen so that an implementation which duplicates an odd node rather than promoting it will disagree.
+Vectors cover canonicalisation - key ordering, omitted versus null, array order preservation, NFC normalisation, nested sorting, numeric and boolean forms - commitment computation across a range of record shapes, including the requirement that changing the anchor does not change the commitment, and inclusion proofs across batch sizes chosen so that an implementation which duplicates an odd node rather than promoting it will disagree. Field-set vectors (section 4.5) cover schema ids, slot values including the number 0 against an absent value, NFC text, salts, set roots and openings, with refusals for every validation rule and for field-set records missing their bindings.
 
 **Conformance is demonstrated, not asserted.** The vector set and a runner are published with the reference implementation. The runner communicates with an implementation over standard input and output, so implementations in any language can be tested.
 
@@ -571,21 +613,7 @@ A challenge carries: `challengeId`, `subjectCommitment`, `claimCommitment`, `gro
 
 Named so that implementers do not mistake absence for oversight.
 
-**Per-field commitments.** A scheme committing each field as a leaf under a sealed root, so that a holder can prove a shown value is the sealed one, or prove a property of a hidden value, without disclosing the rest. This is what would make the `integrity` grant separable from full disclosure (section 8.1), and what an examiner needs in order to confirm that a test was run and returned a stated result without taking custody of the underlying data.
-
-An independent implementation of this shape exists and has been exercised against records in this format, which is why the entry is worth more than a placeholder. It demonstrates four claim types over a sealed field set: that a shown value is exactly the sealed one; that a sealed number meets a stated threshold without the number appearing anywhere; that two records differ at k or more fields without revealing which or by how much; and that a correction changed no committed field. A claim the sealed data does not support cannot be constructed at all, so nothing is published and nothing is spent.
-
-Specifying it here would have to settle four things that exercising it made plain.
-
-**The committed field set is bounded, and the bound is a cost rather than a limit.** The proving cost is paid over the whole set whether or not every field is used, so a wider set is a slower proof rather than an impossible one. Where a subject carries more fields than one set holds, the fields divide across several records with a parent record naming each by commitment, which is declared descent (section 3.4) rather than a new mechanism. What a split costs is legibility, not soundness: a claim over the whole subject becomes several claims and a sum, and a certificate citing one statement is a different artifact from one citing three.
-
-**The identifier for a committed field set must cover the field paths.** Two sets with the same field names in the same order are otherwise indistinguishable, so a claim about the third field of one part of a subject reads identically to a claim about the third field of another. Where a subject is split, the part must appear in the field path and not only in the document body.
-
-**Proving a shown value is the sealed one establishes authenticity, not confidentiality.** The digest of the shown value is public, because it is the statement being made. A low-entropy value is therefore recoverable from it by anyone willing to guess. That is the correct behaviour for an examiner who has been shown a value and needs to establish afterwards that it was the sealed one, and it must never be described as concealing anything. Threshold and set-membership claims are the ones that hide a value.
-
-**Verification must not require the implementer.** A claim of this kind is recorded in state a verifier can read directly: the claim key is derived from the record, the field, the asserted value and the sequence at which it was recorded, so a verifier who has the record and the contract source can recompute the key and read the result without asking anyone. Any endpoint offered for the same purpose is a convenience. A per-field scheme whose verification depends on the party that issued it would fail the constraint in section 11 that a record survives its registry.
-
-**And the shape does not fit every kind of evidence.** It serves a bounded, curated set of fields whose individual values carry meaning. Where a determination rests instead on statistical distance across hundreds or thousands of values, committing each as a leaf is the wrong instrument at any width, and what would be attested is a laboratory's computation rather than each value it ran over. That is a different trust model and this specification should say which one it is describing.
+**Per-field commitments** are now specified for up to sixteen values per record (section 4.5). Two things remain open. The sixteen-slot bound is a cost, not a principle: a wider set is a slower proof, and a later algorithm identifier may raise it. And **the shape does not fit every kind of evidence**: where a determination rests on statistical distance across hundreds or thousands of values, committing each as a leaf is the wrong instrument at any width, and what would be attested is a laboratory's computation rather than each value it ran over.
 
 **Semantic conformance.** The vectors in section 10 establish that two implementations compute identical commitments and fold identical proofs for the same inputs. They do not test whether a field's contents are permissible - the restriction on `payee` in section 3.5 is the first such rule. A conformance profile covering field content is not specified here, and should be defined against a requiring body's audit needs rather than guessed at in advance.
 

@@ -265,6 +265,10 @@ const fieldRejectionCases = [
   { name: 'a schema with k = 0', input: { schema: { ...exampleSchema, k: 0 }, values: Array(16).fill(null), fieldSecret: SECRET_A }, reason: 'k is at least 1' },
   { name: 'a schema with k above its comparable slots', input: { schema: { ...exampleSchema, k: 13 }, values: Array(16).fill(null), fieldSecret: SECRET_A }, reason: 'k cannot exceed the comparable slots' },
   { name: 'a schema listing a slot twice', input: { schema: { ...exampleSchema, slots: [...exampleSchema.slots, exampleSchema.slots[0]] }, values: Array(16).fill(null), fieldSecret: SECRET_A }, reason: 'each slot is described once' },
+  { name: 'text with an unpaired surrogate', input: { schema: exampleSchema, values: [{ text: 'a\ud800b' }, ...Array(15).fill(null)], fieldSecret: SECRET_A }, reason: 'the same rule as SPEC 4.4 rule 1' },
+  { name: 'text in a uint slot', input: { schema: exampleSchema, values: [...Array(12).fill(null), { text: '96.5' }, null, null, null], fieldSecret: SECRET_A }, reason: 'a value matches its slot type' },
+  { name: 'a uint in a text slot', input: { schema: exampleSchema, values: [{ uint: '233' }, ...Array(15).fill(null)], fieldSecret: SECRET_A }, reason: 'a value matches its slot type' },
+  { name: 'a value in a slot the schema does not describe', input: { schema: { ...exampleSchema, slots: exampleSchema.slots.slice(0, 15) }, values: [...Array(15).fill(null), { uint: '1' }], fieldSecret: SECRET_A }, reason: 'undescribed slots are empty' },
   { name: 'an uppercase field secret', input: { schema: exampleSchema, values: Array(16).fill(null), fieldSecret: 'AB'.repeat(32) }, reason: 'hex is lowercase' },
 ];
 
@@ -331,6 +335,7 @@ for (const c of fieldRejectionCases) {
     ['a sha256/fields/v1 record without fieldSetRoot', { ...record, fieldSetRoot: undefined }],
     ['a sha256/fields/v1 record with an uppercase fieldSetRoot', { ...record, fieldSetRoot: record.fieldSetRoot.toUpperCase() }],
     ['a sha256/fields/v1 record without fieldSchema', { ...record, fieldSchema: undefined }],
+    ['a sha256/fields/v1 record with fieldSchema as a list', { ...record, fieldSchema: [record.fieldSchema] }],
   ]) {
     let threw = false;
     try { await computeCommitment(r); } catch { threw = true; }

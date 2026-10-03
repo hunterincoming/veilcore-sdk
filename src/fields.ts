@@ -85,8 +85,12 @@ export const numberFromSlotValue = (v: Uint8Array): bigint => {
 };
 
 /** A text value: SHA-256 of its UTF-8 after NFC normalisation. */
-export const textSlotValue = async (text: string): Promise<Uint8Array> =>
-  sha256(new TextEncoder().encode(text.normalize('NFC')));
+export const textSlotValue = async (text: string): Promise<Uint8Array> => {
+  // An unpaired surrogate would be replaced by U+FFFD on encoding, so three different
+  // strings would hash the same (the canonicaliser refuses the same input, SPEC 4.4 rule 1).
+  if (/[\uD800-\uDBFF](?![\uDC00-\uDFFF])|(?<![\uD800-\uDBFF])[\uDC00-\uDFFF]/.test(text)) throw new Error('text contains an unpaired surrogate');
+  return sha256(new TextEncoder().encode(text.normalize('NFC')));
+};
 
 /** A 16-slot mask as a number (slot i is bit i), little-endian in 32 bytes. */
 export const maskSlotValue = (mask: readonly boolean[]): Uint8Array => {
@@ -238,6 +242,26 @@ export const slotValueOf = async (v: TypedSlotValue): Promise<Uint8Array> => {
 };
 
 /**
+ * Each value must match its slot's declared type, and a slot the schema does not describe
+ * must be empty: otherwise a text hash could sit in a number slot and a range claim would
+ * run over it.
+ */
+export const typedSlotValues = async (schema: FieldSchema, values: readonly TypedSlotValue[]): Promise<Uint8Array[]> => {
+  comparableMask(schema); // validates the slot list
+  const typeOf = new Map(schema.slots.map((s) => [s.slot, s.type]));
+  return Promise.all(
+    values.map(async (v, i) => {
+      if (v !== null && typeof v === 'object') {
+        const kind = 'uint' in v ? 'uint' : 'text' in v ? 'text' : undefined;
+        if (!typeOf.has(i)) throw new Error(`slot ${i} is not described by the schema, so it must be empty`);
+        if (kind !== typeOf.get(i)) throw new Error(`slot ${i} holds ${typeOf.get(i)} values`);
+      }
+      return slotValueOf(v);
+    }),
+  );
+};
+
+/**
  * Seal typed values under a schema and report everything public or checkable: what the
  * conformance vectors compare across implementations.
  */
@@ -257,7 +281,7 @@ export const fieldSetSummary = async (input: {
   if (!Array.isArray(input.values) || input.values.length !== FIELD_SLOTS) throw new Error('a field set has 16 slots');
   if (typeof input.fieldSecret !== 'string' || !/^[0-9a-f]{64}$/.test(input.fieldSecret)) throw new Error('fieldSecret is 64 lowercase hex characters');
   const schemaId = await fieldSchemaId(input.schema);
-  const values = await Promise.all(input.values.map(slotValueOf));
+  const values = await typedSlotValues(input.schema, input.values);
   const fs = await sealFieldSet(schemaId, values, fromHex(input.fieldSecret));
   const openings = await Promise.all(
     (input.open ?? []).map(async (slot) => {

@@ -51,8 +51,8 @@ const HEX32 = /^[0-9a-f]{64}$/;
 export const computeCommitment = async (env: Envelope): Promise<string> => {
   const jsonDigest = await sha256Hex(canonicalise(committedFields(env)));
   if (env.commitmentAlgorithm !== FIELDS_ALGORITHM) return jsonDigest;
-  if (!env.fieldSetRoot || !HEX32.test(env.fieldSetRoot)) throw new Error('sha256/fields/v1 needs fieldSetRoot as 64 lowercase hex characters');
-  if (!env.fieldSchema || !HEX32.test(env.fieldSchema)) throw new Error('sha256/fields/v1 needs fieldSchema as 64 lowercase hex characters');
+  if (typeof env.fieldSetRoot !== 'string' || !HEX32.test(env.fieldSetRoot)) throw new Error('sha256/fields/v1 needs fieldSetRoot as 64 lowercase hex characters');
+  if (typeof env.fieldSchema !== 'string' || !HEX32.test(env.fieldSchema)) throw new Error('sha256/fields/v1 needs fieldSchema as 64 lowercase hex characters');
   return toHex(await fieldRecordCommitment(fromHex(env.fieldSetRoot), fromHex(jsonDigest)));
 };
 

@@ -1,6 +1,6 @@
 {
   "formatVersion": "0.1",
-  "generatedAt": "2026-10-03T16:09:40.992Z",
+  "generatedAt": "2026-10-03T16:18:04.463Z",
   "canonicalisation": [
     {
       "name": "keys sorted by code point",
@@ -2679,6 +2679,539 @@
       "reason": "each slot is described once"
     },
     {
+      "name": "text with an unpaired surrogate",
+      "input": {
+        "schema": {
+          "id": "veilcore/fields/plant-variety-dus-example/v1",
+          "title": "EXAMPLE field schema: 12 marker loci and four traits for a plant variety",
+          "status": "example — not adopted by any body; a real schema names the crop, the panel and k from the examining body's guidance",
+          "slots": [
+            {
+              "slot": 0,
+              "path": "identification.data.loci[0]",
+              "type": "text",
+              "comparable": true
+            },
+            {
+              "slot": 1,
+              "path": "identification.data.loci[1]",
+              "type": "text",
+              "comparable": true
+            },
+            {
+              "slot": 2,
+              "path": "identification.data.loci[2]",
+              "type": "text",
+              "comparable": true
+            },
+            {
+              "slot": 3,
+              "path": "identification.data.loci[3]",
+              "type": "text",
+              "comparable": true
+            },
+            {
+              "slot": 4,
+              "path": "identification.data.loci[4]",
+              "type": "text",
+              "comparable": true
+            },
+            {
+              "slot": 5,
+              "path": "identification.data.loci[5]",
+              "type": "text",
+              "comparable": true
+            },
+            {
+              "slot": 6,
+              "path": "identification.data.loci[6]",
+              "type": "text",
+              "comparable": true
+            },
+            {
+              "slot": 7,
+              "path": "identification.data.loci[7]",
+              "type": "text",
+              "comparable": true
+            },
+            {
+              "slot": 8,
+              "path": "identification.data.loci[8]",
+              "type": "text",
+              "comparable": true
+            },
+            {
+              "slot": 9,
+              "path": "identification.data.loci[9]",
+              "type": "text",
+              "comparable": true
+            },
+            {
+              "slot": 10,
+              "path": "identification.data.loci[10]",
+              "type": "text",
+              "comparable": true
+            },
+            {
+              "slot": 11,
+              "path": "identification.data.loci[11]",
+              "type": "text",
+              "comparable": true
+            },
+            {
+              "slot": 12,
+              "path": "profileData.germinationPercent",
+              "type": "uint",
+              "scale": 100,
+              "unit": "percent"
+            },
+            {
+              "slot": 13,
+              "path": "profileData.purityPercent",
+              "type": "uint",
+              "scale": 100,
+              "unit": "percent"
+            },
+            {
+              "slot": 14,
+              "path": "profileData.yieldKgPerHa",
+              "type": "uint",
+              "scale": 1,
+              "unit": "kg/ha"
+            },
+            {
+              "slot": 15,
+              "path": "profileData.moisturePercent",
+              "type": "uint",
+              "scale": 100,
+              "unit": "percent"
+            }
+          ],
+          "k": 3
+        },
+        "values": [
+          {
+            "text": "a\ud800b"
+          },
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null
+        ],
+        "fieldSecret": "1111111111111111111111111111111111111111111111111111111111111111"
+      },
+      "reason": "the same rule as SPEC 4.4 rule 1"
+    },
+    {
+      "name": "text in a uint slot",
+      "input": {
+        "schema": {
+          "id": "veilcore/fields/plant-variety-dus-example/v1",
+          "title": "EXAMPLE field schema: 12 marker loci and four traits for a plant variety",
+          "status": "example — not adopted by any body; a real schema names the crop, the panel and k from the examining body's guidance",
+          "slots": [
+            {
+              "slot": 0,
+              "path": "identification.data.loci[0]",
+              "type": "text",
+              "comparable": true
+            },
+            {
+              "slot": 1,
+              "path": "identification.data.loci[1]",
+              "type": "text",
+              "comparable": true
+            },
+            {
+              "slot": 2,
+              "path": "identification.data.loci[2]",
+              "type": "text",
+              "comparable": true
+            },
+            {
+              "slot": 3,
+              "path": "identification.data.loci[3]",
+              "type": "text",
+              "comparable": true
+            },
+            {
+              "slot": 4,
+              "path": "identification.data.loci[4]",
+              "type": "text",
+              "comparable": true
+            },
+            {
+              "slot": 5,
+              "path": "identification.data.loci[5]",
+              "type": "text",
+              "comparable": true
+            },
+            {
+              "slot": 6,
+              "path": "identification.data.loci[6]",
+              "type": "text",
+              "comparable": true
+            },
+            {
+              "slot": 7,
+              "path": "identification.data.loci[7]",
+              "type": "text",
+              "comparable": true
+            },
+            {
+              "slot": 8,
+              "path": "identification.data.loci[8]",
+              "type": "text",
+              "comparable": true
+            },
+            {
+              "slot": 9,
+              "path": "identification.data.loci[9]",
+              "type": "text",
+              "comparable": true
+            },
+            {
+              "slot": 10,
+              "path": "identification.data.loci[10]",
+              "type": "text",
+              "comparable": true
+            },
+            {
+              "slot": 11,
+              "path": "identification.data.loci[11]",
+              "type": "text",
+              "comparable": true
+            },
+            {
+              "slot": 12,
+              "path": "profileData.germinationPercent",
+              "type": "uint",
+              "scale": 100,
+              "unit": "percent"
+            },
+            {
+              "slot": 13,
+              "path": "profileData.purityPercent",
+              "type": "uint",
+              "scale": 100,
+              "unit": "percent"
+            },
+            {
+              "slot": 14,
+              "path": "profileData.yieldKgPerHa",
+              "type": "uint",
+              "scale": 1,
+              "unit": "kg/ha"
+            },
+            {
+              "slot": 15,
+              "path": "profileData.moisturePercent",
+              "type": "uint",
+              "scale": 100,
+              "unit": "percent"
+            }
+          ],
+          "k": 3
+        },
+        "values": [
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          {
+            "text": "96.5"
+          },
+          null,
+          null,
+          null
+        ],
+        "fieldSecret": "1111111111111111111111111111111111111111111111111111111111111111"
+      },
+      "reason": "a value matches its slot type"
+    },
+    {
+      "name": "a uint in a text slot",
+      "input": {
+        "schema": {
+          "id": "veilcore/fields/plant-variety-dus-example/v1",
+          "title": "EXAMPLE field schema: 12 marker loci and four traits for a plant variety",
+          "status": "example — not adopted by any body; a real schema names the crop, the panel and k from the examining body's guidance",
+          "slots": [
+            {
+              "slot": 0,
+              "path": "identification.data.loci[0]",
+              "type": "text",
+              "comparable": true
+            },
+            {
+              "slot": 1,
+              "path": "identification.data.loci[1]",
+              "type": "text",
+              "comparable": true
+            },
+            {
+              "slot": 2,
+              "path": "identification.data.loci[2]",
+              "type": "text",
+              "comparable": true
+            },
+            {
+              "slot": 3,
+              "path": "identification.data.loci[3]",
+              "type": "text",
+              "comparable": true
+            },
+            {
+              "slot": 4,
+              "path": "identification.data.loci[4]",
+              "type": "text",
+              "comparable": true
+            },
+            {
+              "slot": 5,
+              "path": "identification.data.loci[5]",
+              "type": "text",
+              "comparable": true
+            },
+            {
+              "slot": 6,
+              "path": "identification.data.loci[6]",
+              "type": "text",
+              "comparable": true
+            },
+            {
+              "slot": 7,
+              "path": "identification.data.loci[7]",
+              "type": "text",
+              "comparable": true
+            },
+            {
+              "slot": 8,
+              "path": "identification.data.loci[8]",
+              "type": "text",
+              "comparable": true
+            },
+            {
+              "slot": 9,
+              "path": "identification.data.loci[9]",
+              "type": "text",
+              "comparable": true
+            },
+            {
+              "slot": 10,
+              "path": "identification.data.loci[10]",
+              "type": "text",
+              "comparable": true
+            },
+            {
+              "slot": 11,
+              "path": "identification.data.loci[11]",
+              "type": "text",
+              "comparable": true
+            },
+            {
+              "slot": 12,
+              "path": "profileData.germinationPercent",
+              "type": "uint",
+              "scale": 100,
+              "unit": "percent"
+            },
+            {
+              "slot": 13,
+              "path": "profileData.purityPercent",
+              "type": "uint",
+              "scale": 100,
+              "unit": "percent"
+            },
+            {
+              "slot": 14,
+              "path": "profileData.yieldKgPerHa",
+              "type": "uint",
+              "scale": 1,
+              "unit": "kg/ha"
+            },
+            {
+              "slot": 15,
+              "path": "profileData.moisturePercent",
+              "type": "uint",
+              "scale": 100,
+              "unit": "percent"
+            }
+          ],
+          "k": 3
+        },
+        "values": [
+          {
+            "uint": "233"
+          },
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null
+        ],
+        "fieldSecret": "1111111111111111111111111111111111111111111111111111111111111111"
+      },
+      "reason": "a value matches its slot type"
+    },
+    {
+      "name": "a value in a slot the schema does not describe",
+      "input": {
+        "schema": {
+          "id": "veilcore/fields/plant-variety-dus-example/v1",
+          "title": "EXAMPLE field schema: 12 marker loci and four traits for a plant variety",
+          "status": "example — not adopted by any body; a real schema names the crop, the panel and k from the examining body's guidance",
+          "slots": [
+            {
+              "slot": 0,
+              "path": "identification.data.loci[0]",
+              "type": "text",
+              "comparable": true
+            },
+            {
+              "slot": 1,
+              "path": "identification.data.loci[1]",
+              "type": "text",
+              "comparable": true
+            },
+            {
+              "slot": 2,
+              "path": "identification.data.loci[2]",
+              "type": "text",
+              "comparable": true
+            },
+            {
+              "slot": 3,
+              "path": "identification.data.loci[3]",
+              "type": "text",
+              "comparable": true
+            },
+            {
+              "slot": 4,
+              "path": "identification.data.loci[4]",
+              "type": "text",
+              "comparable": true
+            },
+            {
+              "slot": 5,
+              "path": "identification.data.loci[5]",
+              "type": "text",
+              "comparable": true
+            },
+            {
+              "slot": 6,
+              "path": "identification.data.loci[6]",
+              "type": "text",
+              "comparable": true
+            },
+            {
+              "slot": 7,
+              "path": "identification.data.loci[7]",
+              "type": "text",
+              "comparable": true
+            },
+            {
+              "slot": 8,
+              "path": "identification.data.loci[8]",
+              "type": "text",
+              "comparable": true
+            },
+            {
+              "slot": 9,
+              "path": "identification.data.loci[9]",
+              "type": "text",
+              "comparable": true
+            },
+            {
+              "slot": 10,
+              "path": "identification.data.loci[10]",
+              "type": "text",
+              "comparable": true
+            },
+            {
+              "slot": 11,
+              "path": "identification.data.loci[11]",
+              "type": "text",
+              "comparable": true
+            },
+            {
+              "slot": 12,
+              "path": "profileData.germinationPercent",
+              "type": "uint",
+              "scale": 100,
+              "unit": "percent"
+            },
+            {
+              "slot": 13,
+              "path": "profileData.purityPercent",
+              "type": "uint",
+              "scale": 100,
+              "unit": "percent"
+            },
+            {
+              "slot": 14,
+              "path": "profileData.yieldKgPerHa",
+              "type": "uint",
+              "scale": 1,
+              "unit": "kg/ha"
+            }
+          ],
+          "k": 3
+        },
+        "values": [
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          null,
+          {
+            "uint": "1"
+          }
+        ],
+        "fieldSecret": "1111111111111111111111111111111111111111111111111111111111111111"
+      },
+      "reason": "undescribed slots are empty"
+    },
+    {
       "name": "an uppercase field secret",
       "input": {
         "schema": {
@@ -2891,6 +3424,36 @@
           "cultivarName": "Reference Cultivar",
           "nonce": "0000000000000000000000000000000000000000000000000000000000000000"
         },
+        "fieldSetRoot": "bcc7a07c54b73978c378b1056f52c7fb34fa7a92f85470d7f8c33f15f8758dec"
+      },
+      "reason": "sha256/fields/v1 needs fieldSchema and fieldSetRoot as lowercase hex"
+    },
+    {
+      "name": "a sha256/fields/v1 record with fieldSchema as a list",
+      "record": {
+        "formatVersion": "0.1",
+        "recordId": "vc_rec_conformance_fields_01",
+        "subjectType": "plant-genetic-material",
+        "profile": "veilcore/profile/cannabis/v0.1",
+        "commitment": "",
+        "commitmentAlgorithm": "sha256/fields/v1",
+        "anchor": {
+          "chain": "midnight",
+          "network": "undeployed"
+        },
+        "sealedAt": "2026-01-01T00:00:00Z",
+        "holder": {
+          "id": "vc_hld_conformance"
+        },
+        "parents": [],
+        "attestations": [],
+        "profileData": {
+          "cultivarName": "Reference Cultivar",
+          "nonce": "0000000000000000000000000000000000000000000000000000000000000000"
+        },
+        "fieldSchema": [
+          "9dd68c656b770881cad6e2be6dfc04a9b495fb90d83b78a8b295a425a7690861"
+        ],
         "fieldSetRoot": "bcc7a07c54b73978c378b1056f52c7fb34fa7a92f85470d7f8c33f15f8758dec"
       },
       "reason": "sha256/fields/v1 needs fieldSchema and fieldSetRoot as lowercase hex"
