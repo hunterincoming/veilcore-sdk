@@ -142,13 +142,15 @@ Binding a commitment to a ledger is a separate operation described by the anchor
 
 The commitment covers, exactly and exhaustively:
 
-`attestations`, `commitmentAlgorithm`, `extensions`, `fieldSchema`, `formatVersion`, `holder`, `identification`, `jurisdictionBindings`, `parents`, `profile`, `profileData`, `recordId`, `registrations`, `sealedAt`, `subject`, `subjectType`, `supersedes`.
+`attestations`, `commitmentAlgorithm`, `extensions`, `fieldSchema`, `fieldSetRoot`, `formatVersion`, `holder`, `identification`, `jurisdictionBindings`, `parents`, `profile`, `profileData`, `recordId`, `registrations`, `sealedAt`, `subject`, `subjectType`, `supersedes`.
 
 **`attestations` and `parents` are always committed**, as an empty array when absent. Every other optional field is committed only when present, and is omitted rather than serialised as null.
 
 The list is exhaustive because a verifier that includes a different set computes a different commitment and reports a genuine record as altered. A field added to this specification without being added to this list is a field two conformant implementations will disagree about.
 
-It does **not** cover `anchor` (a statement about the commitment) or `terms` (issued and revoked after sealing). `fieldSetRoot` is not in the serialisation; under `sha256/fields/v1` it is bound by the algorithm itself (section 4.5).
+It does **not** cover `anchor` (a statement about the commitment) or `terms` (issued and revoked after sealing).
+
+**A record missing a required field (section 3.1), or carrying any committed field as `null`, shall be refused.** Absent `attestations` and `parents` are committed as empty arrays; `null` is not absent.
 
 **On attestations added after sealing.** Because `attestations` is committed, adding an attestation to a sealed record changes its commitment, which means it is a correction under section 6 and issues a superseding record. This is deliberate. A record whose attestation set can change without changing its commitment is a record whose evidentiary content is mutable, and the superseding record preserves the original alongside it.
 
@@ -192,15 +194,25 @@ Rule 1 is easy to overlook and produces a failure invisible to a human reader: a
 
 ### 4.5 Field sets: `sha256/fields/v1`
 
-A record may additionally commit up to sixteen values as separate leaves, so that a holder can later prove one fact about one value - that it is a stated value, that a number meets a bound, that two records differ in enough values, that a correction changed only some - without disclosing the rest. The proofs are made on a ledger (the reference is the VeilCore claims contract); everything in this section is plain SHA-256.
+A record may additionally commit up to sixteen values as separate leaves, so that a holder can later prove one fact about one value - that it is a stated value, that a number meets a bound, that two records differ in enough values, that a correction left some values unchanged - without disclosing the rest. The proofs are made on a ledger (the reference is the VeilCore claims contract); everything in this section is plain SHA-256.
 
-**Hashes.** `H(tag, a, b, ...)` is SHA-256 over the concatenation of 32-byte elements, the first being the tag in UTF-8 right-padded with zero bytes to 32. A **count** is an unsigned integer below 2^64 written little-endian into 32 bytes.
+**Hashes.** `H(tag, a, b, ...)` is SHA-256 over the concatenation of 32-byte elements, the first being the tag in UTF-8 right-padded with zero bytes to 32. A **count** is an unsigned integer below 2^64 written little-endian into 32 bytes. A **mask** is the count with bit *i* set for each slot *i* it names.
 
-**Schema.** A field schema is a published JSON document with an `id`, a `title`, a `slots` list and an integer `k`. Each slot entry has `slot` (0 to 15, each at most once), `type` (`uint` or `text`), a `path` saying which value it holds, and optionally `comparable` (boolean), `unit` and `scale`. `k` is the distinctness threshold: at least 1, at most the number of comparable slots. Its id is
+**Schema.** A field schema is a published JSON document with an `id` (a non-empty string naming its publisher and version), a `title`, a `slots` list and an integer `k`. Each slot entry is an object with `slot` (0 to 15, each at most once), `type` (`uint` or `text`), `path` (a non-empty string saying what the slot holds), and optionally `unit` (a string), `scale` (a positive integer: the stored number is the measured value times `scale`), `comparable` (true or false) and `format`. A `comparable` text slot shall declare a `format`, and `format` is allowed only on text slots:
 
-`schemaId = H("veilcore:v1:fschema", SHA-256(canonical JSON of the schema), mask, count(k))`
+| `format` | Canonical form | Example |
+|---|---|---|
+| `allele-pair` | two allele sizes, decimal, no leading zeros, at most nine digits each, smaller first, joined by `/` | `180/184` |
+| `allele` | one allele size, decimal, no leading zeros, at most nine digits | `233` |
+| `code` | an upper-case letter or digit, then up to 63 upper-case letters, digits, `.`, `_` or `-` | `HM-3` |
 
-where `mask` is the count with bit *i* set for each comparable slot *i*. Because the comparable slots and `k` are inside the id, a claim cannot choose them.
+A value in a slot with a `format` shall be in that form; anything else shall be refused rather than normalised. Distinctness compares values byte for byte, so one genotype written two ways would otherwise count as a difference.
+
+`k` is the distinctness threshold: at least 1, at most the number of comparable slots. The schema id is
+
+`schemaId = H("veilcore:v1:fschema", SHA-256(canonical JSON of the schema), comparableMask, count(k), numericMask)`
+
+where `numericMask` names every `uint` slot. Because the masks and `k` are inside the id, a claim cannot choose its comparable slots or threshold, and a range claim can be refused on a slot the schema does not call a number. **A verifier shall obtain the schema document from its publisher and recompute the id**; a claim names an id, and an id is only as meaningful as the document behind it.
 
 **Slot values.** Each of the sixteen slots holds 32 bytes:
 
@@ -212,25 +224,48 @@ where `mask` is the count with bit *i* set for each comparable slot *i*. Because
 
 A value shall match its slot's declared type, and a slot the schema does not describe shall be absent. In the vectors a value is written `{"uint": "<decimal, no leading zeros>"}`, `{"text": "..."}` or `null`.
 
-**Salts.** `salt_i = H("veilcore:v1:fsalt", fieldSecret, count(i))`, where `fieldSecret` is 32 bytes from a cryptographically secure generator, kept with the holder's private copy of the record. **The field secret shall never be inside the committed JSON or any disclosure of it**: anyone who could derive the salts could guess low-entropy values back from their leaves.
+**A value in a field set shall not also appear in the record's committed JSON.** The schema's paths name the holder's private copy, not committed fields; a value in both places would be disclosed with the JSON and could contradict itself.
+
+**Salts.** `salt_i = H("veilcore:v1:fsalt", fieldSecret, count(i))`, where `fieldSecret` is 32 bytes from a cryptographically secure generator, kept with the holder's private copy of the record. **The field secret shall never be inside the committed JSON or any disclosure of it, shall not be derived from the nonce, and shall not be reused across records**: anyone who could derive the salts could guess low-entropy values back from their leaves.
 
 **Tree.** `leaf_i = H("veilcore:v1:field", value_i, salt_i)`; the sixteen leaves form a binary tree with `node = H("veilcore:v1:fnode", left, right)`; and
 
 `fieldSetRoot = H("veilcore:v1:fset", schemaId, treeRoot)`.
 
-**Commitment.** The envelope carries `fieldSchema` (the schema id, committed in the JSON) and `fieldSetRoot` (not in the JSON), both as 64 lowercase hex characters, and
+**Commitment.** The envelope carries `fieldSchema` (the schema id) and `fieldSetRoot`, both as 64 lowercase hex characters and both committed in the JSON, and
 
 `commitment = hex(H("veilcore:v1:frecord", fieldSetRoot, jsonDigest))`
 
-where `jsonDigest` is the SHA-256 of the canonical serialisation of the committed fields exactly as in sections 4.1-4.4. A record missing either field, or carrying either in any other form, shall be refused. The nonce of section 4.3 is still required: the JSON part needs it for the same reason as before.
+where `jsonDigest` is the SHA-256 of the canonical serialisation of the committed fields exactly as in sections 4.1-4.4. A field-set record missing either field, or carrying either in any other form, shall be refused; so shall a `sha256/canonical-json/v1` record carrying either, and any record whose `commitmentAlgorithm` is not exactly one of the two identifiers in this specification. The nonce of section 4.3 is still required.
 
-**What a field-set record still discloses.** `fieldSetRoot` reveals nothing about the values. Disclosing the committed JSON (for `integrity`, section 8.1) no longer discloses the values in the field set.
+Because `fieldSetRoot` is in the JSON, anyone shown the JSON sees which field set it belongs to, and one JSON cannot be paired with two field sets. `fieldSetRoot` reveals nothing about the values. Disclosing the committed JSON (for `integrity`, section 8.1) does not disclose the values in the field set.
 
-**An opening** of slot *i* is its value, its salt, and the four sibling hashes from its leaf to the tree root, with the slot's bits (least significant first) saying on which side each sibling sits. Anyone holding an opening and the record's `jsonDigest` can recompute the commitment.
+**An opening** of slot *i* is its value, its salt, and the four sibling hashes from its leaf to the tree root, with the slot's bits (least significant first) saying on which side each sibling sits.
 
-**Claims** (reference: the VeilCore claims contract and `docs/claims-design.md` in the VeilCore repository) are proved against the commitment and published on the ledger: that slot *i* holds a stated value (the value is published - this establishes authenticity, never confidentiality); that a `uint` slot is at least or at most a bound (the number is not published); that two records under the same schema differ in at least `k` comparable slots, counting only slots present in both (which and how many are not published); and that a correction under the same schema changed only a published set of slots. A claim may additionally carry a laboratory's signature over the field-set root, in which case it states that the laboratory sealed the values.
+**Claims** (reference: the VeilCore claims contract and `docs/claims-design.md` in the VeilCore repository) are proved against the record commitment and published on the ledger:
 
-**Limits that shall be stated wherever claims are offered.** A distinctness claim needs one party who holds both value sets (a breeder comparing its own varieties, or a laboratory that tested both); it does not let two parties compare values neither will show the other. Each published bound or value tells the world something, and a series of range claims can narrow a hidden number. Sixteen slots is the bound per record; a subject with more divides across records joined by declared descent (section 3.4). Statistical distance over thousands of values is the wrong shape for per-slot claims.
+- **value**: slot *i* holds a stated value. The value is published: this establishes authenticity, never confidentiality.
+- **range**: a `uint` slot is at least, or at most, a bound. The number is not published.
+- **distinct**: two records under the same schema differ in at least `k` comparable slots, counting only slots present in both. Which slots differ, and how many, are not published. It shall be reported as "differs in at least k comparable values", never as a determination of distinctness, which is the examining body's.
+- **unchanged**: two records under the same schema have equal values outside a published mask. It establishes nothing else: not which record is the correction, nor that either names the other in `supersedes`.
+
+A claim may carry a laboratory's signature. **The signature shall be over the record commitment**, not the field-set root, so it cannot be moved to another record built around the same values; it states that the laboratory sealed that record. Which keys are laboratories is the verifier's decision (section 7).
+
+**What a verifier of a claim shall check:**
+
+1. The claim is on the published claims contract, whose verifier keys match the published fingerprints, and was read per call, not per transaction or block.
+2. Every record named is anchored; for **distinct**, the reference's anchor predates the claim's purpose (an application, a dispute).
+3. The schema document, obtained from its publisher, recomputes to the claim's schema id; the slot has the type the claim needs; `scale` and `unit` are applied as stated.
+4. Where the committed JSON is held: `commitmentAlgorithm` is exactly `sha256/fields/v1`, and `fieldSchema` and `fieldSetRoot` match.
+5. Whether the record is current. A claim states a fact about a record as sealed; where currency cannot be established, the claim shall be reported as about the record as sealed.
+6. For a laboratory-signed claim: the key belongs to a laboratory the verifier trusts and was valid at the time of the claim transaction (the signature can be made later than the record's anchor).
+7. For **distinct**: the reference record is identified by someone other than the prover.
+8. For **unchanged**: the newer record names the older in `supersedes`, and the mask is not every slot.
+9. What earlier claims on the same slot have already published (below).
+
+**Disclosure accounting.** Every published value or bound tells the world something, and a series of range claims narrows a hidden number: a refusal to prove leaks as much as a proof. An implementation that offers claims shall show the holder what claims already published on a slot reveal before proving another, and shall not prove a claim at a third party's request without the holder's confirmation.
+
+**Limits that shall be stated wherever claims are offered.** A distinctness claim needs one party who holds both value sets (a breeder comparing its own varieties, or a laboratory that tested both); it does not let two parties compare values neither will show the other. Anyone the holder gives an opening to can publish a value or range claim about that slot. Sixteen slots is the bound per record; a subject with more divides across records joined by declared descent (section 3.4). Statistical distance over thousands of values is the wrong shape for per-slot claims.
 
 ---
 

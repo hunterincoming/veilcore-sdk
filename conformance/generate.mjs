@@ -241,15 +241,15 @@ const SECRET_A = '11'.repeat(32);
 const fieldSetCases = [
   {
     name: 'twelve loci and four traits, slots 3 and 12 opened',
-    input: { schema: exampleSchema, values: [...loci.map((t) => ({ text: t })), { uint: '9650' }, { uint: '9980' }, { uint: '6400' }, null], fieldSecret: SECRET_A, open: [3, 12, 15] },
+    input: { schema: exampleSchema, values: [...loci.map((t) => ({ text: t })), { uint: '9650' }, { uint: '9980' }, { text: 'Harbour Mist' }, { uint: '6400' }], fieldSecret: SECRET_A, open: [3, 12, 15] },
   },
   {
     name: 'the number 0 is not an absent slot',
-    input: { schema: exampleSchema, values: [...loci.map((t) => ({ text: t })), { uint: '0' }, null, { uint: '18446744073709551615' }, null], fieldSecret: '22'.repeat(32), open: [12, 13] },
+    input: { schema: exampleSchema, values: [...loci.map((t) => ({ text: t })), { uint: '0' }, null, null, { uint: '18446744073709551615' }], fieldSecret: '22'.repeat(32), open: [12, 13] },
   },
   {
     name: 'text is NFC-normalised before hashing (decomposed e-acute)',
-    input: { schema: exampleSchema, values: [{ text: 'Caf\u0065\u0301' }, ...Array(15).fill(null)], fieldSecret: '33'.repeat(32), open: [0] },
+    input: { schema: exampleSchema, values: [...Array(14).fill(null), { text: 'Caf\u0065\u0301' }, null], fieldSecret: '33'.repeat(32), open: [14] },
   },
   {
     name: 'every slot absent',
@@ -265,7 +265,15 @@ const fieldRejectionCases = [
   { name: 'a schema with k = 0', input: { schema: { ...exampleSchema, k: 0 }, values: Array(16).fill(null), fieldSecret: SECRET_A }, reason: 'k is at least 1' },
   { name: 'a schema with k above its comparable slots', input: { schema: { ...exampleSchema, k: 13 }, values: Array(16).fill(null), fieldSecret: SECRET_A }, reason: 'k cannot exceed the comparable slots' },
   { name: 'a schema listing a slot twice', input: { schema: { ...exampleSchema, slots: [...exampleSchema.slots, exampleSchema.slots[0]] }, values: Array(16).fill(null), fieldSecret: SECRET_A }, reason: 'each slot is described once' },
-  { name: 'text with an unpaired surrogate', input: { schema: exampleSchema, values: [{ text: 'a\ud800b' }, ...Array(15).fill(null)], fieldSecret: SECRET_A }, reason: 'the same rule as SPEC 4.4 rule 1' },
+  { name: 'text with an unpaired surrogate', input: { schema: exampleSchema, values: [...Array(14).fill(null), { text: 'a\ud800b' }, null], fieldSecret: SECRET_A }, reason: 'the same rule as SPEC 4.4 rule 1' },
+  { name: 'an allele pair written larger first', input: { schema: exampleSchema, values: [{ text: '184/180' }, ...Array(15).fill(null)], fieldSecret: SECRET_A }, reason: 'comparable text is in its canonical form' },
+  { name: 'an allele size with a leading zero', input: { schema: exampleSchema, values: [{ text: '090/184' }, ...Array(15).fill(null)], fieldSecret: SECRET_A }, reason: 'comparable text is in its canonical form' },
+  { name: 'an allele pair with spaces', input: { schema: exampleSchema, values: [{ text: '180 / 184' }, ...Array(15).fill(null)], fieldSecret: SECRET_A }, reason: 'comparable text is in its canonical form' },
+  { name: 'a comparable text slot with no format', input: { schema: { ...exampleSchema, slots: exampleSchema.slots.map((s) => (s.slot === 0 ? { slot: 0, path: s.path, type: 'text', comparable: true } : s)) }, values: Array(16).fill(null), fieldSecret: SECRET_A }, reason: 'a comparable text slot declares a format' },
+  { name: "a format named after a JavaScript built-in ('toString')", input: { schema: { ...exampleSchema, slots: exampleSchema.slots.map((s) => (s.slot === 14 ? { ...s, format: 'toString' } : s)) }, values: Array(16).fill(null), fieldSecret: SECRET_A }, reason: 'format is one of allele-pair, allele, code' },
+  { name: 'a format given as a list', input: { schema: { ...exampleSchema, slots: exampleSchema.slots.map((s) => (s.slot === 14 ? { ...s, format: ['code'] } : s)) }, values: Array(16).fill(null), fieldSecret: SECRET_A }, reason: 'format is a string' },
+  { name: 'a slot with no path', input: { schema: { ...exampleSchema, slots: exampleSchema.slots.map((s) => (s.slot === 15 ? { slot: 15, type: 'uint' } : s)) }, values: Array(16).fill(null), fieldSecret: SECRET_A }, reason: 'every slot says what it holds' },
+  { name: 'a scale of zero', input: { schema: { ...exampleSchema, slots: exampleSchema.slots.map((s) => (s.slot === 15 ? { ...s, scale: 0 } : s)) }, values: Array(16).fill(null), fieldSecret: SECRET_A }, reason: 'scale is a positive integer' },
   { name: 'text in a uint slot', input: { schema: exampleSchema, values: [...Array(12).fill(null), { text: '96.5' }, null, null, null], fieldSecret: SECRET_A }, reason: 'a value matches its slot type' },
   { name: 'a uint in a text slot', input: { schema: exampleSchema, values: [{ uint: '233' }, ...Array(15).fill(null)], fieldSecret: SECRET_A }, reason: 'a value matches its slot type' },
   { name: 'a value in a slot the schema does not describe', input: { schema: { ...exampleSchema, slots: exampleSchema.slots.slice(0, 15) }, values: [...Array(15).fill(null), { uint: '1' }], fieldSecret: SECRET_A }, reason: 'undescribed slots are empty' },
@@ -331,17 +339,35 @@ for (const c of fieldRejectionCases) {
   const fs = out.fieldSets[0].expected;
   const record = { ...base, recordId: 'vc_rec_conformance_fields_01', commitmentAlgorithm: FIELDS_ALGORITHM, fieldSchema: fs.schemaId, fieldSetRoot: fs.setRoot };
   out.commitments.push({ name: 'a sha256/fields/v1 record binds its field set', record, expectedCommitment: await computeCommitment(record) });
-  for (const [name, r] of [
-    ['a sha256/fields/v1 record without fieldSetRoot', { ...record, fieldSetRoot: undefined }],
-    ['a sha256/fields/v1 record with an uppercase fieldSetRoot', { ...record, fieldSetRoot: record.fieldSetRoot.toUpperCase() }],
-    ['a sha256/fields/v1 record without fieldSchema', { ...record, fieldSchema: undefined }],
-    ['a sha256/fields/v1 record with fieldSchema as a list', { ...record, fieldSchema: [record.fieldSchema] }],
+  for (const [name, r, reason] of [
+    ['a sha256/fields/v1 record without fieldSetRoot', { ...record, fieldSetRoot: undefined }, 'sha256/fields/v1 needs fieldSetRoot'],
+    ['a sha256/fields/v1 record with an uppercase fieldSetRoot', { ...record, fieldSetRoot: record.fieldSetRoot.toUpperCase() }, 'fieldSetRoot is 64 lowercase hex characters'],
+    ['a sha256/fields/v1 record without fieldSchema', { ...record, fieldSchema: undefined }, 'sha256/fields/v1 needs fieldSchema'],
+    ['a sha256/fields/v1 record with fieldSchema as a list', { ...record, fieldSchema: [record.fieldSchema] }, 'fieldSchema is a string'],
+    ['a sha256/canonical-json/v1 record carrying a fieldSetRoot', { ...record, commitmentAlgorithm: COMMITMENT_ALGORITHM, fieldSchema: undefined }, 'field-set bindings belong only to sha256/fields/v1'],
+    ['a sha256/canonical-json/v1 record carrying a fieldSchema', { ...record, commitmentAlgorithm: COMMITMENT_ALGORITHM, fieldSetRoot: undefined }, 'field-set bindings belong only to sha256/fields/v1'],
+    ['an algorithm name that only looks like sha256/fields/v1 (trailing space)', { ...record, commitmentAlgorithm: 'sha256/fields/v1 ' }, 'algorithm names match exactly'],
+    ['an unknown algorithm', { ...record, commitmentAlgorithm: 'sha256/fields/v2' }, 'unknown algorithms are refused'],
   ]) {
     let threw = false;
     try { await computeCommitment(r); } catch { threw = true; }
     if (!threw) throw new Error(`accepted: ${name}`);
     const clean = JSON.parse(JSON.stringify(r));
-    out.commitmentRejections.push({ name, record: clean, reason: 'sha256/fields/v1 needs fieldSchema and fieldSetRoot as lowercase hex' });
+    out.commitmentRejections.push({ name, record: clean, reason });
+  }
+  // Null optional fields (SPEC 4.4 rule 4): refused, never silently dropped.
+  for (const [name, r] of [
+    ['an optional committed field written as null (supersedes)', { ...base, recordId: 'vc_rec_null_1', supersedes: null }],
+    ['an optional committed field written as null (subject)', { ...base, recordId: 'vc_rec_null_2', subject: null }],
+    ['attestations written as null', { ...base, recordId: 'vc_rec_null_3', attestations: null }],
+    ['parents written as null', { ...base, recordId: 'vc_rec_null_4', parents: null }],
+    ['a record with no holder', (() => { const r = { ...base, recordId: 'vc_rec_missing_1' }; delete r.holder; return r; })()],
+    ['a record with no sealedAt', (() => { const r = { ...base, recordId: 'vc_rec_missing_2' }; delete r.sealedAt; return r; })()],
+  ]) {
+    let threw = false;
+    try { await computeCommitment(r); } catch { threw = true; }
+    if (!threw) throw new Error(`accepted: ${name}`);
+    out.commitmentRejections.push({ name, record: r, reason: name.startsWith('a record with no') ? 'required fields are present (SPEC 3.1)' : 'spec 4.4 rule 4: null is not a value' });
   }
 }
 

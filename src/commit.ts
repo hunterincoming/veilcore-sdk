@@ -20,15 +20,18 @@ import { FIELDS_ALGORITHM, type FieldSet, fieldRecordCommitment, fieldSetRootOf,
  * and cannot be inside it, and terms are issued and revoked after sealing.
  */
 export const committedFields = (env: Envelope): Record<string, unknown> => ({
-  attestations: env.attestations ?? [],
+  // Absent means empty; an explicit null is refused by the canonicaliser (SPEC 4.4 rule 4),
+  // never silently read as empty.
+  attestations: env.attestations === undefined ? [] : env.attestations,
   commitmentAlgorithm: env.commitmentAlgorithm,
   extensions: env.extensions,
   fieldSchema: env.fieldSchema,
+  fieldSetRoot: env.fieldSetRoot,
   formatVersion: env.formatVersion,
   holder: env.holder,
   identification: env.identification,
   jurisdictionBindings: env.jurisdictionBindings,
-  parents: env.parents ?? [],
+  parents: env.parents === undefined ? [] : env.parents,
   profile: env.profile,
   profileData: env.profileData,
   recordId: env.recordId,
@@ -46,11 +49,26 @@ const HEX32 = /^[0-9a-f]{64}$/;
  *
  * `sha256/canonical-json/v1`: SHA-256 of the canonical JSON of the committed fields.
  * `sha256/fields/v1` (SPEC 4.5): H("veilcore:v1:frecord", fieldSetRoot, that same digest),
- * so the commitment also binds a field set whose slots can be proved one at a time.
+ * so the commitment also binds a field set whose slots can be proved one at a time. The
+ * root is also inside the committed JSON, so anyone shown the JSON sees which field set
+ * it belongs to and one JSON cannot be paired with two field sets.
+ * Any other algorithm name is refused.
  */
+/** Committed fields every record has (SPEC 3.1). A record missing one is refused, not hashed. */
+const REQUIRED_COMMITTED = ['formatVersion', 'recordId', 'subjectType', 'profile', 'sealedAt', 'holder', 'profileData'] as const;
+
 export const computeCommitment = async (env: Envelope): Promise<string> => {
+  for (const k of REQUIRED_COMMITTED) {
+    if ((env as Record<string, unknown>)[k] === undefined) throw new Error(`a record needs ${k}`);
+  }
+  if (env.commitmentAlgorithm === 'sha256/canonical-json/v1') {
+    // Field-set bindings mean nothing under this algorithm, so a record carrying them is
+    // refused rather than committed with a root nothing checks (attack round B-H4).
+    if (env.fieldSchema !== undefined || env.fieldSetRoot !== undefined) throw new Error('fieldSchema and fieldSetRoot belong only to sha256/fields/v1 records');
+    return sha256Hex(canonicalise(committedFields(env)));
+  }
+  if (env.commitmentAlgorithm !== FIELDS_ALGORITHM) throw new Error(`unsupported commitment algorithm: ${String(env.commitmentAlgorithm)}`);
   const jsonDigest = await sha256Hex(canonicalise(committedFields(env)));
-  if (env.commitmentAlgorithm !== FIELDS_ALGORITHM) return jsonDigest;
   if (typeof env.fieldSetRoot !== 'string' || !HEX32.test(env.fieldSetRoot)) throw new Error('sha256/fields/v1 needs fieldSetRoot as 64 lowercase hex characters');
   if (typeof env.fieldSchema !== 'string' || !HEX32.test(env.fieldSchema)) throw new Error('sha256/fields/v1 needs fieldSchema as 64 lowercase hex characters');
   return toHex(await fieldRecordCommitment(fromHex(env.fieldSetRoot), fromHex(jsonDigest)));

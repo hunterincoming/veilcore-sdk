@@ -148,24 +148,28 @@ def committed_fields(env):
     and cannot be inside it, and terms are issued and revoked after sealing.
     """
     fields = {
-        "attestations": env.get("attestations") or [],
+        # Absent means empty; an explicit null is refused by canonicalise (spec 4.4 rule 4),
+        # never silently read as empty.
+        "attestations": env["attestations"] if "attestations" in env else [],
         "commitmentAlgorithm": env["commitmentAlgorithm"],
         "formatVersion": env["formatVersion"],
         "holder": env["holder"],
-        "parents": env.get("parents") or [],
+        "parents": env["parents"] if "parents" in env else [],
         "profile": env["profile"],
         "profileData": env["profileData"],
         "recordId": env["recordId"],
         "sealedAt": env["sealedAt"],
         "subjectType": env["subjectType"],
     }
-    # Optional envelope fields are included only when present, never as null.
+    # Optional envelope fields are included only when present. Present as null, they reach
+    # canonicalise and are refused there, as any other null is: dropping them would make
+    # `"supersedes": null` and no supersedes commit alike.
     for key in (
-        "extensions", "fieldSchema", "jurisdictionBindings", "supersedes",
+        "extensions", "fieldSchema", "fieldSetRoot", "jurisdictionBindings", "supersedes",
         # What every subject has, whatever domain it comes from.
         "subject", "identification", "registrations",
     ):
-        if env.get(key) is not None:
+        if key in env:
             fields[key] = env[key]
     return fields
 
@@ -177,11 +181,21 @@ def compute_commitment(env):
     """
     `sha256/canonical-json/v1`: SHA-256 of the canonical JSON of the committed fields.
     `sha256/fields/v1`: H("veilcore:v1:frecord", fieldSetRoot, that same digest), so the
-    commitment also binds a field set whose slots can be proved one at a time.
+    commitment also binds a field set whose slots can be proved one at a time. The root is
+    also inside the committed JSON, so one JSON cannot be paired with two field sets.
+
+    Any other algorithm name is refused rather than guessed.
     """
+    algorithm = env.get("commitmentAlgorithm")
+    if algorithm == "sha256/canonical-json/v1":
+        # A field-set binding means nothing under this algorithm. Present at all, even as
+        # null, it is refused rather than committed with a root nothing checks.
+        if "fieldSchema" in env or "fieldSetRoot" in env:
+            raise ValueError("fieldSchema and fieldSetRoot belong only to sha256/fields/v1 records")
+        return hashlib.sha256(canonicalise(committed_fields(env)).encode("utf-8")).hexdigest()
+    if algorithm != FIELDS_ALGORITHM:
+        raise ValueError(f"unsupported commitment algorithm: {algorithm}")
     json_digest = hashlib.sha256(canonicalise(committed_fields(env)).encode("utf-8")).digest()
-    if env.get("commitmentAlgorithm") != FIELDS_ALGORITHM:
-        return json_digest.hex()
     if not _is_hex32(env.get("fieldSetRoot")):
         raise ValueError("sha256/fields/v1 needs fieldSetRoot as 64 lowercase hex characters")
     if not _is_hex32(env.get("fieldSchema")):
@@ -201,7 +215,11 @@ def compute_commitment(env):
 #
 #   salt_i  = H(fsalt, fieldSecret, i)        leaf = H(field, value, salt)
 #   node    = H(fnode, left, right)           setRoot = H(fset, schemaId, tree root)
-#   schemaId = H(fschema, SHA-256(canonical schema), comparable mask, k)
+#   schemaId = H(fschema, SHA-256(canonical schema), comparable mask, k, numeric mask)
+#
+# A comparable text slot declares a format (allele-pair, allele, code) and only its
+# canonical form is accepted. The record's committed JSON carries fieldSchema and
+# fieldSetRoot; a canonical-json/v1 record carrying either is refused.
 
 FIELD_SLOTS = 16
 
@@ -262,14 +280,54 @@ def _slot_value(v):
     raise ValueError("a slot value is {uint}, {text} or null")
 
 
-def _comparable_mask(schema):
+# Canonical forms for comparable text. Distinctness compares bytes, so one genotype written
+# two ways ("180/184" and "184/180") would count as a difference; a comparable text slot
+# therefore declares a format and only its canonical form is accepted.
+#   allele-pair  two allele sizes, decimal, at most 9 digits, no leading zeros, smaller first
+#   allele       one allele size
+#   code         1-64 of A-Z 0-9 . _ -, starting with a letter or digit
+FIELD_FORMATS = ("allele-pair", "allele", "code")
+_DIGITS = "0123456789"
+_UPPER = "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
+
+
+def _is_allele(t):
+    return 1 <= len(t) <= 9 and all(c in _DIGITS for c in t) and (t == "0" or t[0] != "0")
+
+
+def _check_format(fmt, t):
+    if not isinstance(t, str):
+        raise ValueError("text is a string")
+    if fmt == "allele":
+        ok = _is_allele(t)
+    elif fmt == "allele-pair":
+        a, sep, b = t.partition("/")
+        ok = sep == "/" and _is_allele(a) and _is_allele(b)
+        if ok and int(a) > int(b):
+            raise ValueError(f"an allele pair is written smaller first: {t!r}")
+    elif fmt == "code":
+        ok = (1 <= len(t) <= 64 and t[0] in _UPPER + _DIGITS
+              and all(c in _UPPER + _DIGITS + "._-" for c in t))
+    else:
+        raise ValueError(f"unknown format: {fmt}")
+    if not ok:
+        raise ValueError(f"not in {fmt} form: {t!r}")
+
+
+def _schema_masks(schema):
+    """Check a schema document and return its comparable and numeric masks."""
     if not isinstance(schema, dict) or not isinstance(schema.get("slots"), list):
         raise ValueError("a schema lists its slots")
-    mask = [False] * FIELD_SLOTS
+    if not isinstance(schema.get("id"), str) or not schema["id"]:
+        raise ValueError("a schema has an id")
+    if not isinstance(schema.get("title"), str):
+        raise ValueError("a schema has a title")
+    comparable = [False] * FIELD_SLOTS
+    numeric = [False] * FIELD_SLOTS
     seen = set()
     for s in schema["slots"]:
         if not isinstance(s, dict):
-            raise ValueError("a slot is an object")
+            raise ValueError("a slot entry is an object")
         n = s.get("slot")
         if not _is_int(n) or n < 0 or n >= FIELD_SLOTS:
             raise ValueError(f"slot out of range: {n}")
@@ -279,11 +337,27 @@ def _comparable_mask(schema):
         seen.add(n)
         if s.get("type") not in ("uint", "text"):
             raise ValueError(f"slot {n} has an unknown type")
+        if not isinstance(s.get("path"), str) or not s["path"]:
+            raise ValueError(f"slot {n} has no path")
+        # Present means present: a null unit, scale, comparable or format is refused, not
+        # read as absent.
+        if "unit" in s and not isinstance(s["unit"], str):
+            raise ValueError(f"slot {n}: unit is a string")
+        if "scale" in s and (not _is_int(s["scale"]) or s["scale"] < 1):
+            raise ValueError(f"slot {n}: scale is a positive integer")
         if "comparable" in s and not isinstance(s["comparable"], bool):
             raise ValueError(f"slot {n}: comparable is true or false")
-        if s.get("comparable"):
-            mask[n] = True
-    return mask
+        if "format" in s and (s["type"] != "text" or not isinstance(s["format"], str) or s["format"] not in FIELD_FORMATS):
+            raise ValueError(f"slot {n}: format is allele-pair, allele or code, on a text slot")
+        if s.get("comparable") and s["type"] == "text" and "format" not in s:
+            raise ValueError(f"slot {n}: a comparable text slot declares a format")
+        comparable[n] = s.get("comparable") is True
+        numeric[n] = s["type"] == "uint"
+    return comparable, numeric
+
+
+def _mask_bytes(mask):
+    return _count_bytes(sum(1 << i for i, b in enumerate(mask) if b))
 
 
 def field_set(job):
@@ -296,20 +370,23 @@ def field_set(job):
     if not _is_hex32(job.get("fieldSecret")):
         raise ValueError("fieldSecret is 64 lowercase hex characters")
     schema = job.get("schema")
-    mask = _comparable_mask(schema)
+    mask, numeric = _schema_masks(schema)
     k = schema.get("k")
     if not _is_int(k) or k < 1 or k > FIELD_SLOTS:
         raise ValueError("k is 1 to 16")
     if sum(mask) < k:
         raise ValueError("k is more than the number of comparable slots")
     doc_digest = hashlib.sha256(canonicalise(schema).encode("utf-8")).digest()
-    mask_bytes = _count_bytes(sum(1 << i for i, b in enumerate(mask) if b))
-    schema_id = _h(_tag("veilcore:v1:fschema"), doc_digest, mask_bytes, _count_bytes(int(k)))
+    # The masks and k are inside the id so a claim cannot choose them; the numeric mask lets
+    # the claims contract refuse a range claim on a slot that is not a number.
+    schema_id = _h(_tag("veilcore:v1:fschema"), doc_digest, _mask_bytes(mask),
+                   _count_bytes(int(k)), _mask_bytes(numeric))
 
     # Each value must match its slot's declared type, and a slot the schema does not
     # describe must be empty: otherwise a text hash could sit in a number slot and a range
-    # claim would run over it.
+    # claim would run over it. A text value in a slot with a format must be in that form.
     type_of = {int(s["slot"]): s["type"] for s in schema["slots"]}
+    format_of = {int(s["slot"]): s.get("format") for s in schema["slots"]}
     for i, v in enumerate(values):
         if v is None:
             continue
@@ -318,6 +395,8 @@ def field_set(job):
         kind = "uint" if isinstance(v, dict) and "uint" in v else "text" if isinstance(v, dict) and "text" in v else None
         if kind != type_of[i]:
             raise ValueError(f"slot {i} holds {type_of[i]} values")
+        if format_of[i] is not None:
+            _check_format(format_of[i], v["text"])
     slot_values = [_slot_value(v) for v in values]
     secret = bytes.fromhex(job["fieldSecret"])
     salts = [_h(_tag("veilcore:v1:fsalt"), secret, _count_bytes(i)) for i in range(FIELD_SLOTS)]

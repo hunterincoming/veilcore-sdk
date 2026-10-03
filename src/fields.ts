@@ -110,34 +110,85 @@ export const maskSlotValue = (mask: readonly boolean[]): Uint8Array => {
 export type FieldSchema = {
   id: string;
   title: string;
-  slots: { slot: number; path: string; type: 'uint' | 'text'; unit?: string; scale?: number; comparable?: boolean }[];
+  slots: {
+    slot: number;
+    path: string;
+    type: 'uint' | 'text';
+    unit?: string;
+    scale?: number;
+    comparable?: boolean;
+    /** Required for a comparable text slot: the one way its values may be written. */
+    format?: 'allele-pair' | 'allele' | 'code';
+  }[];
   k: number;
   [extra: string]: unknown;
+};
+
+/**
+ * Canonical forms for comparable text. Distinctness compares bytes, so one genotype
+ * written two ways ("180/184" and "184/180") would count as a difference; a comparable
+ * text slot therefore declares a format and only its canonical form is accepted.
+ *   allele-pair  two allele sizes, decimal, no leading zeros, smaller first: "180/184"
+ *   allele       one allele size: "233"
+ *   code         upper-case letters, digits, '.', '_' or '-', starting with a letter or digit
+ */
+export const FIELD_FORMATS: Record<string, RegExp> = {
+  'allele-pair': /^(0|[1-9][0-9]{0,8})\/(0|[1-9][0-9]{0,8})$/,
+  allele: /^(0|[1-9][0-9]{0,8})$/,
+  code: /^[A-Z0-9][A-Z0-9._-]{0,63}$/,
+};
+
+export const checkFormat = (format: string, text: string): void => {
+  if (typeof format !== 'string' || !Object.hasOwn(FIELD_FORMATS, format)) throw new Error(`unknown format: ${String(format)}`);
+  const re = FIELD_FORMATS[format];
+  if (!re.test(text)) throw new Error(`not in ${format} form: ${JSON.stringify(text)}`);
+  if (format === 'allele-pair') {
+    const [a, b] = text.split('/').map(Number);
+    if (a > b) throw new Error(`an allele pair is written smaller first: ${JSON.stringify(text)}`);
+  }
 };
 
 export const schemaDocumentDigest = async (schema: FieldSchema): Promise<Uint8Array> =>
   sha256(new TextEncoder().encode(canonicalise(schema)));
 
-export const comparableMask = (schema: FieldSchema): boolean[] => {
-  if (!schema || !Array.isArray(schema.slots)) throw new Error('a schema lists its slots');
-  const mask = Array.from({ length: FIELD_SLOTS }, () => false);
+/** Check a schema document and return its comparable and numeric masks. */
+export const schemaMasks = (schema: FieldSchema): { comparable: boolean[]; numeric: boolean[] } => {
+  if (!schema || typeof schema !== 'object' || !Array.isArray(schema.slots)) throw new Error('a schema lists its slots');
+  if (typeof schema.id !== 'string' || schema.id.length === 0) throw new Error('a schema has an id');
+  if (typeof schema.title !== 'string') throw new Error('a schema has a title');
+  const comparable = Array.from({ length: FIELD_SLOTS }, () => false);
+  const numeric = Array.from({ length: FIELD_SLOTS }, () => false);
   const seen = new Set<number>();
   for (const s of schema.slots) {
+    if (!s || typeof s !== 'object') throw new Error('a slot entry is an object');
     if (!Number.isInteger(s.slot) || s.slot < 0 || s.slot >= FIELD_SLOTS) throw new Error(`slot out of range: ${String(s.slot)}`);
     if (seen.has(s.slot)) throw new Error(`slot ${s.slot} is listed twice`);
     seen.add(s.slot);
     if (s.type !== 'uint' && s.type !== 'text') throw new Error(`slot ${s.slot} has an unknown type`);
+    if (typeof s.path !== 'string' || s.path.length === 0) throw new Error(`slot ${s.slot} has no path`);
+    if (s.unit !== undefined && typeof s.unit !== 'string') throw new Error(`slot ${s.slot}: unit is a string`);
+    if (s.scale !== undefined && (!Number.isInteger(s.scale) || s.scale < 1)) throw new Error(`slot ${s.slot}: scale is a positive integer`);
     if (s.comparable !== undefined && typeof s.comparable !== 'boolean') throw new Error(`slot ${s.slot}: comparable is true or false`);
-    if (s.comparable) mask[s.slot] = true;
+    if (s.format !== undefined && (s.type !== 'text' || typeof s.format !== 'string' || !Object.hasOwn(FIELD_FORMATS, s.format))) throw new Error(`slot ${s.slot}: format is allele-pair, allele or code, on a text slot`);
+    if (s.comparable && s.type === 'text' && s.format === undefined) throw new Error(`slot ${s.slot}: a comparable text slot declares a format`);
+    if (s.comparable) comparable[s.slot] = true;
+    if (s.type === 'uint') numeric[s.slot] = true;
   }
-  return mask;
+  return { comparable, numeric };
 };
 
-/** schemaId = H("veilcore:v1:fschema", SHA-256(canonical schema), comparable mask, k). */
+export const comparableMask = (schema: FieldSchema): boolean[] => schemaMasks(schema).comparable;
+
+/**
+ * schemaId = H("veilcore:v1:fschema", SHA-256(canonical schema), comparable mask, count(k),
+ * numeric mask). The masks and k are inside the id so a claim cannot choose them, and the
+ * numeric mask lets the claims contract refuse a range claim on a slot that is not a number.
+ */
 export const fieldSchemaId = async (schema: FieldSchema): Promise<Uint8Array> => {
+  const { comparable, numeric } = schemaMasks(schema);
   if (!Number.isInteger(schema.k) || schema.k < 1 || schema.k > FIELD_SLOTS) throw new Error('k is 1 to 16');
-  if (comparableMask(schema).filter(Boolean).length < schema.k) throw new Error('k is more than the number of comparable slots');
-  return hashElements(tag('veilcore:v1:fschema'), await schemaDocumentDigest(schema), maskSlotValue(comparableMask(schema)), countBytes(schema.k));
+  if (comparable.filter(Boolean).length < schema.k) throw new Error('k is more than the number of comparable slots');
+  return hashElements(tag('veilcore:v1:fschema'), await schemaDocumentDigest(schema), maskSlotValue(comparable), countBytes(schema.k), maskSlotValue(numeric));
 };
 
 export const fieldSalt = async (fieldSecret: Uint8Array, slot: number): Promise<Uint8Array> =>
@@ -247,14 +298,17 @@ export const slotValueOf = async (v: TypedSlotValue): Promise<Uint8Array> => {
  * run over it.
  */
 export const typedSlotValues = async (schema: FieldSchema, values: readonly TypedSlotValue[]): Promise<Uint8Array[]> => {
-  comparableMask(schema); // validates the slot list
+  schemaMasks(schema); // validates the slot list
   const typeOf = new Map(schema.slots.map((s) => [s.slot, s.type]));
+  const formatOf = new Map(schema.slots.map((s) => [s.slot, s.format]));
   return Promise.all(
     values.map(async (v, i) => {
       if (v !== null && typeof v === 'object') {
         const kind = 'uint' in v ? 'uint' : 'text' in v ? 'text' : undefined;
         if (!typeOf.has(i)) throw new Error(`slot ${i} is not described by the schema, so it must be empty`);
         if (kind !== typeOf.get(i)) throw new Error(`slot ${i} holds ${typeOf.get(i)} values`);
+        const format = formatOf.get(i);
+        if (format !== undefined) checkFormat(format, (v as { text: string }).text);
       }
       return slotValueOf(v);
     }),
