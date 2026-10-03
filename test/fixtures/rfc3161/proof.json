@@ -1,0 +1,17 @@
+{
+  "formatVersion": "0.1",
+  "commitment": "7fc529034efe69b3fa10de1c329b6ed2fc68ee4a05180423d7f810ddd4fa105a",
+  "path": [
+    {
+      "sibling": "020d9203c5d9653dc417be1cb97f2152bdb9929e9b0fb8c4baca3f16ec08d28a",
+      "siblingIsLeft": false
+    },
+    {
+      "sibling": "734e4b38722f590629e38dc892e12760c2a5ca8d15fd7e40eed1bcac06fd1296",
+      "siblingIsLeft": false
+    }
+  ],
+  "root": "67fa264f26b9be971008e7ab0df982f2104a93021e9917a3866f69eb71c8fc1f",
+  "batchId": "B-RFC3161-FIXTURE",
+  "sealedAt": "2026-10-03T12:05:00Z"
+}

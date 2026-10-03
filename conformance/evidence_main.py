@@ -11,13 +11,14 @@
 # and lists what needs a lookup (SPEC section 9).
 
 def _evidence_main():
+    import base64
     import os
     here = os.path.dirname(os.path.abspath(__file__))
     path = lambda n: os.path.join(here, n)
     ok = True
 
     def say(mark, text):
-        print(f"  [{mark}] {text}")
+        print(f"  [{mark}] {text}" if mark else f"        {text}")
 
     print("VeilCore evidence package check\n")
 
@@ -91,9 +92,15 @@ def _evidence_main():
         say("--", "no OpenTimestamps file in this package")
     anchors = record.get("anchor")
     anchors = anchors if isinstance(anchors, list) else ([anchors] if anchors else [])
+    # (anchor, where it is carried). Token files are named as the SDK writes them: a
+    # record's rfc3161 anchors with a token, in order, are rfc3161-record-1.tst, -2, ...;
+    # one on the inclusion proof is rfc3161-batch.tst. SPEC 3.2: a record token stamps the
+    # commitment's 32 raw bytes (commitment.bin), a batch token the root's (root.bin).
+    carried = [(a, "record") for a in anchors]
     if proof.get("anchor"):
-        anchors.append(proof["anchor"])
-    for a in anchors:
+        carried.append((proof["anchor"], "batch"))
+    record_tokens = 0
+    for a, where in carried:
         if not isinstance(a, dict):
             continue
         kind = a.get("kind", "ledger")
@@ -101,8 +108,38 @@ def _evidence_main():
             say("to do", f"confirm transaction {a.get('txHash')} on {a.get('chain')} ({a.get('network')}) published the batch root {root or ''}".rstrip())
         elif kind == "ledger":
             say("--", f"ledger anchor on {a.get('chain')} ({a.get('network')}) with no transaction: nothing to confirm yet")
+        elif kind == "rfc3161" and not a.get("token"):
+            say("--", "RFC 3161 anchor with no token: nothing to check")
         elif kind == "rfc3161":
-            say("to do", "verify the RFC 3161 token's signature and imprint with the TSA's certificate")
+            if where == "record":
+                record_tokens += 1
+                tst, data, stamped = f"rfc3161-record-{record_tokens}.tst", "commitment.bin", computed
+            else:
+                tst, data, stamped = "rfc3161-batch.tst", "root.bin", root
+            if not os.path.exists(path(tst)) or not os.path.exists(path(data)):
+                say("to do", "the RFC 3161 token is in the record (base64) but not saved in this package; save it as a .tst file and verify it with `openssl ts -verify`")
+                continue
+            with open(path(tst), "rb") as f:
+                tst_bytes = f.read()
+            with open(path(data), "rb") as f:
+                data_bytes = f.read()
+            try:
+                stated = base64.b64decode(a["token"])
+            except Exception:
+                stated = b""
+            if stamped is None or data_bytes.hex() != stamped:
+                say("FAIL", f"{data} is not the {'commitment' if where == 'record' else 'batch root'} the token should stamp"); ok = False
+            elif not tst_bytes or tst_bytes not in stated:
+                say("FAIL", f"{tst} is not the token the {'record' if where == 'record' else 'inclusion proof'} states"); ok = False
+            else:
+                say("ok", f"{tst} is the RFC 3161 token the {'record' if where == 'record' else 'inclusion proof'} states, over {data}")
+                say("to do", "verify its signature and imprint (Python's standard library cannot). Run:")
+                say("", f"openssl ts -verify -data {data} -in {tst} -token_in -CAfile TSA-ROOT.pem")
+                say("", "where TSA-ROOT.pem is the root certificate of the TSA" + (f" ({a.get('tsa')})" if a.get("tsa") else "") + ", obtained from the TSA itself;")
+                say("", "add -untrusted INTERMEDIATES.pem if the token does not carry them. 'Verification: OK' means")
+                say("", "the imprint, signature, time-stamping key usage and chain to that root all hold (revocation is not checked).")
+                if (a.get("qualified") or {}).get("scheme"):
+                    say("to do", f"confirm the TSA's qualified status ({a['qualified']['scheme']}) on the EU trusted list; openssl does not check it")
         elif kind == "notarial":
             say("to do", "confirm the notarial reference with the notary")
 

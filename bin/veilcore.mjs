@@ -24,7 +24,7 @@ import {
   computeCommitment, verifyCommitment, canonicalise, newNonce,
   diffRecords, classifyCorrection,
   verifyAttestation, strengthOf,
-  effectiveAnchors, standingOf, datingSummary,
+  effectiveAnchors, standingOf, datingSummary, verifyAnchor,
   verifyInclusion,
   contestedStatus,
 } from 'veilcore-records';
@@ -110,9 +110,12 @@ async function verify(path) {
     say('anchors', 'none');
   } else {
     say('anchors', String(anchors.length));
-    for (const a of anchors) say('  standing', standingOf(a));
+    for (const a of anchors) say('  standing', `${standingOf(a).kind}: ${standingOf(a).note}`);
   }
-  say('dating', datingSummary(rec));
+  // An RFC 3161 token is checked here, offline; every other kind is a lookup.
+  const results = await Promise.all(anchors.map((a) => verifyAnchor(rec, a)));
+  for (const r of results) say(`  ${r.status}`, r.what);
+  say('dating', datingSummary(rec, results));
   out();
 
   // 4. challenges, if the record carries any

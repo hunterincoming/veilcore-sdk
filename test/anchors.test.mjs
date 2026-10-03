@@ -46,7 +46,8 @@ test('a qualified timestamp is reported as carrying a presumption', () => {
   const s = standingOf(qualified);
   assert.equal(s.presumption, true);
   assert.match(s.note, /Article 41\(2\)/, 'the presumption is in Art. 41(2); Art. 42 only defines qualified');
-  assert.match(s.note, /Not checked here/, 'the claim is the attester\'s, not ours, and this package does not verify tokens');
+  assert.match(s.note, /Not checked by this note/, 'the qualified claim is the attester\'s, not ours');
+  assert.match(s.note, /trusted-list entry and revocation are not checked by this package/, 'verifyAnchor checks the token, never the trust chain');
 });
 
 test('an unqualified timestamp is reported as carrying none', () => {

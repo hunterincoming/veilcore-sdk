@@ -15,7 +15,9 @@
 import { computeCommitment } from './commit.js';
 import { verifyInclusion, type InclusionProof } from './batch.js';
 import { toHex } from './hash.js';
-import type { Envelope } from './types.js';
+import type { Anchor, Envelope } from './types.js';
+import { anchorsOf } from './anchors.js';
+import { timestampTokenBytes, verifyTimestampToken } from './rfc3161.js';
 import { VERIFY_PY } from './evidence-verifier.generated.js';
 
 export type EvidenceInput = {
@@ -43,13 +45,33 @@ const sha256 = async (bytes: Uint8Array): Promise<string> => {
   return nodeCrypto.createHash('sha256').update(bytes).digest('hex');
 };
 
+const fromHex = (h: string): Uint8Array => Uint8Array.from((h.match(/../g) ?? []).map((x) => parseInt(x, 16)));
+
+/**
+ * The RFC 3161 tokens a package carries, and what each stamps. The naming is fixed so
+ * verify.py finds the same files: a record's rfc3161 anchors that carry a token, in order,
+ * are rfc3161-record-1.tst, -2, ...; one on the inclusion proof is rfc3161-batch.tst.
+ * Record tokens stamp commitment.bin (the commitment's 32 raw bytes); a batch token stamps
+ * root.bin (the batch root's 32 raw bytes). SPEC 3.2.
+ */
+const timestampsOf = (record: Envelope, proof?: InclusionProof): { file: string; anchor: Anchor; data: 'commitment.bin' | 'root.bin' }[] => {
+  const out: { file: string; anchor: Anchor; data: 'commitment.bin' | 'root.bin' }[] = [];
+  anchorsOf(record)
+    .filter((a) => a.kind === 'rfc3161' && a.token)
+    .forEach((anchor, i) => out.push({ file: `rfc3161-record-${i + 1}.tst`, anchor, data: 'commitment.bin' }));
+  const pa = proof?.anchor;
+  if (pa && pa.kind === 'rfc3161' && pa.token) out.push({ file: 'rfc3161-batch.tst', anchor: pa as Anchor, data: 'root.bin' });
+  return out;
+};
+
 // A date from a test network, or from no anchor at all, is not evidence. Say so at the top.
 const datingWarning = (input: EvidenceInput): string[] => {
   const proofAnchor = input.proof?.anchor;
   const recordAnchor = input.record.anchor;
   if (!proofAnchor && recordAnchor && (recordAnchor.kind ?? 'ledger') !== 'ledger') return [];
   const a = proofAnchor ?? recordAnchor;
-  if (!a) return [];
+  if (!a || Array.isArray(a)) return [];
+  if ((a.kind ?? 'ledger') !== 'ledger') return [];
   const bitcoin = input.opentimestamps ? ' The OpenTimestamps proof, once confirmed, is the only date here.' : '';
   if (a.network === 'undeployed') {
     return [`NOT ANCHORED ON A LEDGER: the record states no ledger anchor.${bitcoin}`, ''];
@@ -79,6 +101,9 @@ const guide = (input: EvidenceInput, commitment: string): string => {
     '  record.json            the record, with every field its commitment covers',
     ...(p ? ['  inclusion-proof.json   proof that the commitment is in a sealed batch'] : []),
     ...(input.opentimestamps ? ['  root.bin, root.bin.ots the batch root and its OpenTimestamps (Bitcoin) proof'] : []),
+    ...(timestampsOf(input.record, p).length
+      ? ['  rfc3161-*.tst          RFC 3161 timestamp tokens, with the bytes they stamp (commitment.bin, root.bin)']
+      : []),
     ...(input.claims?.length ? ['  claims.json            facts about the record proved on the ledger (SPEC 4.5)'] : []),
     '  verify.py              a checker anyone can run: Python 3, nothing to install',
     '  DECLARATION-TEMPLATE.txt  a starting point for counsel; not a finished document',
@@ -95,6 +120,13 @@ const guide = (input: EvidenceInput, commitment: string): string => {
     '     OpenTimestamps client: `ots upgrade root.bin.ots` then `ots verify root.bin.ots`.',
     '     Either date stands on its own; neither depends on VeilCore still existing. A date',
     '     from a test network (preview, preprod, undeployed) is not evidence.',
+    ...(timestampsOf(input.record, p).length
+      ? [
+          '     Where an rfc3161-*.tst token is present, verify.py prints the `openssl ts -verify`',
+          '     command that checks it; you supply the TSA\'s root certificate. Where the TSA claims',
+          '     qualified status, confirm that on the EU trusted list, which openssl does not consult.',
+        ]
+      : []),
     '  3. The same checks can be made with the TypeScript or Rust implementations, or written',
     '     from the specification (SPEC sections 4, 5 and 9), which is public.',
     '',
@@ -171,6 +203,13 @@ export const buildEvidencePackage = async (input: EvidenceInput): Promise<Eviden
     files['root.bin'] = new Uint8Array(input.opentimestamps.rootBin);
     files['root.bin.ots'] = new Uint8Array(input.opentimestamps.ots);
   }
+  for (const t of timestampsOf(input.record, input.proof)) {
+    const der = timestampTokenBytes(t.anchor.token!);
+    if (!der) throw new Error(`the RFC 3161 token for ${t.file} does not parse`);
+    files[t.file] = der;
+    if (t.data === 'commitment.bin') files['commitment.bin'] = fromHex(commitment);
+    else files['root.bin'] = fromHex(input.proof!.root);
+  }
   if (input.claims?.length) files['claims.json'] = json(input.claims);
   const manifest: Record<string, string> = {};
   for (const name of Object.keys(files).sort()) manifest[name] = await sha256(files[name]);
@@ -178,7 +217,12 @@ export const buildEvidencePackage = async (input: EvidenceInput): Promise<Eviden
   return files;
 };
 
-export type EvidenceCheck = { ok: boolean; checks: { ok: boolean; what: string }[] };
+export type EvidenceCheck = {
+  ok: boolean;
+  checks: { ok: boolean; what: string }[];
+  /** What a passing package still leaves unchecked (for example, a timestamp's chain of trust). */
+  notChecked?: string[];
+};
 
 /** The offline checks verify.py makes, in TypeScript. */
 export const verifyEvidencePackage = async (files: EvidencePackage): Promise<EvidenceCheck> => {
@@ -206,5 +250,20 @@ export const verifyEvidencePackage = async (files: EvidencePackage): Promise<Evi
     add(await verifyInclusion(proof), 'the inclusion proof folds to its root');
     if (files['root.bin']) add(toHex(files['root.bin']) === proof.root, 'root.bin is the batch root');
   }
-  return { ok: checks.every((c) => c.ok), checks };
+  // RFC 3161 tokens: checked offline against the bytes they stamp.
+  const notChecked = new Set<string>();
+  try {
+    const record = read('record.json') as Envelope;
+    const proof = files['inclusion-proof.json'] ? (read('inclusion-proof.json') as InclusionProof) : undefined;
+    for (const t of timestampsOf(record, proof)) {
+      const stamped = t.data === 'commitment.bin' ? record.commitment : proof!.root;
+      const v = await verifyTimestampToken(t.anchor.token!, fromHex(stamped));
+      for (const c of v.checks) add(c.ok, `${t.file}: ${c.what}`);
+      if (v.ok) add(true, `${t.file}: the TSA states ${v.genTime}, signed by "${v.signerSubject}"`);
+      v.notChecked.forEach((x) => notChecked.add(`${t.file}: ${x}`));
+    }
+  } catch (e) {
+    add(false, `the timestamp tokens cannot be read: ${(e as Error).message}`);
+  }
+  return { ok: checks.every((c) => c.ok), checks, ...(notChecked.size ? { notChecked: [...notChecked] } : {}) };
 };

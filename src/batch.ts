@@ -39,6 +39,12 @@ export type AnchorRef = {
   txHash?: string;
   blockHeight?: number;
   anchoredAt?: string;
+  /** `ledger` when absent. A batch may instead be stamped by a TSA: `rfc3161`, with `token`. */
+  kind?: 'ledger' | 'rfc3161';
+  /** For `rfc3161`: the token, base64, stamping the batch root's 32 raw bytes (SPEC 3.2). */
+  token?: string;
+  /** For `rfc3161`: the Time Stamping Authority that issued it. */
+  tsa?: string;
 };
 
 /**

@@ -100,3 +100,66 @@ test('verify.py is the conformance-tested implementation, unchanged', () => {
   assert.ok(py.startsWith(body), 'verify.py starts with conformance/impl.py exactly');
   void execFileSync;
 });
+
+// ── RFC 3161 tokens in a package (fixtures from test/fixtures/rfc3161, TEST-ONLY keys)
+
+const fx = (p) => new URL(`./fixtures/rfc3161/${p}`, import.meta.url);
+const hasOpenssl = spawnSync('openssl', ['ts', '-help'], { encoding: 'utf8' }).status === 0;
+const tsaPackage = async (recordToken) => {
+  const rec = JSON.parse(readFileSync(fx('record.json'), 'utf8'));
+  rec.anchor = [
+    { chain: 'midnight', network: 'undeployed' },
+    { kind: 'rfc3161', chain: 'n/a', network: 'n/a', tsa: 'TEST TSA tsa-p256', token: readFileSync(fx(recordToken)).toString('base64') },
+  ];
+  const proof = JSON.parse(readFileSync(fx('proof.json'), 'utf8'));
+  proof.anchor = { kind: 'rfc3161', chain: 'n/a', network: 'n/a', token: readFileSync(fx('tokens/batch-p256.tst')).toString('base64') };
+  return buildEvidencePackage({ record: rec, proof, generatedAt: '2026-10-03T13:00:00Z' });
+};
+
+test('RFC 3161 tokens are carried, checked by TypeScript, and handed to openssl by verify.py', async () => {
+  // The record's token is given as a full TimeStampResp; the package carries the token alone.
+  const files = await tsaPackage('tokens/rsa-sha256.tsr');
+  assert.deepEqual(files['rfc3161-record-1.tst'], new Uint8Array(readFileSync(fx('tokens/rsa-sha256.tst'))));
+  assert.ok(files['rfc3161-batch.tst'] && files['commitment.bin'] && files['root.bin']);
+  const ts = await verifyEvidencePackage(files);
+  assert.equal(ts.ok, true, JSON.stringify(ts.checks.filter((c) => !c.ok)));
+  assert.ok(ts.checks.some((c) => c.ok && /^rfc3161-record-1\.tst: the imprint is the SHA-256/.test(c.what)));
+  assert.ok(ts.checks.some((c) => c.ok && /^rfc3161-batch\.tst: the TSA states 20/.test(c.what)));
+  assert.ok(ts.notChecked.includes('rfc3161-record-1.tst: certificate chain to a trusted root'));
+
+  const dir = write(files);
+  const r = runPy(dir);
+  assert.equal(r.status, 0, r.stdout + r.stderr);
+  assert.match(r.stdout, /rfc3161-record-1\.tst is the RFC 3161 token the record states, over commitment\.bin/);
+  assert.match(r.stdout, /rfc3161-batch\.tst is the RFC 3161 token the inclusion proof states, over root\.bin/);
+  const commands = [...r.stdout.matchAll(/openssl ts -verify .*$/gm)].map((m) => m[0]);
+  assert.deepEqual(commands, [
+    'openssl ts -verify -data commitment.bin -in rfc3161-record-1.tst -token_in -CAfile TSA-ROOT.pem',
+    'openssl ts -verify -data root.bin -in rfc3161-batch.tst -token_in -CAfile TSA-ROOT.pem',
+  ]);
+  if (hasOpenssl) {
+    // The printed commands work, given the (test) TSA root.
+    writeFileSync(join(dir, 'TSA-ROOT.pem'), readFileSync(fx('certs/ca.pem')));
+    for (const c of commands) {
+      const o = spawnSync('sh', ['-c', c], { cwd: dir, encoding: 'utf8' });
+      assert.equal(o.status, 0, c + '\n' + o.stdout + o.stderr);
+      assert.match(o.stdout, /Verification: OK/);
+    }
+  }
+});
+
+test('a token over the wrong bytes fails the TypeScript check, and the openssl command verify.py prints', async () => {
+  // The batch token stated as if it stamped the record.
+  const files = await tsaPackage('tokens/batch-p256.tst');
+  const ts = await verifyEvidencePackage(files);
+  assert.equal(ts.ok, false);
+  assert.ok(ts.checks.some((c) => !c.ok && /^rfc3161-record-1\.tst: the imprint/.test(c.what)));
+  const dir = write(files);
+  const r = runPy(dir);
+  assert.match(r.stdout, /to do\] verify its signature and imprint/, 'Python lists it as to do, and cannot catch it');
+  if (hasOpenssl) {
+    writeFileSync(join(dir, 'TSA-ROOT.pem'), readFileSync(fx('certs/ca.pem')));
+    const o = spawnSync('sh', ['-c', 'openssl ts -verify -data commitment.bin -in rfc3161-record-1.tst -token_in -CAfile TSA-ROOT.pem'], { cwd: dir, encoding: 'utf8' });
+    assert.notEqual(o.status, 0);
+  }
+});

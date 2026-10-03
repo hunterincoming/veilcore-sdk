@@ -48,6 +48,12 @@ const result = await verifyCommitment(record);
 // { valid: true, computed: '33aaa590...' }
 ```
 
+An RFC 3161 timestamp anchor is checked offline, with WebCrypto and no dependencies:
+`verifyAnchor(record, anchor)` verifies the token's imprint against the commitment, its
+signature, and its signer's time-stamping key usage, and reports `genTime`. It does not
+check the TSA's certificate chain, its qualified status on an EU trusted list, or
+revocation, and says so in every result. Other anchor kinds are reported as lookups.
+
 Verification proves the record is unaltered since sealing. It does **not** prove the
 contents are true — that is what attestations and the anchor's date are for. The format
 is careful about this distinction throughout, because a format that blurs it is worth
