@@ -26,7 +26,7 @@
 import {
   computeCommitment, verifyCommitment,
   generateKeypair, signAttestation, verifyAttestation,
-  newNonce,
+  newNonce, sha256Hex,
 } from 'veilcore-records';
 
 const line = (s) => console.log(`\n== ${s} ==`);
@@ -103,7 +103,8 @@ const genotype = await signAttestation({
   type: 'genotype',
   attester: { id: LAB, displayName: 'Oxbow Micropropagation', publicKey: lab.publicKey },
   subjectCommitment: intake.commitment,
-  documentHash: await computeCommitment({ panel: 'SSR-10', report: 'internal file, not published' }),
+  // The SHA-256 of the report file. It identifies the file, not the genotype.
+  documentHash: await sha256Hex('SSR-10 panel report: internal file, not published'),
   hashAlgorithm: 'sha256',
   issuedAt: '2026-03-11T14:00:00Z',
 }, lab.privateKey);
