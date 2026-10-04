@@ -11,8 +11,8 @@
 //   in:  {"op":"attestationPayload","input":{...}}  out: {"result":"{...}"}
 //   in:  {"op":"commit","input":{...}}         out: {"result":"<hex>"}
 //   in:  {"op":"fieldSet","input":{...}}       out: {"result":{"schemaDocumentDigest":"<hex>",
-//          "schemaId":"<hex>","slotValues":[...],"salts":[...],"setRoot":"<hex>",
-//          "openings":[{"slot":n,"siblings":[...],"bits":[...]}]}}  (keys in this order)
+//          "schemaId":"<hex>","slotValues":[...],"salts":[...],"leaves":[...],
+//          "setRoot":"<hex>"}}  (keys in this order)
 //
 // An implementation refuses an invalid record either by writing {"error":"..."} (or
 // {"rejected":true}) or by exiting non-zero. Both are idiomatic - a Python raise and a

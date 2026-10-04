@@ -205,7 +205,9 @@ Rule 1 is easy to overlook and produces a failure invisible to a human reader: a
 
 A record may additionally commit up to sixteen values as separate leaves, so that a holder can later prove one fact about one value - that it is a stated value, that a number meets a bound, that two records differ in enough values, that a correction left some values unchanged - without disclosing the rest. The proofs are made on a ledger (the reference is the VeilCore claims contract); everything in this section is plain SHA-256.
 
-**Hashes.** `H(tag, a, b, ...)` is SHA-256 over the concatenation of 32-byte elements, the first being the tag in UTF-8 right-padded with zero bytes to 32. A **count** is an unsigned integer below 2^64 written little-endian into 32 bytes. A **mask** is the count with bit *i* set for each slot *i* it names.
+**Hashes.** `H(tag, a, b, ...)` is SHA-256 over the concatenation of 32-byte elements, the first being the tag in UTF-8 right-padded with zero bytes to 32. A **count** is an unsigned integer below 2^64 written little-endian into 32 bytes. Two hashes below are not of this form (the leaf and the set root); their input lengths, 55 and 560 bytes, are taken by no other hash in this section, so no input of one can be read as an input of another.
+
+**Why the layout is what it is.** Every claim recomputes these hashes inside a zero-knowledge proof, where one SHA-256 block costs about two thousand circuit rows, and the memory a proof needs doubles with each doubling of rows. A leaf is one block and the root is one hash, so a claim over two whole records needs 56 blocks rather than 135, and each claim can be proved on an ordinary computer by the holder, who then never hands the values to anyone else to prove for them.
 
 **Schema.** A field schema is a published JSON document with an `id` (a non-empty string naming its publisher and version), a `title`, a `slots` list and an integer `k`. Each slot entry is an object with `slot` (0 to 15, each at most once), `type` (`uint` or `text`), `path` (a non-empty string saying what the slot holds), and optionally `unit` (a string), `scale` (a positive integer: the stored number is the measured value times `scale`), `comparable` (true or false) and `format`. A `comparable` text slot shall declare a `format`, and `format` is allowed only on text slots:
 
@@ -219,9 +221,9 @@ A value in a slot with a `format` shall be in that form; anything else shall be 
 
 `k` is the distinctness threshold: at least 1, at most the number of comparable slots. The schema id is
 
-`schemaId = H("veilcore:v1:fschema", SHA-256(canonical JSON of the schema), comparableMask, count(k), numericMask)`
+`schemaId = H("veilcore:v1:fschema", SHA-256(canonical JSON of the schema), terms)`
 
-where `numericMask` names every `uint` slot. Because the masks and `k` are inside the id, a claim cannot choose its comparable slots or threshold, and a range claim can be refused on a slot the schema does not call a number. **A verifier shall obtain the schema document from its publisher and recompute the id**; a claim names an id, and an id is only as meaningful as the document behind it.
+where `terms` is 32 bytes: the comparable mask in bytes 0-1 and the numeric mask in bytes 2-3 (bit *i* set for slot *i*, little-endian; the numeric mask names every `uint` slot), `k` in byte 4, and zero in bytes 5-31. Because the masks and `k` are inside the id, a claim cannot choose its comparable slots or threshold, and a range claim can be refused on a slot the schema does not call a number. **A verifier shall obtain the schema document from its publisher and recompute the id**; a claim names an id, and an id is only as meaningful as the document behind it.
 
 **Slot values.** Each of the sixteen slots holds 32 bytes:
 
@@ -235,11 +237,13 @@ A value shall match its slot's declared type, and a slot the schema does not des
 
 **A value in a field set shall not also appear in the record's committed JSON.** The schema's paths name the holder's private copy, not committed fields; a value in both places would be disclosed with the JSON and could contradict itself.
 
-**Salts.** `salt_i = H("veilcore:v1:fsalt", fieldSecret, count(i))`, where `fieldSecret` is 32 bytes from a cryptographically secure generator, kept with the holder's private copy of the record. **The field secret shall never be inside the committed JSON or any disclosure of it, shall not be derived from the nonce, and shall not be reused across records**: anyone who could derive the salts could guess low-entropy values back from their leaves.
+**Salts.** `salt_i` is the first 23 bytes of `H("veilcore:v1:fsalt", fieldSecret, count(i))` (184 bits), where `fieldSecret` is 32 bytes from a cryptographically secure generator, kept with the holder's private copy of the record. **The field secret shall never be inside the committed JSON or any disclosure of it, shall not be derived from the nonce, and shall not be reused across records**: anyone who could derive the salts could guess low-entropy values back from their leaves.
 
-**Tree.** `leaf_i = H("veilcore:v1:field", value_i, salt_i)`; the sixteen leaves form a binary tree with `node = H("veilcore:v1:fnode", left, right)`; and
+**Leaves and root.** `leaf_i = SHA-256(value_i || salt_i)` (55 bytes, one SHA-256 block), and
 
-`fieldSetRoot = H("veilcore:v1:fset", schemaId, treeRoot)`.
+`fieldSetRoot = SHA-256("veilcore:v1:fset" || schemaId || leaf_0 || ... || leaf_15)`
+
+where the tag is exactly those 16 ASCII bytes, unpadded, so the input is 560 bytes.
 
 **Commitment.** The envelope carries `fieldSchema` (the schema id) and `fieldSetRoot`, both as 64 lowercase hex characters and both committed in the JSON, and
 
@@ -249,7 +253,7 @@ where `jsonDigest` is the SHA-256 of the canonical serialisation of the committe
 
 Because `fieldSetRoot` is in the JSON, anyone shown the JSON sees which field set it belongs to, and one JSON cannot be paired with two field sets. `fieldSetRoot` reveals nothing about the values. Disclosing the committed JSON (for `integrity`, section 8.1) does not disclose the values in the field set.
 
-**An opening** of slot *i* is its value, its salt, and the four sibling hashes from its leaf to the tree root, with the slot's bits (least significant first) saying on which side each sibling sits.
+**An opening** of slot *i* is its value, its salt, and the sixteen leaves. A verifier recomputes `leaf_i` from the value and salt, checks it is the *i*-th of the sixteen, and recomputes the root. The other fifteen leaves are salted hashes and disclose nothing about their values.
 
 **Claims** (reference: the VeilCore claims contract and its design note, forthcoming: neither is published or deployed yet) are proved against the record commitment and published on the ledger:
 

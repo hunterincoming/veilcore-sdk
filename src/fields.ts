@@ -1,6 +1,6 @@
 // Field sets: commitment algorithm `sha256/fields/v1` (SPEC 4.5).
 //
-// A record sealed this way commits each of 16 slots as a salted leaf under a root, so a
+// A record sealed this way commits each of 16 slots as a salted leaf under one root, so a
 // holder can later prove one fact about one slot — that it holds a value, that a number
 // meets a bound, that two records differ in enough slots, that a correction changed only
 // some — without disclosing the rest. The proofs themselves run on Midnight (the VeilCore
@@ -180,27 +180,73 @@ export const schemaMasks = (schema: FieldSchema): { comparable: boolean[]; numer
 export const comparableMask = (schema: FieldSchema): boolean[] => schemaMasks(schema).comparable;
 
 /**
- * schemaId = H("veilcore:v1:fschema", SHA-256(canonical schema), comparable mask, count(k),
- * numeric mask). The masks and k are inside the id so a claim cannot choose them, and the
- * numeric mask lets the claims contract refuse a range claim on a slot that is not a number.
+ * The schema's terms in one 32-byte element: the comparable mask in bytes 0-1 and the
+ * numeric mask in bytes 2-3 (slot i is bit i, little-endian), k in byte 4, the rest zero.
+ */
+export const schemaTermsBytes = (comparable: readonly boolean[], numeric: readonly boolean[], k: number): Uint8Array => {
+  if (comparable.length !== FIELD_SLOTS || numeric.length !== FIELD_SLOTS) throw new Error('a mask has 16 slots');
+  if (!Number.isInteger(k) || k < 0 || k > 255) throw new Error('k is 0 to 255');
+  const b = new Uint8Array(32);
+  let c = 0;
+  let n = 0;
+  for (let i = 0; i < FIELD_SLOTS; i++) {
+    if (comparable[i]) c |= 1 << i;
+    if (numeric[i]) n |= 1 << i;
+  }
+  b[0] = c & 0xff;
+  b[1] = c >> 8;
+  b[2] = n & 0xff;
+  b[3] = n >> 8;
+  b[4] = k;
+  return b;
+};
+
+/**
+ * schemaId = H("veilcore:v1:fschema", SHA-256(canonical schema), terms). The masks and k
+ * are inside the id so a claim cannot choose them, and the numeric mask lets the claims
+ * contract refuse a range claim on a slot that is not a number.
  */
 export const fieldSchemaId = async (schema: FieldSchema): Promise<Uint8Array> => {
   const { comparable, numeric } = schemaMasks(schema);
   if (!Number.isInteger(schema.k) || schema.k < 1 || schema.k > FIELD_SLOTS) throw new Error('k is 1 to 16');
   if (comparable.filter(Boolean).length < schema.k) throw new Error('k is more than the number of comparable slots');
-  return hashElements(tag('veilcore:v1:fschema'), await schemaDocumentDigest(schema), maskSlotValue(comparable), countBytes(schema.k), maskSlotValue(numeric));
+  return hashElements(tag('veilcore:v1:fschema'), await schemaDocumentDigest(schema), schemaTermsBytes(comparable, numeric, schema.k));
 };
 
+/** A slot's salt: the first 23 bytes of H("veilcore:v1:fsalt", fieldSecret, count(slot)). */
+export const FIELD_SALT_BYTES = 23;
 export const fieldSalt = async (fieldSecret: Uint8Array, slot: number): Promise<Uint8Array> =>
-  hashElements(tag('veilcore:v1:fsalt'), fieldSecret, countBytes(slot));
+  (await hashElements(tag('veilcore:v1:fsalt'), fieldSecret, countBytes(slot))).slice(0, FIELD_SALT_BYTES);
 
-export const fieldLeaf = (value: Uint8Array, salt: Uint8Array): Promise<Uint8Array> =>
-  hashElements(tag('veilcore:v1:field'), value, salt);
+/**
+ * leaf = SHA-256(value || salt): 55 bytes, one SHA-256 block. No other hash in SPEC 4.5
+ * takes 55 bytes, so a leaf cannot be mistaken for anything else.
+ */
+export const fieldLeaf = (value: Uint8Array, salt: Uint8Array): Promise<Uint8Array> => {
+  if (value.length !== 32) throw new Error('a slot value is 32 bytes');
+  if (salt.length !== FIELD_SALT_BYTES) throw new Error('a salt is 23 bytes');
+  const b = new Uint8Array(55);
+  b.set(value);
+  b.set(salt, 32);
+  return sha256(b);
+};
 
-export const fieldNode = (l: Uint8Array, r: Uint8Array): Promise<Uint8Array> => hashElements(tag('veilcore:v1:fnode'), l, r);
+/** The 16-byte tag of the set root: exactly the 16 characters "veilcore:v1:fset". */
+const SET_TAG = new TextEncoder().encode('veilcore:v1:fset');
 
-export const fieldSetRoot = (schemaId: Uint8Array, tree: Uint8Array): Promise<Uint8Array> =>
-  hashElements(tag('veilcore:v1:fset'), schemaId, tree);
+/** fieldSetRoot = SHA-256("veilcore:v1:fset" || schemaId || leaf_0 || ... || leaf_15): 560 bytes. */
+export const fieldSetRootFromLeaves = (schemaId: Uint8Array, leaves: readonly Uint8Array[]): Promise<Uint8Array> => {
+  if (schemaId.length !== 32) throw new Error('a schema id is 32 bytes');
+  if (leaves.length !== FIELD_SLOTS) throw new Error('a field set has 16 leaves');
+  const b = new Uint8Array(16 + 32 + 32 * FIELD_SLOTS);
+  b.set(SET_TAG);
+  b.set(schemaId, 16);
+  leaves.forEach((l, i) => {
+    if (l.length !== 32) throw new Error('a leaf is 32 bytes');
+    b.set(l, 48 + 32 * i);
+  });
+  return sha256(b);
+};
 
 export const fieldRecordCommitment = (setRoot: Uint8Array, jsonDigest: Uint8Array): Promise<Uint8Array> =>
   hashElements(tag('veilcore:v1:frecord'), setRoot, jsonDigest);
@@ -227,47 +273,35 @@ export const sealFieldSet = async (schemaId: Uint8Array, values: readonly Uint8A
   return { schemaId, values: values.map((v) => new Uint8Array(v)), salts };
 };
 
-const levels = async (fs: FieldSet): Promise<Uint8Array[][]> => {
-  const out: Uint8Array[][] = [await Promise.all(fs.values.map((v, i) => fieldLeaf(v, fs.salts[i])))];
-  while (out[out.length - 1].length > 1) {
-    const prev = out[out.length - 1];
-    const next: Uint8Array[] = [];
-    for (let i = 0; i < prev.length; i += 2) next.push(await fieldNode(prev[i], prev[i + 1]));
-    out.push(next);
-  }
-  return out;
-};
+/** The 16 leaves of a field set. Each reveals nothing about its value without the salt. */
+export const fieldLeavesOf = (fs: FieldSet): Promise<Uint8Array[]> => Promise.all(fs.values.map((v, i) => fieldLeaf(v, fs.salts[i])));
 
 /** The public root of a field set. Reveals nothing about the values. */
-export const fieldSetRootOf = async (fs: FieldSet): Promise<Uint8Array> => fieldSetRoot(fs.schemaId, (await levels(fs))[4][0]);
+export const fieldSetRootOf = async (fs: FieldSet): Promise<Uint8Array> => fieldSetRootFromLeaves(fs.schemaId, await fieldLeavesOf(fs));
 
-/** One slot, opened: what the claims contract needs to prove a value or a range. */
+/**
+ * One slot, opened: its value and salt, and all 16 leaves (the other 15 are what the
+ * holder discloses besides the value; the opened slot's leaf is recomputed from it).
+ */
 export type SlotOpening = {
+  slot: number;
   value: Uint8Array;
   salt: Uint8Array;
-  siblings: Uint8Array[];
-  bits: boolean[];
+  leaves: Uint8Array[];
 };
 
 export const openFieldSlot = async (fs: FieldSet, slot: number): Promise<SlotOpening> => {
   if (!Number.isInteger(slot) || slot < 0 || slot >= FIELD_SLOTS) throw new Error('slot is 0 to 15');
-  const lv = await levels(fs);
-  const siblings: Uint8Array[] = [];
-  const bits: boolean[] = [];
-  let i = slot;
-  for (let level = 0; level < 4; level++) {
-    bits.push((i & 1) === 1);
-    siblings.push(lv[level][i ^ 1]);
-    i >>= 1;
-  }
-  return { value: fs.values[slot], salt: fs.salts[slot], siblings, bits };
+  return { slot, value: fs.values[slot], salt: fs.salts[slot], leaves: await fieldLeavesOf(fs) };
 };
 
 /** Recompute the set root from one opened slot (what a verifier of an opening does). */
 export const rootFromOpening = async (schemaId: Uint8Array, o: SlotOpening): Promise<Uint8Array> => {
-  let h = await fieldLeaf(o.value, o.salt);
-  for (let level = 0; level < 4; level++) h = o.bits[level] ? await fieldNode(o.siblings[level], h) : await fieldNode(h, o.siblings[level]);
-  return fieldSetRoot(schemaId, h);
+  if (!Number.isInteger(o.slot) || o.slot < 0 || o.slot >= FIELD_SLOTS) throw new Error('slot is 0 to 15');
+  if (o.leaves.length !== FIELD_SLOTS) throw new Error('an opening carries 16 leaves');
+  const mine = await fieldLeaf(o.value, o.salt);
+  if (toHex(mine) !== toHex(o.leaves[o.slot])) throw new Error('the opened value and salt do not make that slot\'s leaf');
+  return fieldSetRootFromLeaves(schemaId, o.leaves);
 };
 
 export const hex = toHex;
@@ -323,32 +357,25 @@ export const fieldSetSummary = async (input: {
   schema: FieldSchema;
   values: TypedSlotValue[];
   fieldSecret: string;
-  open?: number[];
 }): Promise<{
   schemaDocumentDigest: string;
   schemaId: string;
   slotValues: string[];
   salts: string[];
+  leaves: string[];
   setRoot: string;
-  openings: { slot: number; siblings: string[]; bits: boolean[] }[];
 }> => {
   if (!Array.isArray(input.values) || input.values.length !== FIELD_SLOTS) throw new Error('a field set has 16 slots');
   if (typeof input.fieldSecret !== 'string' || !/^[0-9a-f]{64}$/.test(input.fieldSecret)) throw new Error('fieldSecret is 64 lowercase hex characters');
   const schemaId = await fieldSchemaId(input.schema);
   const values = await typedSlotValues(input.schema, input.values);
   const fs = await sealFieldSet(schemaId, values, fromHex(input.fieldSecret));
-  const openings = await Promise.all(
-    (input.open ?? []).map(async (slot) => {
-      const o = await openFieldSlot(fs, slot);
-      return { slot, siblings: o.siblings.map(toHex), bits: o.bits };
-    }),
-  );
   return {
     schemaDocumentDigest: toHex(await schemaDocumentDigest(input.schema)),
     schemaId: toHex(schemaId),
     slotValues: values.map(toHex),
     salts: fs.salts.map(toHex),
+    leaves: (await fieldLeavesOf(fs)).map(toHex),
     setRoot: toHex(await fieldSetRootOf(fs)),
-    openings,
   };
 };

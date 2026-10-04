@@ -119,7 +119,7 @@ if (vectors.inclusion?.length) {
 }
 
 // Field sets (SPEC 4.5). Compared as the JSON of the summary: schema id, the 32-byte slot
-// values, salts, set root and the requested openings, in that order.
+// values, salts, the 16 leaves and the set root, in that order.
 if (vectors.fieldSets?.length || vectors.fieldRejections?.length || vectors.commitmentRejections?.length) {
   console.log('\nField sets');
   const has = typeof impl.fieldSetSummary === 'function';

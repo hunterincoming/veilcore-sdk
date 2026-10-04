@@ -229,16 +229,19 @@ def compute_commitment(env):
 # Field sets: commitment algorithm sha256/fields/v1.
 #
 # A record sealed this way commits each of 16 slots as a salted leaf of a four-level
-# binary tree, so a holder can later prove one fact about one slot without disclosing the
-# rest. Every hash is SHA-256 over 32-byte elements, the first of which is a domain tag
-# (UTF-8, zero-padded to 32). A slot value is 32 bytes: a number is little-endian in
+# single root, so a holder can later prove one fact about one slot without disclosing the
+# rest. Every hash is SHA-256. Where its input is 32-byte elements, the first is a domain
+# tag (UTF-8, zero-padded to 32); a leaf (55 bytes) and the set root (560 bytes) have
+# lengths no other hash here has, and the set root carries a 16-byte tag. A slot value is 32 bytes: a number is little-endian in
 # bytes 0-7 with byte 8 set to 1 (so 0 is never the same as absent), a text is SHA-256 of
 # its NFC UTF-8, and absent is 32 zero bytes. The schema is bound by schemaId, which
 # covers its canonical JSON, which slots are comparable, and the threshold k.
 #
-#   salt_i  = H(fsalt, fieldSecret, i)        leaf = H(field, value, salt)
-#   node    = H(fnode, left, right)           setRoot = H(fset, schemaId, tree root)
-#   schemaId = H(fschema, SHA-256(canonical schema), comparable mask, k, numeric mask)
+#   salt_i   = first 23 bytes of H(fsalt, fieldSecret, i)
+#   leaf_i   = SHA-256(value_i || salt_i)                      (55 bytes: one block)
+#   setRoot  = SHA-256("veilcore:v1:fset" || schemaId || leaf_0 || ... || leaf_15)
+#   schemaId = H(fschema, SHA-256(canonical schema), terms)
+#   terms    = comparable mask in bytes 0-1, numeric mask in bytes 2-3, k in byte 4
 #
 # A comparable text slot declares a format (allele-pair, allele, code) and only its
 # canonical form is accepted. The record's committed JSON carries fieldSchema and
@@ -379,8 +382,11 @@ def _schema_masks(schema):
     return comparable, numeric
 
 
-def _mask_bytes(mask):
-    return _count_bytes(sum(1 << i for i, b in enumerate(mask) if b))
+def _terms_bytes(comparable, numeric, k):
+    """The schema's terms in one 32-byte element (masks little-endian, slot i is bit i)."""
+    c = sum(1 << i for i, b in enumerate(comparable) if b)
+    n = sum(1 << i for i, b in enumerate(numeric) if b)
+    return c.to_bytes(2, "little") + n.to_bytes(2, "little") + bytes([k]) + bytes(27)
 
 
 def field_set(job):
@@ -402,8 +408,7 @@ def field_set(job):
     doc_digest = hashlib.sha256(canonicalise(schema).encode("utf-8")).digest()
     # The masks and k are inside the id so a claim cannot choose them; the numeric mask lets
     # the claims contract refuse a range claim on a slot that is not a number.
-    schema_id = _h(_tag("veilcore:v1:fschema"), doc_digest, _mask_bytes(mask),
-                   _count_bytes(int(k)), _mask_bytes(numeric))
+    schema_id = _h(_tag("veilcore:v1:fschema"), doc_digest, _terms_bytes(mask, numeric, int(k)))
 
     # Each value must match its slot's declared type, and a slot the schema does not
     # describe must be empty: otherwise a text hash could sit in a number slot and a range
@@ -422,38 +427,17 @@ def field_set(job):
             _check_format(format_of[i], v["text"])
     slot_values = [_slot_value(v) for v in values]
     secret = bytes.fromhex(job["fieldSecret"])
-    salts = [_h(_tag("veilcore:v1:fsalt"), secret, _count_bytes(i)) for i in range(FIELD_SLOTS)]
-
-    levels = [[_h(_tag("veilcore:v1:field"), v, salts[i]) for i, v in enumerate(slot_values)]]
-    while len(levels[-1]) > 1:
-        prev = levels[-1]
-        levels.append([_h(_tag("veilcore:v1:fnode"), prev[i], prev[i + 1]) for i in range(0, len(prev), 2)])
-    set_root = _h(_tag("veilcore:v1:fset"), schema_id, levels[-1][0])
-
-    opens = job.get("open")
-    if opens is None:
-        opens = []
-    if not isinstance(opens, list):
-        raise ValueError("open is a list of slots")
-    openings = []
-    for slot in opens:
-        if not _is_int(slot) or slot < 0 or slot >= FIELD_SLOTS:
-            raise ValueError("slot is 0 to 15")
-        i = int(slot)
-        siblings, bits = [], []
-        for level in range(4):
-            bits.append(i & 1 == 1)
-            siblings.append(levels[level][i ^ 1].hex())
-            i >>= 1
-        openings.append({"slot": int(slot), "siblings": siblings, "bits": bits})
+    salts = [_h(_tag("veilcore:v1:fsalt"), secret, _count_bytes(i))[:23] for i in range(FIELD_SLOTS)]
+    leaves = [hashlib.sha256(v + salts[i]).digest() for i, v in enumerate(slot_values)]
+    set_root = hashlib.sha256(b"veilcore:v1:fset" + schema_id + b"".join(leaves)).digest()
 
     return {
         "schemaDocumentDigest": doc_digest.hex(),
         "schemaId": schema_id.hex(),
         "slotValues": [v.hex() for v in slot_values],
         "salts": [s.hex() for s in salts],
+        "leaves": [l.hex() for l in leaves],
         "setRoot": set_root.hex(),
-        "openings": openings,
     }
 
 

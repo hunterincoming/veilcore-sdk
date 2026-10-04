@@ -240,20 +240,20 @@ const loci = ['233/233', '180/184', '201/201', '155/159', '312/318', '140/140', 
 const SECRET_A = '11'.repeat(32);
 const fieldSetCases = [
   {
-    name: 'twelve loci and four traits, slots 3 and 12 opened',
-    input: { schema: exampleSchema, values: [...loci.map((t) => ({ text: t })), { uint: '9650' }, { uint: '9980' }, { text: 'Harbour Mist' }, { uint: '6400' }], fieldSecret: SECRET_A, open: [3, 12, 15] },
+    name: 'twelve loci and four traits',
+    input: { schema: exampleSchema, values: [...loci.map((t) => ({ text: t })), { uint: '9650' }, { uint: '9980' }, { text: 'Harbour Mist' }, { uint: '6400' }], fieldSecret: SECRET_A },
   },
   {
     name: 'the number 0 is not an absent slot',
-    input: { schema: exampleSchema, values: [...loci.map((t) => ({ text: t })), { uint: '0' }, null, null, { uint: '18446744073709551615' }], fieldSecret: '22'.repeat(32), open: [12, 13] },
+    input: { schema: exampleSchema, values: [...loci.map((t) => ({ text: t })), { uint: '0' }, null, null, { uint: '18446744073709551615' }], fieldSecret: '22'.repeat(32) },
   },
   {
     name: 'text is NFC-normalised before hashing (decomposed e-acute)',
-    input: { schema: exampleSchema, values: [...Array(14).fill(null), { text: 'Caf\u0065\u0301' }, null], fieldSecret: '33'.repeat(32), open: [14] },
+    input: { schema: exampleSchema, values: [...Array(14).fill(null), { text: 'Caf\u0065\u0301' }, null], fieldSecret: '33'.repeat(32) },
   },
   {
     name: 'every slot absent',
-    input: { schema: exampleSchema, values: Array(16).fill(null), fieldSecret: '44'.repeat(32), open: [] },
+    input: { schema: exampleSchema, values: Array(16).fill(null), fieldSecret: '44'.repeat(32) },
   },
 ];
 const fieldRejectionCases = [
