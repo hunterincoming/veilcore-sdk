@@ -343,6 +343,10 @@ for (const c of fieldRejectionCases) {
     const li = { ...base, recordId: 'vc_rec_conformance_ledger_identity', ledgerIdentity: { chain: 'midnight', contractAddress: 'cd'.repeat(32), identity: 'ef'.repeat(32) } };
     out.commitments.push({ name: 'a record naming its ledger identity commits to it', record: li, expectedCommitment: await computeCommitment(li) });
   }
+  {
+    const lf = { ...record, recordId: 'vc_rec_conformance_fields_ledger_identity', ledgerIdentity: { chain: 'midnight', identity: 'cd'.repeat(32) } };
+    out.commitments.push({ name: 'a sha256/fields/v1 record naming its ledger identity commits to it', record: lf, expectedCommitment: await computeCommitment(lf) });
+  }
   for (const [name, r, reason] of [
     ['a sha256/fields/v1 record without fieldSetRoot', { ...record, fieldSetRoot: undefined }, 'sha256/fields/v1 needs fieldSetRoot'],
     ['a sha256/fields/v1 record with an uppercase fieldSetRoot', { ...record, fieldSetRoot: record.fieldSetRoot.toUpperCase() }, 'fieldSetRoot is 64 lowercase hex characters'],
