@@ -255,14 +255,15 @@ Because `fieldSetRoot` is in the JSON, anyone shown the JSON sees which field se
 
 **An opening** of slot *i* is its value, its salt, and the sixteen leaves. A verifier recomputes `leaf_i` from the value and salt, checks it is the *i*-th of the sixteen, and recomputes the root. The other fifteen leaves are salted hashes and disclose nothing about their values.
 
-**Claims** (reference: the VeilCore claims contract and its design note, forthcoming: neither is published or deployed yet) are proved against the record commitment and published on the ledger:
+**Claims** (reference: the VeilCore claims contract, `contract/src/veilcore-claims.compact`, and its design note, `docs/claims-design.md`, in the veilcore-midnight-testnet repository; run end to end on Midnight preprod in October 2026, not yet on mainnet) are proved against the record commitment and published on the ledger:
 
 - **value**: slot *i* holds a stated value. The value is published: this establishes authenticity, never confidentiality.
 - **range**: a `uint` slot is at least, or at most, a bound. The number is not published.
 - **distinct**: two records under the same schema differ in at least `k` comparable slots, counting only slots present in both. Which slots differ, and how many, are not published. It shall be reported as "differs in at least k comparable values", never as a determination of distinctness, which is the examining body's.
 - **unchanged**: two records under the same schema have equal values outside a published mask. It establishes nothing else: not which record is the correction, nor that either names the other in `supersedes`.
+- **attested**: a laboratory signed a record. The key is published. Read together with any claim above on the same record, it makes that claim about values the laboratory sealed; a distinct or unchanged claim needs one for each record it names.
 
-A claim may carry a laboratory's signature. **The signature shall be over the record commitment**, not the field-set root, so it cannot be moved to another record built around the same values; it states that the laboratory sealed that record. Which keys are laboratories is the verifier's decision (section 7).
+**The laboratory's signature shall be over the record commitment**, not the field-set root, so it cannot be moved to another record built around the same values; it states that the laboratory sealed that record. Which keys are laboratories is the verifier's decision (section 7).
 
 **What a verifier of a claim shall check:**
 
