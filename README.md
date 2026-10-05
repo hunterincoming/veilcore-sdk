@@ -81,6 +81,14 @@ counsel to adapt, and `verify.py` - this package's Python reference implementati
 standard library only - which checks it all offline with `python3 verify.py`. Nothing in
 it depends on VeilCore still existing.
 
+The package's `MANIFEST.json` (the SHA-256 of every file) catches accidental damage only:
+a truncated copy, a re-saved file. It does not catch deliberate editing, because it sits
+in the same folder and whoever edits a file can rewrite it too. What deliberate editing
+cannot get past is the commitment recomputed from `record.json` and that commitment's
+anchor. A signature over the manifest would not change this: the package builder is the
+holder, the same party who could edit the files, and `verify.py` (Python standard library
+only) has no Ed25519 to check one with.
+
 Worked examples in `examples/`: adding commitments to a laboratory's existing intake
 process, an Additional Certification Requirement end to end, and establishing
 distinctness between two varieties.
@@ -176,6 +184,19 @@ by a VeilCore claims contract that is not yet published or deployed.
 certifying body receives and what stays with the holder.
 
 ---
+
+## Using it from Node
+
+The package is ESM (`import`). `require('veilcore-records')` also works on Node versions
+that load ES modules through `require` (20.19 and later, 22.12 and later); on older Node,
+use `import()`. Attestation signatures use the global WebCrypto with Ed25519 (Node 20 and
+later); the tests run on Node 22.
+
+Every `verify…` function returns a failed result for malformed input (a reason, `false`
+or `ok: false`) and does not throw. Builders (`computeCommitment`, `buildBatch`,
+`buildEvidencePackage`, `sign…`) throw on invalid input, with the reason.
+
+Releases: see [RELEASING.md](RELEASING.md) for the build gate and npm provenance.
 
 ## Status
 

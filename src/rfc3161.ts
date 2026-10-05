@@ -99,6 +99,13 @@ const kids = (n: Node, what: string): Node[] => {
   return out;
 };
 
+/** The children of a constructed value, which shall number exactly `n`. */
+const kidsExactly = (n: Node, count: number, what: string): Node[] => {
+  const k = kids(n, what);
+  if (k.length !== count) throw new DerError(`${what} has ${k.length} elements, not ${count}`);
+  return k;
+};
+
 const expect = (n: Node | undefined, tag: number, what: string): Node => {
   if (!n) throw new DerError(`${what} is missing`);
   if (n.tag !== tag) throw new DerError(`${what} has the wrong type (tag 0x${n.tag.toString(16)})`);
@@ -130,10 +137,25 @@ const oid = (n: Node, what: string): string => {
   return [...head, ...arcs.slice(1)].join('.');
 };
 
-const intBytes = (n: Node, what: string): Uint8Array => {
+/**
+ * An INTEGER's content octets. DER requires the minimal two's-complement form: a leading
+ * 0x00 only before a byte with its top bit set, a leading 0xff only before one without.
+ * `lenient` is for certificate serial numbers, which real CAs have mis-encoded for years
+ * and which are only ever compared byte for byte, never read as numbers.
+ */
+const intBytes = (n: Node, what: string, lenient = false): Uint8Array => {
   expect(n, T.INT, what);
   const v = val(n);
   if (!v.length) throw new DerError(`${what} is empty`);
+  if (!lenient && v.length > 1 && ((v[0] === 0x00 && !(v[1] & 0x80)) || (v[0] === 0xff && v[1] & 0x80))) {
+    throw new DerError(`${what} is not minimally encoded`);
+  }
+  return v;
+};
+/** A non-negative INTEGER (serial numbers, nonces, ECDSA r and s). */
+const unsignedInt = (n: Node, what: string): Uint8Array => {
+  const v = intBytes(n, what);
+  if (v[0] & 0x80) throw new DerError(`${what} is negative`);
   return v;
 };
 const smallInt = (n: Node, what: string): number => {
@@ -147,6 +169,7 @@ const eq = (a: Uint8Array, b: Uint8Array): boolean => a.length === b.length && a
 
 const genTime = (n: Node): string => {
   expect(n, T.GENTIME, 'genTime');
+  if (n.len > 32) throw new DerError('genTime is not a UTC GeneralizedTime');
   const s = String.fromCharCode(...val(n));
   const m = /^(\d{4})(\d{2})(\d{2})(\d{2})(\d{2})(\d{2})(?:\.(\d{1,9}))?Z$/.exec(s);
   if (!m) throw new DerError('genTime is not a UTC GeneralizedTime');
@@ -154,6 +177,7 @@ const genTime = (n: Node): string => {
 };
 
 const certTime = (n: Node): string => {
+  if (n.len > 32) throw new DerError('certificate validity is not a time');
   const s = String.fromCharCode(...val(n));
   if (n.tag === T.UTCTIME) {
     const m = /^(\d{2})(\d{2})(\d{2})(\d{2})(\d{2})(\d{2})Z$/.exec(s);
@@ -184,8 +208,10 @@ const ATTR_NAMES: Record<string, string> = {
   '2.5.4.10': 'O', '2.5.4.11': 'OU', '2.5.4.97': 'organizationIdentifier', '1.2.840.113549.1.9.1': 'emailAddress',
 };
 
+/** Longest name value read for display. Real ones are a few dozen characters. */
+const MAX_DISPLAY = 256;
 const displayString = (n: Node): string => {
-  const v = val(n);
+  const v = val(n).subarray(0, MAX_DISPLAY * 2);
   let s: string;
   if (n.tag === 0x1e) {
     // BMPString, UTF-16BE
@@ -196,16 +222,16 @@ const displayString = (n: Node): string => {
   } else {
     s = new TextDecoder('utf-8', { fatal: false }).decode(v);
   }
-  // Display only: nothing from a certificate gets to drive a terminal.
-  return s.replace(/[\u0000-\u001f\u007f-\u009f]/g, '?');
+  // Display only: nothing from a certificate gets to drive a terminal, or reorder the text
+  // around it (bidirectional overrides and isolates would let a subject read as another).
+  return s.slice(0, MAX_DISPLAY).replace(/[\u0000-\u001f\u007f-\u009f\u200b-\u200f\u2028-\u202e\u2060-\u2069\ufeff]/g, '?');
 };
 
 const nameString = (n: Node): string => {
   const parts: string[] = [];
   for (const rdn of kids(expect(n, T.SEQ, 'name'), 'name')) {
     for (const atv of kids(expect(rdn, T.SET, 'name component'), 'name component')) {
-      const [type, value] = kids(expect(atv, T.SEQ, 'name attribute'), 'name attribute');
-      if (!value) throw new DerError('name attribute has no value');
+      const [type, value] = kidsExactly(expect(atv, T.SEQ, 'name attribute'), 2, 'name attribute');
       const id = oid(type, 'name attribute type');
       parts.push(`${ATTR_NAMES[id] ?? id}=${displayString(value)}`);
     }
@@ -282,7 +308,11 @@ const B64 = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/';
 
 /** Strict base64 (standard alphabet, padding optional, whitespace ignored). Throws on anything else. */
 export const decodeBase64 = (s: string): Uint8Array => {
-  const clean = s.replace(/\s+/g, '').replace(/=+$/, '');
+  if (typeof s !== 'string') throw new Error('not base64');
+  const packed = s.replace(/\s+/g, '');
+  const clean = packed.replace(/={1,2}$/, '');
+  // Padding is optional, but when present it completes the last group of four.
+  if (clean.length !== packed.length && packed.length % 4 !== 0) throw new Error('not base64');
   if (clean.length % 4 === 1) throw new Error('not base64');
   const out = new Uint8Array(Math.floor((clean.length * 3) / 4));
   let bits = 0;
@@ -298,6 +328,9 @@ export const decodeBase64 = (s: string): Uint8Array => {
       out[o++] = (acc >> bits) & 0xff;
     }
   }
+  // The bits left over after the last whole byte are zero in canonical base64; anything
+  // else is a second spelling of the same bytes.
+  if (bits > 0 && (acc & ((1 << bits) - 1)) !== 0) throw new Error('not base64');
   return out.subarray(0, o);
 };
 
@@ -322,14 +355,14 @@ const parseCert = (n: Node): Cert => {
   const f = kids(expect(tbs, T.SEQ, 'certificate body'), 'certificate body');
   let i = 0;
   if (f[i]?.tag === 0xa0) i++; // version
-  const serial = intBytes(f[i++], 'certificate serial number');
+  const serial = intBytes(f[i++], 'certificate serial number', true);
   expect(f[i++], T.SEQ, 'certificate signature algorithm');
   const issuer = expect(f[i++], T.SEQ, 'certificate issuer');
   const validity = kids(expect(f[i++], T.SEQ, 'certificate validity'), 'certificate validity');
   if (validity.length !== 2) throw new DerError('certificate validity is malformed');
   const subject = expect(f[i++], T.SEQ, 'certificate subject');
   const spkiNode = expect(f[i++], T.SEQ, 'certificate public key');
-  const [keyAlgNode, keyBits] = kids(spkiNode, 'certificate public key');
+  const [keyAlgNode, keyBits] = kidsExactly(spkiNode, 2, 'certificate public key');
   expect(keyBits, T.BITS, 'certificate public key bits');
   const keyAlg = algId(keyAlgNode, 'public key algorithm');
   const cert: Cert = {
@@ -345,10 +378,16 @@ const parseCert = (n: Node): Cert => {
   };
   for (; i < f.length; i++) {
     if (f[i].tag !== 0xa3) continue;
-    const [exts] = kids(f[i], 'certificate extensions');
+    const [exts] = kidsExactly(f[i], 1, 'certificate extensions');
+    const seenExt = new Set<string>();
     for (const ext of kids(expect(exts, T.SEQ, 'certificate extensions'), 'certificate extensions')) {
       const e = kids(expect(ext, T.SEQ, 'extension'), 'extension');
+      if (e.length !== 2 && !(e.length === 3 && e[1].tag === T.BOOL)) throw new DerError('extension is malformed');
       const id = oid(e[0], 'extension id');
+      // RFC 5280 4.2: an extension appears at most once. Two EKU extensions would leave
+      // which one counts up to the parser.
+      if (seenExt.has(id)) throw new DerError(`certificate extension ${id} appears twice`);
+      seenExt.add(id);
       const value = expect(e[e.length - 1], T.OCTETS, 'extension value');
       const inner = val(value);
       if (id === OID.eku) {
@@ -392,6 +431,7 @@ const tokenNode = (bytes: Uint8Array): Node => {
   if (top.end !== bytes.length) throw new DerError('trailing data after the token');
   const k = kids(expect(top, T.SEQ, 'token'), 'token');
   if (k[0]?.tag === T.OID) return top; // already a ContentInfo
+  if (k.length > 2) throw new DerError('the response has unexpected fields');
   // TimeStampResp ::= SEQUENCE { status PKIStatusInfo, timeStampToken OPTIONAL }
   const status = kids(expect(k[0], T.SEQ, 'response status'), 'response status');
   const s = smallInt(status[0], 'response status');
@@ -415,16 +455,16 @@ export const timestampTokenBytes = (token: Uint8Array | string): Uint8Array | un
 };
 
 const parseToken = (bytes: Uint8Array): Parsed => {
-  const ci = kids(tokenNode(bytes), 'token');
+  const ci = kidsExactly(tokenNode(bytes), 2, 'token');
   if (oid(ci[0], 'content type') !== OID.signedData) throw new DerError('the token is not CMS SignedData');
-  const [sd] = kids(expect(ci[1], 0xa0, 'signed data'), 'signed data');
+  const [sd] = kidsExactly(expect(ci[1], 0xa0, 'signed data'), 1, 'signed data');
   const f = kids(expect(sd, T.SEQ, 'signed data'), 'signed data');
   let i = 0;
   smallInt(f[i++], 'signed data version');
   expect(f[i++], T.SET, 'digest algorithms');
-  const encap = kids(expect(f[i++], T.SEQ, 'encapsulated content'), 'encapsulated content');
+  const encap = kidsExactly(expect(f[i++], T.SEQ, 'encapsulated content'), 2, 'encapsulated content');
   const eContentType = oid(encap[0], 'encapsulated content type');
-  const [eContent] = kids(expect(encap[1], 0xa0, 'encapsulated content'), 'encapsulated content');
+  const [eContent] = kidsExactly(expect(encap[1], 0xa0, 'encapsulated content'), 1, 'encapsulated content');
   const tstDer = val(expect(eContent, T.OCTETS, 'encapsulated content'));
 
   const certs: Cert[] = [];
@@ -448,12 +488,12 @@ const parseToken = (bytes: Uint8Array): Parsed => {
   if (imprint.length !== 2) throw new DerError('message imprint is malformed');
   const hashAlgorithm = hashAlg(imprint[0], 'imprint hash algorithm');
   const hashedMessage = val(expect(imprint[1], T.OCTETS, 'hashed message'));
-  const serialNumber = hex(intBytes(t[j++], 'serial number'));
+  const serialNumber = hex(unsignedInt(t[j++], 'serial number'));
   const gt = genTime(t[j++]);
   if (t[j]?.tag === T.SEQ) j++; // accuracy
   if (t[j]?.tag === T.BOOL) j++; // ordering
   let nonce: string | undefined;
-  if (t[j]?.tag === T.INT) nonce = hex(intBytes(t[j++], 'nonce'));
+  if (t[j]?.tag === T.INT) nonce = hex(unsignedInt(t[j++], 'nonce'));
   if (t[j]?.tag === 0xa0) j++; // tsa name
   if (t[j]?.tag === 0xa1) j++; // extensions
   if (j !== t.length) throw new DerError('unexpected fields in TSTInfo');
@@ -469,8 +509,8 @@ const parseToken = (bytes: Uint8Array): Parsed => {
     throw new DerError(`signer info version ${siVersion} does not match its signer identifier`);
   }
   if (sidNode?.tag === T.SEQ) {
-    const [iss, ser] = kids(sidNode, 'signer identifier');
-    sid = { issuer: whole(expect(iss, T.SEQ, 'signer issuer')), serial: intBytes(ser, 'signer serial') };
+    const [iss, ser] = kidsExactly(sidNode, 2, 'signer identifier');
+    sid = { issuer: whole(expect(iss, T.SEQ, 'signer issuer')), serial: intBytes(ser, 'signer serial', true) };
   } else if (sidNode?.tag === 0x80) {
     sid = { ski: val(sidNode) };
   } else {
@@ -482,7 +522,7 @@ const parseToken = (bytes: Uint8Array): Parsed => {
   let messageDigestAttr: Uint8Array | undefined;
   const seen = new Set<string>();
   for (const a of kids(attrsNode, 'signed attributes')) {
-    const [typeNode, values] = kids(expect(a, T.SEQ, 'attribute'), 'attribute');
+    const [typeNode, values] = kidsExactly(expect(a, T.SEQ, 'attribute'), 2, 'attribute');
     const type = oid(typeNode, 'attribute type');
     if (seen.has(type)) throw new DerError(`signed attribute ${type} appears twice`);
     seen.add(type);
@@ -526,10 +566,11 @@ const parseToken = (bytes: Uint8Array): Parsed => {
 const ecdsaRaw = (sig: Uint8Array, size: number): Uint8Array => {
   const top = read(sig, 0, sig.length);
   if (top.end !== sig.length) throw new DerError('ECDSA signature has trailing data');
-  const [r, s, extra] = kids(expect(top, T.SEQ, 'ECDSA signature'), 'ECDSA signature');
-  if (extra) throw new DerError('ECDSA signature is malformed');
+  const [r, s] = kidsExactly(expect(top, T.SEQ, 'ECDSA signature'), 2, 'ECDSA signature');
   const out = new Uint8Array(size * 2);
-  [intBytes(r, 'ECDSA r'), intBytes(s, 'ECDSA s')].forEach((v, idx) => {
+  // Positive and minimal: a negative or padded r or s read as unsigned would be a second
+  // encoding of the same signature.
+  [unsignedInt(r, 'ECDSA r'), unsignedInt(s, 'ECDSA s')].forEach((v, idx) => {
     let x = v;
     while (x.length > 1 && x[0] === 0) x = x.subarray(1);
     if (x.length > size) throw new DerError('ECDSA signature value too long for the curve');
@@ -635,6 +676,10 @@ export const verifyTimestampToken = async (
     }
     const s = await subtle();
     const key = await s.importKey('spki', cert!.spki as BufferSource, params, false, ['verify']);
+    const bits = (key.algorithm as Partial<RsaHashedKeyAlgorithm>).modulusLength;
+    if (params.name === 'RSASSA-PKCS1-v1_5' && (typeof bits !== 'number' || bits < 2048)) {
+      throw new Unsupported(`the signer's RSA key is ${bits ?? 'of unknown'} bits; under 2048 is refused`);
+    }
     const good = await s.verify(verifyAlg, key, sig as BufferSource, p.signedAttrs as BufferSource);
     add(good, `the signature over the signed attributes verifies with the signer certificate's key (${params.name}, ${hashName})`);
 

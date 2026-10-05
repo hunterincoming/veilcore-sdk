@@ -23,7 +23,7 @@ import { readFile, writeFile } from 'node:fs/promises';
 import {
   computeCommitment, verifyCommitment, canonicalise, newNonce,
   diffRecords, classifyCorrection,
-  verifyAttestation, strengthOf,
+  verifyAttestation, verifiedStrengthOf,
   effectiveAnchors, standingOf, datingSummary, verifyAnchor,
   verifyInclusion,
   contestedStatus,
@@ -85,7 +85,7 @@ async function verify(path) {
     for (const a of atts) {
       const sig = await verifyAttestation(a).catch(() => false);
       if (!sig) failed = true;
-      const strength = (() => { try { return strengthOf(a); } catch { return 'unknown'; } })();
+      const strength = await verifiedStrengthOf(a).catch(() => 'unknown');
       out();
       say('  attester', a.attester?.id ?? '(unnamed)');
       say('  signature', sig ? 'verifies' : 'DOES NOT VERIFY');

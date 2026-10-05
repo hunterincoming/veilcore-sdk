@@ -125,7 +125,13 @@ export const retractionPayload = (r: Omit<Retraction, 'signature'>): string =>
  */
 export type AttestationStrength = 'unsigned' | 'signed' | 'signed-and-accredited';
 
+/**
+ * The strength an attestation CLAIMS, from its fields alone. It does not check the
+ * signature: an attestation carrying any signature string at all reads as `signed` here,
+ * and `accreditation` is the attester's own signed claim, not a registry entry. SPEC 7.2
+ * defines `signed` as "the signature verifies"; for that, use `verifiedStrengthOf`.
+ */
 export const strengthOf = (a: SignedAttestation): AttestationStrength => {
-  if (!a.signature) return 'unsigned';
-  return a.attester.accreditation ? 'signed-and-accredited' : 'signed';
+  if (typeof a !== 'object' || a === null || !a.signature) return 'unsigned';
+  return a.attester?.accreditation ? 'signed-and-accredited' : 'signed';
 };

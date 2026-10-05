@@ -14,14 +14,19 @@
     "examples",
     "SPEC.md",
     "INTEGRATING.md",
-    "EVIDENCE.md"
+    "EVIDENCE.md",
+    "!**/__pycache__",
+    "!**/*.pyc"
   ],
   "scripts": {
     "build": "node scripts/embed-verifier.mjs && tsc",
+    "clean": "node scripts/clean.mjs",
     "test": "node --test test/*.test.mjs && npm run checks && npm run conformance",
     "conformance": "node conformance/run.mjs",
+    "conformance:python": "node conformance/run-cli.mjs \"python3 conformance/impl.py\"",
     "conformance:generate": "node conformance/generate.mjs",
-    "checks": "for f in test/*.checks.mjs; do node \"$f\" || exit 1; done"
+    "checks": "for f in test/*.checks.mjs; do node \"$f\" || exit 1; done",
+    "prepublishOnly": "npm run clean && npm run build && npm test && npm run conformance:python && node scripts/check-pack.mjs"
   },
   "devDependencies": {
     "@types/node": "^26.2.0",
@@ -29,10 +34,12 @@
   },
   "exports": {
     ".": {
+      "types": "./dist/index.d.ts",
       "browser": "./dist/index.browser.js",
       "import": "./dist/index.js",
-      "types": "./dist/index.d.ts"
-    }
+      "default": "./dist/index.js"
+    },
+    "./package.json": "./package.json"
   },
   "repository": {
     "type": "git",

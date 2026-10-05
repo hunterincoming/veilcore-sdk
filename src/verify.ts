@@ -12,6 +12,7 @@
 
 import { verifyCommitment } from './commit.js';
 import type { Envelope } from './types.js';
+import { readJsonBounded } from './http.js';
 
 export type RegistryVerdict = {
   /** Is the record unaltered since sealing? Computed locally, no network needed. */
@@ -45,8 +46,22 @@ export const verifyAgainstRegistry = async (
     return { intact: false, reasons: [local.reason ?? 'commitment does not match contents'] };
   }
 
-  const base = registryUrl.replace(/\/$/, '');
   const verdict: RegistryVerdict = { intact: true, reasons };
+  // The registry URL is the caller's, but a record's own fields go into the paths below,
+  // so both are checked before anything is sent.
+  let base: string;
+  try {
+    const u = new URL(registryUrl);
+    if (u.protocol !== 'https:' && u.protocol !== 'http:') throw new Error('not http(s)');
+    base = registryUrl.replace(/\/$/, '');
+  } catch {
+    reasons.push('the registry address is not an http(s) URL, so the registry was not asked');
+    return verdict;
+  }
+  if (typeof env.recordId !== 'string' || typeof env.commitment !== 'string') {
+    reasons.push('the record has no string recordId and commitment to look up');
+    return verdict;
+  }
 
   try {
     const res = await fetch(`${base}/verify/${encodeURIComponent(env.recordId)}`);
@@ -58,8 +73,10 @@ export const verifyAgainstRegistry = async (
       // one and stopped.
       verdict.known = false;
       reasons.push('the registry does not hold a record with this identifier');
+    } else if (!res.ok) {
+      reasons.push(`the registry answered with an error (HTTP ${res.status}), so its copy could not be compared`);
     } else {
-    const remote: unknown = await res.json();
+    const remote: unknown = await readJsonBounded(res);
     if (typeof remote !== 'object' || remote === null) {
       reasons.push('the registry answered with something this client could not read');
     } else {
@@ -100,7 +117,7 @@ export const verifyAgainstRegistry = async (
   if (!chain || chain.length === 0) {
     try {
       const res = await fetch(`${base}/lineage/ancestors/${encodeURIComponent(env.commitment)}`);
-      const body: unknown = await res.json();
+      const body: unknown = res.ok ? await readJsonBounded(res) : undefined;
       const declared = (body as { ancestors?: unknown })?.ancestors;
       if (Array.isArray(declared) && declared.every((a) => typeof a === 'string')) {
         chain = declared as string[];
@@ -122,11 +139,11 @@ export const verifyAgainstRegistry = async (
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ record: env.commitment, chain }),
       });
-      const descent: unknown = await res.json();
+      const descent: unknown = res.ok ? await readJsonBounded(res) : undefined;
       const ok = typeof descent === 'object' && descent !== null && (descent as { ok?: unknown }).ok === true;
       verdict.cleanDescent = ok;
       const reason = (descent as { reason?: unknown })?.reason;
-      if (!ok) reasons.push(typeof reason === 'string' ? reason : 'clean descent was not established');
+      if (!ok) reasons.push(typeof reason === 'string' ? reason.slice(0, 500) : 'clean descent was not established');
     } catch {
       reasons.push('clean-descent could not be checked');
     }

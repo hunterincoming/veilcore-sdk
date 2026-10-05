@@ -106,17 +106,29 @@ export type ContestedStatus = {
   summary: string;
 };
 
+/**
+ * Counts challenges by state. It does not check signatures (filter with verifyChallenge
+ * first), and `state` sits outside the challenger's signature, so whoever relays a
+ * challenge can change it: a "withdrawn" here is what the relayer says, not something the
+ * challenger signed. A state this version does not know is counted as open, the reading
+ * that claims least; it used to fall through to "the holder has answered".
+ */
 export const contestedStatus = (challenges: Challenge[]): ContestedStatus => {
+  const list: Partial<Challenge>[] = Array.isArray(challenges)
+    ? challenges.filter((c): c is Challenge => typeof c === 'object' && c !== null)
+    : [];
+  const KNOWN = new Set(['open', 'answered', 'withdrawn', 'resolved']);
+  const stateOf = (c: Partial<Challenge>): ChallengeState => (KNOWN.has(c.state as string) ? (c.state as ChallengeState) : 'open');
   // Withdrawn challenges are not live, but they are not nothing either. Filtering them
   // out entirely meant a record that had been contested and had the challenge
   // withdrawn reported "Nobody has contested this record" — which is false, and it is
   // the sentence a verifier reads. The type above says a withdrawal remains on record;
   // this is where that has to be true.
-  const withdrawn = challenges.filter((c) => c.state === 'withdrawn').length;
-  const live = challenges.filter((c) => c.state !== 'withdrawn');
-  const open = live.filter((c) => c.state === 'open').length;
-  const answered = live.filter((c) => c.state === 'answered').length;
-  const resolved = live.filter((c) => c.state === 'resolved').length;
+  const withdrawn = list.filter((c) => stateOf(c) === 'withdrawn').length;
+  const live = list.filter((c) => stateOf(c) !== 'withdrawn');
+  const open = live.filter((c) => stateOf(c) === 'open').length;
+  const answered = live.filter((c) => stateOf(c) === 'answered').length;
+  const resolved = live.filter((c) => stateOf(c) === 'resolved').length;
 
   let summary: string;
   if (!live.length && !withdrawn) {
@@ -134,7 +146,7 @@ export const contestedStatus = (challenges: Challenge[]): ContestedStatus => {
   return {
     contested: live.length > 0,
     open, answered, resolved, withdrawn,
-    grounds: [...new Set(live.map((c) => c.ground))],
+    grounds: [...new Set(live.map((c) => c.ground).filter((g): g is ChallengeGround => typeof g === 'string'))],
     summary,
   };
 };

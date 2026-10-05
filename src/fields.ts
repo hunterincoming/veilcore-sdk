@@ -31,6 +31,16 @@ export const fromHex = (h: string): Uint8Array => {
   return out;
 };
 
+/**
+ * Every byte input is a real Uint8Array of the stated length. A plain array of numbers
+ * also has a length and copies into a buffer, where 256 silently becomes 0 and "12"
+ * becomes 12, so a value that is not 32 bytes could hash as one.
+ */
+const bytesOf = (b: unknown, n: number, what: string): Uint8Array => {
+  if (!(b instanceof Uint8Array) || b.length !== n) throw new Error(`${what} is ${n} bytes`);
+  return b;
+};
+
 const tag = (t: string): Uint8Array => {
   const b = new Uint8Array(32);
   const e = new TextEncoder().encode(t);
@@ -42,10 +52,7 @@ const tag = (t: string): Uint8Array => {
 /** SHA-256 over 32-byte elements (Compact's persistentHash over Vector<n, Bytes<32>>). */
 export const hashElements = async (...parts: Uint8Array[]): Promise<Uint8Array> => {
   const buf = new Uint8Array(parts.length * 32);
-  parts.forEach((p, i) => {
-    if (p.length !== 32) throw new Error('every element is 32 bytes');
-    buf.set(p, i * 32);
-  });
+  parts.forEach((p, i) => buf.set(bytesOf(p, 32, 'every element'), i * 32));
   return sha256(buf);
 };
 
@@ -78,7 +85,8 @@ export const numberSlotValue = (n: bigint | number): Uint8Array => {
 
 /** Read a number slot value back, refusing anything that is not one. */
 export const numberFromSlotValue = (v: Uint8Array): bigint => {
-  if (v.length !== 32 || v[8] !== 1 || v.subarray(9).some((x) => x !== 0)) throw new Error('not a number slot value');
+  bytesOf(v, 32, 'a number slot value');
+  if (v[8] !== 1 || v.subarray(9).some((x) => x !== 0)) throw new Error('not a number slot value');
   let n = 0n;
   for (let i = 7; i >= 0; i--) n = (n << 8n) | BigInt(v[i]);
   return n;
@@ -223,8 +231,8 @@ export const fieldSalt = async (fieldSecret: Uint8Array, slot: number): Promise<
  * takes 55 bytes, so a leaf cannot be mistaken for anything else.
  */
 export const fieldLeaf = (value: Uint8Array, salt: Uint8Array): Promise<Uint8Array> => {
-  if (value.length !== 32) throw new Error('a slot value is 32 bytes');
-  if (salt.length !== FIELD_SALT_BYTES) throw new Error('a salt is 23 bytes');
+  bytesOf(value, 32, 'a slot value');
+  bytesOf(salt, FIELD_SALT_BYTES, 'a salt');
   const b = new Uint8Array(55);
   b.set(value);
   b.set(salt, 32);
@@ -236,15 +244,12 @@ const SET_TAG = new TextEncoder().encode('veilcore:v1:fset');
 
 /** fieldSetRoot = SHA-256("veilcore:v1:fset" || schemaId || leaf_0 || ... || leaf_15): 560 bytes. */
 export const fieldSetRootFromLeaves = (schemaId: Uint8Array, leaves: readonly Uint8Array[]): Promise<Uint8Array> => {
-  if (schemaId.length !== 32) throw new Error('a schema id is 32 bytes');
-  if (leaves.length !== FIELD_SLOTS) throw new Error('a field set has 16 leaves');
+  bytesOf(schemaId, 32, 'a schema id');
+  if (!Array.isArray(leaves) || leaves.length !== FIELD_SLOTS) throw new Error('a field set has 16 leaves');
   const b = new Uint8Array(16 + 32 + 32 * FIELD_SLOTS);
   b.set(SET_TAG);
   b.set(schemaId, 16);
-  leaves.forEach((l, i) => {
-    if (l.length !== 32) throw new Error('a leaf is 32 bytes');
-    b.set(l, 48 + 32 * i);
-  });
+  leaves.forEach((l, i) => b.set(bytesOf(l, 32, 'a leaf'), 48 + 32 * i));
   return sha256(b);
 };
 
@@ -264,17 +269,20 @@ export type FieldSet = {
  * salts could guess low-entropy hidden values back.
  */
 export const sealFieldSet = async (schemaId: Uint8Array, values: readonly Uint8Array[], fieldSecret: Uint8Array): Promise<FieldSet> => {
-  if (values.length !== FIELD_SLOTS) throw new Error('a field set has 16 slots');
-  if (fieldSecret.length !== 32) throw new Error('the field secret is 32 bytes');
-  values.forEach((v) => {
-    if (v.length !== 32) throw new Error('every slot value is 32 bytes');
-  });
+  bytesOf(schemaId, 32, 'a schema id');
+  if (!Array.isArray(values) || values.length !== FIELD_SLOTS) throw new Error('a field set has 16 slots');
+  bytesOf(fieldSecret, 32, 'the field secret');
+  values.forEach((v) => bytesOf(v, 32, 'every slot value'));
   const salts = await Promise.all(values.map((_, i) => fieldSalt(fieldSecret, i)));
   return { schemaId, values: values.map((v) => new Uint8Array(v)), salts };
 };
 
 /** The 16 leaves of a field set. Each reveals nothing about its value without the salt. */
-export const fieldLeavesOf = (fs: FieldSet): Promise<Uint8Array[]> => Promise.all(fs.values.map((v, i) => fieldLeaf(v, fs.salts[i])));
+export const fieldLeavesOf = (fs: FieldSet): Promise<Uint8Array[]> => {
+  if (!Array.isArray(fs.values) || fs.values.length !== FIELD_SLOTS) throw new Error('a field set has 16 values');
+  if (!Array.isArray(fs.salts) || fs.salts.length !== FIELD_SLOTS) throw new Error('a field set has 16 salts');
+  return Promise.all(fs.values.map((v, i) => fieldLeaf(v, fs.salts[i])));
+};
 
 /** The public root of a field set. Reveals nothing about the values. */
 export const fieldSetRootOf = async (fs: FieldSet): Promise<Uint8Array> => fieldSetRootFromLeaves(fs.schemaId, await fieldLeavesOf(fs));
@@ -297,8 +305,10 @@ export const openFieldSlot = async (fs: FieldSet, slot: number): Promise<SlotOpe
 
 /** Recompute the set root from one opened slot (what a verifier of an opening does). */
 export const rootFromOpening = async (schemaId: Uint8Array, o: SlotOpening): Promise<Uint8Array> => {
+  if (typeof o !== 'object' || o === null) throw new Error('an opening is an object');
   if (!Number.isInteger(o.slot) || o.slot < 0 || o.slot >= FIELD_SLOTS) throw new Error('slot is 0 to 15');
-  if (o.leaves.length !== FIELD_SLOTS) throw new Error('an opening carries 16 leaves');
+  if (!Array.isArray(o.leaves) || o.leaves.length !== FIELD_SLOTS) throw new Error('an opening carries 16 leaves');
+  o.leaves.forEach((l) => bytesOf(l, 32, 'a leaf'));
   const mine = await fieldLeaf(o.value, o.salt);
   if (toHex(mine) !== toHex(o.leaves[o.slot])) throw new Error('the opened value and salt do not make that slot\'s leaf');
   return fieldSetRootFromLeaves(schemaId, o.leaves);
@@ -312,16 +322,20 @@ export type TypedSlotValue = { uint: string } | { text: string } | null;
 /** Turn a typed value into its 32 bytes (SPEC 4.5). */
 export const slotValueOf = async (v: TypedSlotValue): Promise<Uint8Array> => {
   if (v === null) return new Uint8Array(ABSENT_VALUE);
-  if (typeof v !== 'object') throw new Error('a slot value is {uint}, {text} or null');
+  if (typeof v !== 'object' || Array.isArray(v)) throw new Error('a slot value is {uint}, {text} or null');
   const keys = Object.keys(v);
   if (keys.length !== 1) throw new Error('a slot value has exactly one of uint or text');
-  if ('uint' in v) {
-    if (typeof v.uint !== 'string' || !/^(0|[1-9][0-9]*)$/.test(v.uint)) throw new Error('uint is a decimal string with no leading zeros');
-    return numberSlotValue(BigInt(v.uint));
+  if (Object.hasOwn(v, 'uint')) {
+    const u: unknown = (v as { uint: unknown }).uint;
+    if (typeof u !== 'string' || !/^(0|[1-9][0-9]*)$/.test(u)) throw new Error('uint is a decimal string with no leading zeros');
+    // 20 digits is more than 2^64 - 1 needs; past it BigInt would be asked to parse
+    // whatever length the input chose before the range check refused it.
+    if (u.length > 20) throw new Error('a count is 0 to 2^64 - 1');
+    return numberSlotValue(BigInt(u));
   }
-  if ('text' in v) {
-    if (typeof v.text !== 'string') throw new Error('text is a string');
-    return textSlotValue(v.text);
+  if (Object.hasOwn(v, 'text')) {
+    if (typeof (v as { text: unknown }).text !== 'string') throw new Error('text is a string');
+    return textSlotValue((v as { text: string }).text);
   }
   throw new Error('a slot value is {uint}, {text} or null');
 };
@@ -333,12 +347,13 @@ export const slotValueOf = async (v: TypedSlotValue): Promise<Uint8Array> => {
  */
 export const typedSlotValues = async (schema: FieldSchema, values: readonly TypedSlotValue[]): Promise<Uint8Array[]> => {
   schemaMasks(schema); // validates the slot list
+  if (!Array.isArray(values) || values.length !== FIELD_SLOTS) throw new Error('a field set has 16 slots');
   const typeOf = new Map(schema.slots.map((s) => [s.slot, s.type]));
   const formatOf = new Map(schema.slots.map((s) => [s.slot, s.format]));
   return Promise.all(
     values.map(async (v, i) => {
       if (v !== null && typeof v === 'object') {
-        const kind = 'uint' in v ? 'uint' : 'text' in v ? 'text' : undefined;
+        const kind = Object.hasOwn(v, 'uint') ? 'uint' : Object.hasOwn(v, 'text') ? 'text' : undefined;
         if (!typeOf.has(i)) throw new Error(`slot ${i} is not described by the schema, so it must be empty`);
         if (kind !== typeOf.get(i)) throw new Error(`slot ${i} holds ${typeOf.get(i)} values`);
         const format = formatOf.get(i);

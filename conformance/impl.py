@@ -476,8 +476,19 @@ def hash_node(left, right):
 
 
 def fold_proof(commitment, path):
+    """Fold an inclusion path (spec 5.4). Every operand is 64 lowercase hex characters
+    (spec 5.1, 5.2) and every direction flag a real boolean: a sibling of any other length
+    makes "01" + left + right ambiguous, and Python's truthiness would read "false" or 1
+    as a direction where the TypeScript and Rust implementations refuse the step."""
+    if not _is_hex32(commitment):
+        raise ValueError("a commitment is 64 lowercase hex characters (spec 5.1)")
+    if not isinstance(path, list):
+        raise ValueError("a proof path is a list (spec 5.4)")
     if len(path) > 64:
-        raise ValueError("proof path exceeds maximum depth (spec 5.1)")
+        raise ValueError("proof path exceeds maximum depth (spec 5.4)")
+    for step in path:
+        if not isinstance(step, dict) or not _is_hex32(step.get("sibling")) or not isinstance(step.get("siblingIsLeft"), bool):
+            raise ValueError("each proof step is a sibling of 64 lowercase hex characters and a boolean siblingIsLeft (spec 5.4)")
     node = hash_leaf(commitment)
     for step in path:
         if step["siblingIsLeft"]:
@@ -485,6 +496,8 @@ def fold_proof(commitment, path):
         else:
             node = hash_node(node, step["sibling"])
     return node
+
+
 def main():
     job = json.loads(sys.stdin.read())
     op = job["op"]

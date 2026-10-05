@@ -12,9 +12,11 @@ import { verifyTimestampToken, TIMESTAMP_NOT_CHECKED, type TimestampVerification
 
 /** Anchors on a record, normalised to an array whichever form was used. */
 export const anchorsOf = (env: Envelope): Anchor[] => {
+  if (typeof env !== 'object' || env === null) return [];
   const a = env.anchor as Anchor | Anchor[] | undefined;
   if (!a) return [];
-  return Array.isArray(a) ? a : [a];
+  // Only objects are anchors; a null or a string in the list is skipped, not dereferenced.
+  return (Array.isArray(a) ? a : [a]).filter((x): x is Anchor => typeof x === 'object' && x !== null && !Array.isArray(x));
 };
 
 /**
@@ -125,12 +127,30 @@ const hexBytes = (h: string): Uint8Array | undefined => {
  * kind is reported as a lookup, with what to look up.
  */
 export const verifyAnchor = async (env: Envelope, anchor: Anchor, stampedBytes?: Uint8Array): Promise<AnchorVerification> => {
+  // A verifier: a malformed anchor or record is a failed check, never an exception.
+  try {
+    return await checkAnchor(env, anchor, stampedBytes);
+  } catch (e) {
+    return { kind: 'ledger', status: 'failed', what: `the anchor could not be read: ${(e as Error)?.message ?? String(e)}`, notChecked: [] };
+  }
+};
+
+const checkAnchor = async (env: Envelope, anchor: Anchor, stampedBytes?: Uint8Array): Promise<AnchorVerification> => {
+  if (typeof anchor !== 'object' || anchor === null || Array.isArray(anchor)) {
+    return { kind: 'ledger', status: 'failed', what: 'the anchor is not an object', notChecked: [] };
+  }
   const kind = anchor.kind ?? 'ledger';
   if (kind === 'rfc3161') {
     if (!anchor.token) {
       return { kind, status: 'incomplete', what: 'rfc3161 anchor with no token: nothing to check', notChecked: [] };
     }
-    const stamped = stampedBytes ?? hexBytes(env.commitment);
+    if (typeof anchor.token !== 'string') {
+      return { kind, status: 'failed', what: 'the rfc3161 token is not a base64 string', notChecked: [...TIMESTAMP_NOT_CHECKED] };
+    }
+    if (stampedBytes !== undefined && !(stampedBytes instanceof Uint8Array && stampedBytes.length === 32)) {
+      return { kind, status: 'failed', what: 'the stamped bytes are not 32 bytes (a commitment or batch root)', notChecked: [...TIMESTAMP_NOT_CHECKED] };
+    }
+    const stamped = stampedBytes ?? (typeof env === 'object' && env !== null && typeof env.commitment === 'string' ? hexBytes(env.commitment) : undefined);
     if (!stamped) {
       return { kind, status: 'failed', what: 'the record commitment is not 64 lowercase hex characters, so there is nothing to compare the token with', notChecked: [...TIMESTAMP_NOT_CHECKED] };
     }

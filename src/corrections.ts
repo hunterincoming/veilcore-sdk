@@ -15,6 +15,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import type { Envelope } from './types.js';
+import { committedFields } from './commit.js';
 
 export type Severity = 'cosmetic' | 'material';
 
@@ -69,28 +70,57 @@ const CLASSIFICATION: Record<string, SeverityClass> = {
 /** Anything unclassified is material. An unknown change is not assumed harmless. */
 const UNKNOWN: SeverityClass = { descent: 'material', terms: 'material' };
 
-const flatten = (obj: unknown, prefix = ''): Record<string, unknown> => {
-  const out: Record<string, unknown> = {};
-  if (obj === null || typeof obj !== 'object' || Array.isArray(obj)) {
-    if (prefix) out[prefix] = obj;
-    return out;
+// Deeper than any record has a reason to be; past it a subtree is compared whole.
+const MAX_DEPTH = 32;
+
+/**
+ * Flatten to dotted paths. A path reached twice is recorded in `ambiguous`: the key
+ * "a.b" and the key b inside a both flatten to "a.b", and whichever came second used to
+ * overwrite the first, so a changed value could be hidden behind an added key holding the
+ * old one. An ambiguous path is reported as a material change, never resolved.
+ */
+const flatten = (obj: unknown, prefix = '', out: Record<string, unknown> = {}, ambiguous = new Set<string>(), depth = 0): { out: Record<string, unknown>; ambiguous: Set<string> } => {
+  const put = (path: string, v: unknown): void => {
+    if (Object.hasOwn(out, path)) ambiguous.add(path);
+    out[path] = v;
+  };
+  if (obj === null || typeof obj !== 'object' || Array.isArray(obj) || depth >= MAX_DEPTH) {
+    if (prefix) put(prefix, obj);
+    return { out, ambiguous };
   }
   for (const [k, v] of Object.entries(obj as Record<string, unknown>)) {
     const path = prefix ? `${prefix}.${k}` : k;
-    if (v !== null && typeof v === 'object' && !Array.isArray(v)) Object.assign(out, flatten(v, path));
-    else out[path] = v;
+    if (v !== null && typeof v === 'object' && !Array.isArray(v) && depth + 1 < MAX_DEPTH) flatten(v, path, out, ambiguous, depth + 1);
+    else put(path, v);
   }
-  return out;
+  return { out, ambiguous };
+};
+
+const same = (x: unknown, y: unknown): boolean => {
+  try {
+    return JSON.stringify(x) === JSON.stringify(y);
+  } catch {
+    return false; // not comparable (a cycle, a BigInt): treat as changed
+  }
 };
 
 export type FieldChange = { field: string; from: unknown; to: unknown; severity: SeverityClass };
 
 /** Which fields differ between two envelopes, and how severe each change is. */
 export const diffRecords = (before: Envelope, after: Envelope): FieldChange[] => {
-  const a = flatten(before);
-  const b = flatten(after);
+  // Only what the commitment covers. A key outside it (a top-level "subject.taxon", say)
+  // can be added by anyone without resealing, and must not be able to take part in the
+  // diff: it used to shadow the real subject.taxon and hide a material change.
+  const A = flatten(committedFields(before));
+  const B = flatten(committedFields(after));
+  const a = A.out;
+  const b = B.out;
   const fields = new Set([...Object.keys(a), ...Object.keys(b)]);
   const changes: FieldChange[] = [];
+  for (const f of new Set([...A.ambiguous, ...B.ambiguous])) {
+    changes.push({ field: f, from: a[f], to: b[f], severity: UNKNOWN });
+    fields.delete(f);
+  }
 
   for (const f of fields) {
     // The commitment and anchor necessarily differ between a record and its
@@ -120,7 +150,7 @@ export const diffRecords = (before: Envelope, after: Envelope): FieldChange[] =>
       changes.push({ field: 'sealedAt', from: a[f], to: b[f], severity: UNKNOWN });
       continue;
     }
-    if (JSON.stringify(a[f]) === JSON.stringify(b[f])) continue;
+    if (same(a[f], b[f])) continue;
     changes.push({ field: f, from: a[f], to: b[f], severity: CLASSIFICATION[f] ?? UNKNOWN });
   }
   return changes;

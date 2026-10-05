@@ -11,7 +11,7 @@
 import { canonicalise } from './canonical.js';
 import { sha256Hex, toHex } from './hash.js';
 import type { Envelope } from './types.js';
-import { FIELDS_ALGORITHM, type FieldSet, fieldRecordCommitment, fieldSetRootOf, fromHex } from './fields.js';
+import { FIELDS_ALGORITHM, FIELD_SLOTS, FIELD_SALT_BYTES, type FieldSet, fieldRecordCommitment, fieldSetRootOf, fromHex } from './fields.js';
 
 /**
  * The fields a commitment covers.
@@ -72,6 +72,7 @@ const checkLedgerIdentity = (li: unknown): void => {
 };
 
 export const computeCommitment = async (env: Envelope): Promise<string> => {
+  if (typeof env !== 'object' || env === null || Array.isArray(env)) throw new Error('a record is a JSON object');
   for (const k of REQUIRED_COMMITTED) {
     if ((env as Record<string, unknown>)[k] === undefined) throw new Error(`a record needs ${k}`);
   }
@@ -94,12 +95,40 @@ export const computeCommitment = async (env: Envelope): Promise<string> => {
  * the holder before proving anything, and by anyone the holder shows the values to.
  */
 export const verifyFieldSet = async (env: Envelope, fs: FieldSet): Promise<VerifyResult> => {
-  if (env.commitmentAlgorithm !== FIELDS_ALGORITHM) return { valid: false, reason: 'not a sha256/fields/v1 record' };
-  if (toHex(fs.schemaId) !== env.fieldSchema) return { valid: false, reason: 'the field set is under a different schema' };
-  const root = toHex(await fieldSetRootOf(fs));
-  return root === env.fieldSetRoot
-    ? { valid: true, computed: root }
-    : { valid: false, computed: root, claimed: env.fieldSetRoot, reason: 'the field set does not match the record' };
+  // A verifier: malformed input is a failed check with a reason, never an exception.
+  try {
+    if (typeof env !== 'object' || env === null) return { valid: false, reason: 'the record is not an object' };
+    if (env.commitmentAlgorithm !== FIELDS_ALGORITHM) return { valid: false, reason: 'not a sha256/fields/v1 record' };
+    if (typeof env.fieldSchema !== 'string' || !HEX32.test(env.fieldSchema) || typeof env.fieldSetRoot !== 'string' || !HEX32.test(env.fieldSetRoot)) {
+      return { valid: false, reason: 'the record does not carry fieldSchema and fieldSetRoot as 64 lowercase hex characters' };
+    }
+    const bad = fieldSetShapeError(fs);
+    if (bad) return { valid: false, reason: bad };
+    if (toHex(fs.schemaId) !== env.fieldSchema) return { valid: false, reason: 'the field set is under a different schema' };
+    const root = toHex(await fieldSetRootOf(fs));
+    return root === env.fieldSetRoot
+      ? { valid: true, computed: root }
+      : { valid: false, computed: root, claimed: env.fieldSetRoot, reason: 'the field set does not match the record' };
+  } catch (e) {
+    return { valid: false, reason: `the field set could not be checked: ${(e as Error)?.message ?? String(e)}` };
+  }
+};
+
+// Bytes must be bytes. A plain array of numbers has a length and can be copied into a
+// buffer, where 256 silently becomes 0: a "field set" that is not one could then match.
+const isBytes = (b: unknown, n: number): boolean => b instanceof Uint8Array && b.length === n;
+
+const fieldSetShapeError = (fs: unknown): string | undefined => {
+  if (typeof fs !== 'object' || fs === null) return 'the field set is not an object';
+  const f = fs as Partial<FieldSet>;
+  if (!isBytes(f.schemaId, 32)) return 'the field set\'s schemaId is not 32 bytes';
+  if (!Array.isArray(f.values) || f.values.length !== FIELD_SLOTS) return 'a field set has 16 values';
+  if (!Array.isArray(f.salts) || f.salts.length !== FIELD_SLOTS) return 'a field set has 16 salts';
+  for (let i = 0; i < FIELD_SLOTS; i++) {
+    if (!isBytes(f.values[i], 32)) return `value ${i} is not 32 bytes`;
+    if (!isBytes(f.salts[i], FIELD_SALT_BYTES)) return `salt ${i} is not ${FIELD_SALT_BYTES} bytes`;
+  }
+  return undefined;
 };
 
 export type VerifyResult = {
@@ -118,16 +147,18 @@ export type VerifyResult = {
  * timestamp, and conflating the two is how registries end up overclaiming.
  */
 export const verifyCommitment = async (env: Envelope): Promise<VerifyResult> => {
-  if (env.commitmentAlgorithm !== 'sha256/canonical-json/v1' && env.commitmentAlgorithm !== FIELDS_ALGORITHM) {
-    return { valid: false, reason: `unsupported commitment algorithm: ${env.commitmentAlgorithm}` };
-  }
-  let computed: string;
+  // A verifier: a malformed record is reported as not verifying, with the reason. It
+  // never throws, so `if (!(await verifyCommitment(x)).valid)` is safe on anything.
   try {
-    computed = await computeCommitment(env);
+    if (typeof env !== 'object' || env === null || Array.isArray(env)) return { valid: false, reason: 'a record is a JSON object' };
+    if (env.commitmentAlgorithm !== 'sha256/canonical-json/v1' && env.commitmentAlgorithm !== FIELDS_ALGORITHM) {
+      return { valid: false, reason: `unsupported commitment algorithm: ${String(env.commitmentAlgorithm).slice(0, 80)}` };
+    }
+    const computed = await computeCommitment(env);
+    return computed === env.commitment
+      ? { valid: true, computed }
+      : { valid: false, computed, ...(typeof env.commitment === 'string' ? { claimed: env.commitment } : {}), reason: 'commitment does not match contents' };
   } catch (e) {
-    return { valid: false, reason: (e as Error).message };
+    return { valid: false, reason: (e as Error)?.message ?? String(e) };
   }
-  return computed === env.commitment
-    ? { valid: true, computed }
-    : { valid: false, computed, claimed: env.commitment, reason: 'commitment does not match contents' };
 };

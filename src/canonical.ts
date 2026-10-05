@@ -82,7 +82,11 @@ const str = (s: string): string => {
  * than resolutions: an implementation that resolves them has to choose how, and two
  * implementations choose differently.
  */
-export const canonicalise = (value: unknown): string => {
+export const canonicalise = (value: unknown): string => canon(value, new Set());
+
+// `open` holds the arrays and objects currently being serialised, so a value that
+// contains itself is refused with a reason instead of recursing until the stack runs out.
+const canon = (value: unknown, open: Set<object>): string => {
   if (value === null) {
     throw new Error('null cannot be committed: omit the field instead (spec 4.4 rule 4)');
   }
@@ -92,9 +96,27 @@ export const canonicalise = (value: unknown): string => {
   if (typeof value === 'boolean') return String(value);
   if (typeof value === 'number') return num(value);
   if (typeof value === 'string') return str(value);
-  if (Array.isArray(value)) return `[${value.map(canonicalise).join(',')}]`;
+  if (Array.isArray(value)) {
+    if (open.has(value)) throw new Error('a value that contains itself cannot be committed');
+    open.add(value);
+    const parts: string[] = [];
+    // Indexed rather than value.map(): map skips the holes of a sparse array and join then
+    // writes them as nothing, which produced "[,1]" - not JSON, and hashed without complaint.
+    for (let i = 0; i < value.length; i++) {
+      if (!(i in value)) throw new Error('an array with a missing element cannot be committed');
+      parts.push(canon(value[i], open));
+    }
+    open.delete(value);
+    return `[${parts.join(',')}]`;
+  }
 
   if (typeof value === 'object') {
+    // A typed array or ArrayBuffer has index keys and would serialise as {"0":..,"1":..},
+    // which no other implementation would produce from the same bytes.
+    if (ArrayBuffer.isView(value) || value instanceof ArrayBuffer) {
+      throw new Error('binary data cannot be committed directly: encode it as a hex or base64 string first');
+    }
+    if (open.has(value)) throw new Error('a value that contains itself cannot be committed');
     // A Date, Map, Set or RegExp is an object to `typeof` and has no own enumerable
     // properties, so it would serialise as `{}` — a commitment covering none of its
     // content, computed without complaint. Another implementation handed the same
@@ -130,9 +152,11 @@ export const canonicalise = (value: unknown): string => {
       seen.set(n, k);
     }
 
+    open.add(value);
     const parts = [...seen.keys()]
       .sort(byCodePoint)
-      .map((n) => `${str(n)}:${canonicalise(src[seen.get(n) as string])}`);
+      .map((n) => `${str(n)}:${canon(src[seen.get(n) as string], open)}`);
+    open.delete(value);
     return `{${parts.join(',')}}`;
   }
 

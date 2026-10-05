@@ -112,6 +112,8 @@ A VeilCore record has an unusual property here: **it authenticates itself arithm
 
 **FRE 902(13)** permits that foundation to be established by certification rather than live testimony. Note the limit the Advisory Committee states plainly: a 902(13) certification establishes authenticity only, and any hearsay exception must be established separately.
 
+**The evidence package's manifest is not part of this.** A package built by the SDK carries a `MANIFEST.json` listing each file's SHA-256, and `verify.py` checks it. That check catches accidental damage (a truncated or re-saved copy) and nothing more: the manifest travels in the same folder, so anyone who edits a file can rewrite it to match. The self-verifying property is the commitment recomputed from the record and checked against its anchor, which an edit cannot survive. Do not present the manifest check as tamper evidence.
+
 ### 2.3 Hearsay
 
 The commitment is not a statement. The record it commits to may be.

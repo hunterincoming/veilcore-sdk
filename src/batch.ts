@@ -21,6 +21,10 @@ import { sha256Hex } from './hash.js';
 const LEAF = '00';
 const NODE = '01';
 
+/** SPEC 5.1 / 5.2: commitments, siblings and roots are 64 lowercase hex characters. */
+const HEX64 = /^[0-9a-f]{64}$/;
+const isHex64 = (s: unknown): s is string => typeof s === 'string' && HEX64.test(s);
+
 const hashLeaf = (commitment: string): Promise<string> => sha256Hex(LEAF + commitment);
 const hashNode = (left: string, right: string): Promise<string> => sha256Hex(NODE + left + right);
 
@@ -93,7 +97,12 @@ export const buildBatch = async (
   batchId: string,
   sealedAt: string = new Date().toISOString().replace(/\.\d{3}Z$/, 'Z'),
 ): Promise<Batch> => {
-  if (commitments.length === 0) throw new Error('cannot build an empty batch');
+  if (!Array.isArray(commitments) || commitments.length === 0) throw new Error('cannot build an empty batch');
+  // SPEC 5.1: a commitment is 64 lowercase hex characters. Anything else would get a leaf
+  // and a proof that no conforming verifier accepts.
+  for (const c of commitments) {
+    if (!isHex64(c)) throw new Error('a batch is built from commitments of 64 lowercase hex characters (SPEC 5.1)');
+  }
 
   const sorted = [...new Set(commitments)].sort();
   const leaves = await Promise.all(sorted.map(hashLeaf));
@@ -154,25 +163,44 @@ export const buildBatch = async (
  * network at all.
  */
 export const verifyInclusion = async (proof: InclusionProof): Promise<boolean> => {
+  try {
+    return await foldsToRoot(proof);
+  } catch {
+    // A getter that throws, a proxy, anything else odd: still a proof that does not verify.
+    return false;
+  }
+};
+
+const foldsToRoot = async (proof: InclusionProof): Promise<boolean> => {
   // A malformed proof does not verify; it does not throw. A proof file is something a
   // holder keeps for years and hands to an examiner, so it arrives truncated, edited
   // or half-copied, and the obvious `if (!await verifyInclusion(p))` should report
   // that rather than take the caller's process down. Reading .path off null or
   // undefined did exactly that.
   if (typeof proof !== 'object' || proof === null) return false;
-  if (typeof proof.commitment !== 'string' || typeof proof.root !== 'string') return false;
-  if (!Array.isArray(proof.path)) return false;
-  if (proof.path.length > 64) return false;
-  for (const step of proof.path) {
+  // SPEC 5.2: every operand is 64 lowercase hex characters. Hashing is over the hex TEXT,
+  // so without this an uppercase or padded sibling is a different preimage that some
+  // other implementation may normalise and this one would not, and a sibling of any
+  // length makes "01" || left || right ambiguous about where one operand ends.
+  // Read every value once and fold the copies, so what was checked is what gets hashed.
+  const commitment: unknown = proof.commitment;
+  const root: unknown = proof.root;
+  const path: unknown = proof.path;
+  if (!isHex64(commitment) || !isHex64(root)) return false;
+  if (!Array.isArray(path)) return false;
+  if (path.length > 64) return false;
+  const steps: { sibling: string; left: boolean }[] = [];
+  for (let i = 0; i < path.length; i++) {
+    const step: unknown = path[i]; // indexed, so a hole in a sparse array is seen, not skipped
     if (typeof step !== 'object' || step === null) return false;
-    if (typeof step.sibling !== 'string' || typeof step.siblingIsLeft !== 'boolean') return false;
+    const { sibling, siblingIsLeft } = step as { sibling?: unknown; siblingIsLeft?: unknown };
+    if (!isHex64(sibling) || typeof siblingIsLeft !== 'boolean') return false;
+    steps.push({ sibling, left: siblingIsLeft });
   }
 
-  let node = await hashLeaf(proof.commitment);
-  for (const step of proof.path) {
-    node = step.siblingIsLeft
-      ? await hashNode(step.sibling, node)
-      : await hashNode(node, step.sibling);
+  let node = await hashLeaf(commitment);
+  for (const step of steps) {
+    node = step.left ? await hashNode(step.sibling, node) : await hashNode(node, step.sibling);
   }
-  return node === proof.root;
+  return node === root;
 };
