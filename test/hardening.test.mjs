@@ -176,7 +176,8 @@ test('a small-order Ed25519 key does not make every message "signed"', async () 
   // ANY message. Before the fix it reported signed-and-accredited for content nobody signed.
   const identity = '01' + '00'.repeat(31);
   const forged = { ...draft(identity), attester: { publicKey: identity, accreditation: { scheme: 'ISO/IEC 17025', identifier: '1', accreditor: 'X' } }, signature: identity + '00'.repeat(32), signatureAlgorithm: 'ed25519' };
-  assert.equal(await webcrypto.subtle.verify('Ed25519', await webcrypto.subtle.importKey('raw', Buffer.from(identity, 'hex'), { name: 'Ed25519' }, false, ['verify']), Buffer.from(forged.signature, 'hex'), Buffer.from('anything')), true, 'the platform accepts it, which is why the SDK must not');
+  // Some runtimes accept it (Node 22's WebCrypto did), newer ones refuse it (Node 24.19 does).
+  // The SDK must refuse it either way, so this checks the SDK, not the platform.
   assert.equal(await verifyAttestation(forged), false);
   assert.equal(await verifiedStrengthOf(forged), 'invalid-signature');
   assert.equal(strengthOf(forged), 'signed-and-accredited', 'strengthOf reports the claim only, and says so');
