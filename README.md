@@ -5,7 +5,7 @@ cannot confirm a test was run without taking custody of data they would rather n
 A laboratory cannot demonstrate chain of custody without exposing its client list. In
 each case the party holding the evidence has to overshare or establish nothing.
 
-This is an open record format for plant genetics, and other material whose value is
+This is an open record format for plant and animal genetics, and other material whose value is
 bound up in what must stay private. You prove what a record said and when it existed,
 and prove a specific claim about it, without handing over the underlying data.
 
