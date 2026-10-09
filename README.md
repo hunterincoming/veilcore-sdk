@@ -6,8 +6,8 @@ A laboratory cannot demonstrate chain of custody without exposing its client lis
 each case the party holding the evidence has to overshare or establish nothing.
 
 This is an open record format for plant genetics, and other material whose value is
-bound up in what must stay private. You prove what you held and when, and prove a
-specific claim about it, without handing over the underlying data.
+bound up in what must stay private. You prove what a record said and when it existed,
+and prove a specific claim about it, without handing over the underlying data.
 
 **Verification requires SHA-256 and nothing from us.** No account, no service, no
 permission, no fee. A record outlives the party that issued it, the registry that
