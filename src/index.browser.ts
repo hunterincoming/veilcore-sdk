@@ -18,5 +18,6 @@ export * from './resolve.js';
 export * from './challenge.js';
 export * from './anchors.js';
 export * from './fields.js';
+export * from './pairing.js';
 export * from './evidence.js';
 export * from './rfc3161.js';

@@ -13,6 +13,8 @@
 //   in:  {"op":"fieldSet","input":{...}}       out: {"result":{"schemaDocumentDigest":"<hex>",
 //          "schemaId":"<hex>","slotValues":[...],"salts":[...],"leaves":[...],
 //          "setRoot":"<hex>"}}  (keys in this order)
+//   in:  {"op":"dnaPair","input":{"reportHash":"<hex>","identity":"<hex>","salt":"<hex>"}}
+//                                              out: {"result":"<hex>"}  (SPEC 3.7)
 //
 // An implementation refuses an invalid record either by writing {"error":"..."} (or
 // {"rejected":true}) or by exiting non-zero. Both are idiomatic - a Python raise and a
@@ -199,6 +201,15 @@ for (const v of vectors.commitmentRejections ?? []) {
   const ok = r.kind === 'refused';
   ok ? pass++ : failures.push({ name: v.name, expected: `refused — ${v.reason}`, actual: r.kind === 'ok' ? `accepted, returned ${JSON.stringify(r.value)}` : `${r.kind} — ${r.why}` });
   console.log(`  ${ok ? 'PASS' : 'FAIL'}  refuses: ${v.name}`);
+}
+
+// Report pairings (SPEC 3.7): the value a ledger pairing publishes for a report.
+console.log('\nReport pairings');
+for (const v of vectors.pairings ?? []) {
+  const r = await ask('dnaPair', v.input);
+  const ok = r.kind === 'ok' && r.value === v.expected;
+  ok ? pass++ : failures.push({ name: v.name, expected: v.expected, actual: r.kind === 'ok' ? r.value : `${r.kind} — ${r.why}` });
+  console.log(`  ${ok ? 'PASS' : 'FAIL'}  ${v.name}`);
 }
 
 console.log(`\n${pass} passed, ${failures.length} failed`);

@@ -149,6 +149,23 @@ if (vectors.fieldSets?.length || vectors.fieldRejections?.length || vectors.comm
   }
 }
 
+// Report pairings (SPEC 3.7): the value a ledger pairing publishes for a report.
+if (vectors.pairings?.length) {
+  console.log('\nReport pairings');
+  if (typeof impl.dnaPairBinding !== 'function') {
+    console.error('  implementation does not export dnaPairBinding()');
+    fail += vectors.pairings.length;
+    failures.push({ section: 'pairings', name: 'dnaPairBinding not exposed by this implementation', expected: 'a function', actual: 'nothing' });
+  } else {
+    for (const v of vectors.pairings) {
+      let actual;
+      try { actual = await impl.dnaPairBinding(v.input.reportHash, v.input.identity, v.input.salt); } catch (e) { actual = `threw: ${e.message}`; }
+      check('pairings', v.name, v.expected, actual);
+      console.log(`  ${v.expected === actual ? 'PASS' : 'FAIL'}  ${v.name}`);
+    }
+  }
+}
+
 console.log(`\n${pass} passed, ${fail} failed`);
 
 if (fail > 0) {

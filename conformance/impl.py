@@ -498,6 +498,15 @@ def fold_proof(commitment, path):
     return node
 
 
+def dna_pair_binding(report_hash, identity, salt):
+    """The value a ledger pairing publishes for a report (spec 3.7):
+    H("veilcore:v1:dnapair", reportHash, identity, salt), each input 64 lowercase hex."""
+    for name, v in (("reportHash", report_hash), ("identity", identity), ("salt", salt)):
+        if not _is_hex32(v):
+            raise ValueError(f"{name} must be 64 lowercase hex characters (spec 3.7)")
+    return _h(_tag("veilcore:v1:dnapair"), bytes.fromhex(report_hash), bytes.fromhex(identity), bytes.fromhex(salt)).hex()
+
+
 def main():
     job = json.loads(sys.stdin.read())
     op = job["op"]
@@ -511,6 +520,9 @@ def main():
         print(json.dumps({"result": field_set(job["input"])}))
     elif op == "fold":
         print(json.dumps({"result": fold_proof(job["input"]["commitment"], job["input"]["path"])}))
+    elif op == "dnaPair":
+        i = job["input"]
+        print(json.dumps({"result": dna_pair_binding(i["reportHash"], i["identity"], i["salt"])}))
     else:
         print(json.dumps({"error": f"unknown op {op}"}))
         sys.exit(1)

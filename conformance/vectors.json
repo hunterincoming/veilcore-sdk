@@ -1,6 +1,6 @@
 {
   "formatVersion": "0.1",
-  "generatedAt": "2026-10-04T22:16:33.363Z",
+  "generatedAt": "2026-10-09T11:14:03.795Z",
   "canonicalisation": [
     {
       "name": "keys sorted by code point",
@@ -5184,6 +5184,17 @@
         }
       },
       "reason": "required fields are present (SPEC 3.1)"
+    }
+  ],
+  "pairings": [
+    {
+      "name": "a report bound to a ledger identity with a salt",
+      "input": {
+        "reportHash": "18bc28bc2feb83c05c28cc04bdda0aab7d88f668c329f7c8ae19574a79c67e8e",
+        "identity": "80ffc834e847d281ceba9a196e5643e68bbd9951b81cc81892035b5bd748930b",
+        "salt": "1c2a98a182af6fee2dece33938396d45bd76b72c869ef8f4af6b8af975be02b1"
+      },
+      "expected": "d58e4e9a8c031f45dda92d0e934a782807c2f477a6738916e26e8bb432d3dc43"
     }
   ]
 }

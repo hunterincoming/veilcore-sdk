@@ -14,7 +14,7 @@
 // SPDX-License-Identifier: Apache-2.0
 
 import { writeFileSync, readFileSync } from 'node:fs';
-import { canonicalise, computeCommitment, buildBatch, attestationPayload, COMMITMENT_ALGORITHM, fieldSetSummary, FIELDS_ALGORITHM } from '../dist/index.js';
+import { canonicalise, computeCommitment, buildBatch, attestationPayload, COMMITMENT_ALGORITHM, fieldSetSummary, FIELDS_ALGORITHM, dnaPairBinding } from '../dist/index.js';
 
 const base = {
   formatVersion: '0.1',
@@ -280,6 +280,21 @@ const fieldRejectionCases = [
   { name: 'an uppercase field secret', input: { schema: exampleSchema, values: Array(16).fill(null), fieldSecret: 'AB'.repeat(32) }, reason: 'hex is lowercase' },
 ];
 
+// A report paired with a ledger identity (SPEC 3.7). Not part of the record format: the
+// value a ledger pairing publishes. The inputs are those of the same binding's vector in
+// veilcore-midnight-testnet's contract/vectors/v1.json (report hash s2, identity
+// commit(s1), salt s3), so the two vector sets give the same answer.
+const pairingCases = [
+  {
+    name: 'a report bound to a ledger identity with a salt',
+    input: {
+      reportHash: '18bc28bc2feb83c05c28cc04bdda0aab7d88f668c329f7c8ae19574a79c67e8e',
+      identity: '80ffc834e847d281ceba9a196e5643e68bbd9951b81cc81892035b5bd748930b',
+      salt: '1c2a98a182af6fee2dece33938396d45bd76b72c869ef8f4af6b8af975be02b1',
+    },
+  },
+];
+
 const out = {
   formatVersion: '0.1',
   generatedAt: new Date().toISOString(),
@@ -291,6 +306,7 @@ const out = {
   fieldSets: [],
   fieldRejections: [],
   commitmentRejections: [],
+  pairings: [],
 };
 
 for (const c of canonicalCases) {
@@ -382,6 +398,10 @@ for (const c of fieldRejectionCases) {
   }
 }
 
+for (const c of pairingCases) {
+  out.pairings.push({ name: c.name, input: c.input, expected: await dnaPairBinding(c.input.reportHash, c.input.identity, c.input.salt) });
+}
+
 // Built before the shrink check below, which otherwise saw an empty attestations section
 // and refused every run.
 for (const c of attestationCases) {
@@ -416,6 +436,7 @@ writeFileSync(target, JSON.stringify(out, null, 2));
 console.log(
   `generated ${out.canonicalisation.length} canonicalisation, ${out.commitments.length} commitment, ` +
   `${out.inclusion.length} inclusion, ${out.rejections.length} rejection, ${out.attestations.length} attestation, ` +
-  `${out.fieldSets.length} field-set, ${out.fieldRejections.length} field-rejection and ${out.commitmentRejections.length} commitment-rejection vectors`
+  `${out.fieldSets.length} field-set, ${out.fieldRejections.length} field-rejection, ${out.commitmentRejections.length} commitment-rejection ` +
+  `and ${out.pairings.length} pairing vectors`
 );
 
