@@ -278,7 +278,7 @@ Because `fieldSetRoot` is in the JSON, anyone shown the JSON sees which field se
 5. Whether the record is current. A claim states a fact about a record as sealed; where currency cannot be established, the claim shall be reported as about the record as sealed.
 6. For a laboratory-signed claim: the key belongs to a laboratory the verifier trusts and was valid at the time of the claim transaction (the signature can be made later than the record's anchor).
 7. For **distinct**: the reference record is identified by someone other than the prover.
-8. For **unchanged**: the newer record names the older in `supersedes`, and the mask is not every slot.
+8. For **unchanged**: the mask leaves at least one slot the schema describes unable to change. Slots the schema does not describe are empty in every record, so a mask over every described slot says nothing and the claim shall be refused, as one over all sixteen is. And the newer record names the older in `supersedes`. A `recordId` is scoped to its issuer, so a match on `recordId` counts only when both records have the same holder. Where the supersedes block also states the older record's `commitment` (optional; section 6 does not yet list it), match by that instead.
 9. What earlier claims on the same slot have already published (below).
 
 **Disclosure accounting.** Every published value or bound tells the world something, and a series of range claims narrows a hidden number: a refusal to prove leaks as much as a proof. An implementation that offers claims shall show the holder what claims already published on a slot reveal before proving another, and shall not prove a claim at a third party's request without the holder's confirmation.
