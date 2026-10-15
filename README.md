@@ -101,8 +101,9 @@ A commitment is plain SHA-256 over a canonical serialisation, so any implementat
 any language reproduces it. Anchoring to a chain is a separate step, and only that step
 is chain-specific.
 
-Three implementations in different languages pass the same 101 conformance vectors (100
-for the record format, one for the report pairing of SPEC 3.7, `dnaPairBinding`): this
+Three implementations in different languages pass the same 121 conformance vectors (100
+for the record format, one for the report pairing of SPEC 3.7, `dnaPairBinding`, and 20
+for records that name their own key, SPEC 3.6.1): this
 package (TypeScript), a Python implementation in `conformance/impl.py`, and a Rust
 implementation at https://github.com/hunterincoming/veilcore-rs. All three have the same
 author. An implementation by an unrelated party is the test this format still needs.
