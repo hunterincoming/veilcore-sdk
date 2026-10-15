@@ -507,6 +507,65 @@ def dna_pair_binding(report_hash, identity, salt):
     return _h(_tag("veilcore:v1:dnapair"), bytes.fromhex(report_hash), bytes.fromhex(identity), bytes.fromhex(salt)).hex()
 
 
+# A record that names its own key (spec 3.6.1). H as in 3.7 and 4.5.
+KEY_BOUND_ALGORITHM = "sha256/key-bound/v1"
+
+
+def _key_h(tag, *named):
+    for name, v in named:
+        if not _is_hex32(v):
+            raise ValueError(f"{name} must be 64 lowercase hex characters (spec 3.6.1)")
+    return _h(_tag(tag), *(bytes.fromhex(v) for _, v in named)).hex()
+
+
+def identity_from_secret(record_secret):
+    """The record's ledger identity: H("veilcore:v1:commit", recordSecret), the contract's commit()."""
+    return _key_h("veilcore:v1:commit", ("recordSecret", record_secret))
+
+
+def key_salt_of(record_secret):
+    """The key's salt: H("veilcore:v1:keysalt", recordSecret). Never on the record."""
+    return _key_h("veilcore:v1:keysalt", ("recordSecret", record_secret))
+
+
+def key_binding_of(identity, key_salt):
+    """The committed field: H("veilcore:v1:keybind", identity, keySalt)."""
+    return _key_h("veilcore:v1:keybind", ("identity", identity), ("keySalt", key_salt))
+
+
+def key_bound_fingerprint(key_binding, content_hash):
+    """A key-bound fingerprint: H("veilcore:v1:keyrecord", keyBinding, contentHash)."""
+    return _key_h("veilcore:v1:keyrecord", ("keyBinding", key_binding), ("contentHash", content_hash))
+
+
+def record_fingerprint(fields):
+    """The fingerprint of committed JSON anchored on its own (spec 3.6.1), hashed as given.
+    A keyBinding that is present is sealed and must be 64 lowercase hex characters; fields
+    without one keep sha256/canonical-json/v1, whose fingerprint is the content hash.
+    Returns {"algorithm", "contentHash", "fingerprint"}."""
+    if not isinstance(fields, dict):
+        raise ValueError("the committed fields are a JSON object")
+    if "keyBinding" in fields and not _is_hex32(fields["keyBinding"]):
+        raise ValueError("keyBinding must be 64 lowercase hex characters (spec 3.6.1)")
+    content = hashlib.sha256(canonicalise(fields).encode("utf-8")).hexdigest()
+    if "keyBinding" not in fields:
+        return {"algorithm": "sha256/canonical-json/v1", "contentHash": content, "fingerprint": content}
+    return {
+        "algorithm": KEY_BOUND_ALGORITHM,
+        "contentHash": content,
+        "fingerprint": key_bound_fingerprint(fields["keyBinding"], content),
+    }
+
+
+def key_matches_record(identity, fingerprint, key_salt, content_hash):
+    """Is this identity the key the record named when it was sealed? Recomputes
+    H(keyrecord, H(keybind, identity, keySalt), contentHash) and compares. Any input that
+    is not 64 lowercase hex characters does not match; it is not an error."""
+    if not all(_is_hex32(v) for v in (identity, fingerprint, key_salt, content_hash)):
+        return False
+    return key_bound_fingerprint(key_binding_of(identity, key_salt), content_hash) == fingerprint
+
+
 def main():
     job = json.loads(sys.stdin.read())
     op = job["op"]
@@ -523,6 +582,15 @@ def main():
     elif op == "dnaPair":
         i = job["input"]
         print(json.dumps({"result": dna_pair_binding(i["reportHash"], i["identity"], i["salt"])}))
+    elif op == "keyFromSecret":
+        s = job["input"]["recordSecret"]
+        identity, salt = identity_from_secret(s), key_salt_of(s)
+        print(json.dumps({"result": {"identity": identity, "keySalt": salt, "keyBinding": key_binding_of(identity, salt)}}))
+    elif op == "recordFingerprint":
+        print(json.dumps({"result": record_fingerprint(job["input"])}))
+    elif op == "keyMatch":
+        i = job["input"]
+        print(json.dumps({"result": key_matches_record(i.get("identity"), i.get("fingerprint"), i.get("keySalt"), i.get("contentHash"))}))
     else:
         print(json.dumps({"error": f"unknown op {op}"}))
         sys.exit(1)

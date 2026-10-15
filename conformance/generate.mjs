@@ -11,6 +11,9 @@
 // A file that is half generated and half maintained by hand has no single source, and the
 // one that loses is always the hand-written half.
 //
+// One exception, read rather than written: the key-bound sections (SPEC 3.6.1) are copied
+// unchanged from key-bound-v1.json, next to this file. See keyBound below.
+//
 // SPDX-License-Identifier: Apache-2.0
 
 import { writeFileSync, readFileSync } from 'node:fs';
@@ -307,6 +310,10 @@ const out = {
   fieldRejections: [],
   commitmentRejections: [],
   pairings: [],
+  keyBoundKeys: [],
+  keyBoundRecords: [],
+  keyBoundChecks: [],
+  keyBoundRefusals: [],
 };
 
 for (const c of canonicalCases) {
@@ -402,6 +409,18 @@ for (const c of pairingCases) {
   out.pairings.push({ name: c.name, input: c.input, expected: await dnaPairBinding(c.input.reportHash, c.input.identity, c.input.salt) });
 }
 
+// Records that name their own key (SPEC 3.6.1). Not computed here: key-bound-v1.json is a
+// byte-for-byte copy of the VeilCore web application's contract/vectors/key-bound-v1.json,
+// written by its contract/scripts/key-bound-vectors.mjs with node:crypto and this package's
+// canonicaliser only, and also checked by the VeilCore registry in JavaScript and Python.
+// Copying it keeps every implementation here tested against values none of them computed.
+// To update: copy the new file over key-bound-v1.json and run this script.
+const keyBound = JSON.parse(readFileSync(new URL('./key-bound-v1.json', import.meta.url), 'utf8'));
+out.keyBoundKeys = keyBound.keys;
+out.keyBoundRecords = keyBound.records;
+out.keyBoundChecks = keyBound.checks;
+out.keyBoundRefusals = keyBound.refusals;
+
 // Built before the shrink check below, which otherwise saw an empty attestations section
 // and refused every run.
 for (const c of attestationCases) {
@@ -436,7 +455,7 @@ writeFileSync(target, JSON.stringify(out, null, 2));
 console.log(
   `generated ${out.canonicalisation.length} canonicalisation, ${out.commitments.length} commitment, ` +
   `${out.inclusion.length} inclusion, ${out.rejections.length} rejection, ${out.attestations.length} attestation, ` +
-  `${out.fieldSets.length} field-set, ${out.fieldRejections.length} field-rejection, ${out.commitmentRejections.length} commitment-rejection ` +
-  `and ${out.pairings.length} pairing vectors`
+  `${out.fieldSets.length} field-set, ${out.fieldRejections.length} field-rejection, ${out.commitmentRejections.length} commitment-rejection, ` +
+  `${out.pairings.length} pairing and ${out.keyBoundKeys.length + out.keyBoundRecords.length + out.keyBoundChecks.length + out.keyBoundRefusals.length} key-bound vectors`
 );
 

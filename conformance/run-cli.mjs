@@ -15,6 +15,13 @@
 //          "setRoot":"<hex>"}}  (keys in this order)
 //   in:  {"op":"dnaPair","input":{"reportHash":"<hex>","identity":"<hex>","salt":"<hex>"}}
 //                                              out: {"result":"<hex>"}  (SPEC 3.7)
+//   in:  {"op":"keyFromSecret","input":{"recordSecret":"<hex>"}}
+//          out: {"result":{"identity":"<hex>","keySalt":"<hex>","keyBinding":"<hex>"}}  (SPEC 3.6.1)
+//   in:  {"op":"recordFingerprint","input":{...committed fields...}}
+//          out: {"result":{"algorithm":"...","contentHash":"<hex>","fingerprint":"<hex>"}}  (SPEC 3.6.1)
+//   in:  {"op":"keyMatch","input":{"identity":"<hex>","fingerprint":"<hex>","keySalt":"<hex>","contentHash":"<hex>"}}
+//          out: {"result":true|false}  (SPEC 3.6.1; malformed input is false, not an error)
+//   (key order inside a result object is free for these three)
 //
 // An implementation refuses an invalid record either by writing {"error":"..."} (or
 // {"rejected":true}) or by exiting non-zero. Both are idiomatic - a Python raise and a
@@ -210,6 +217,43 @@ for (const v of vectors.pairings ?? []) {
   const ok = r.kind === 'ok' && r.value === v.expected;
   ok ? pass++ : failures.push({ name: v.name, expected: v.expected, actual: r.kind === 'ok' ? r.value : `${r.kind} — ${r.why}` });
   console.log(`  ${ok ? 'PASS' : 'FAIL'}  ${v.name}`);
+}
+
+// Records that name their own key (SPEC 3.6.1).
+console.log('\nRecords that name their own key');
+const same = (a, b) => JSON.stringify(a) === JSON.stringify(b);
+const outcome = (r) => (r.kind === 'ok' ? JSON.stringify(r.value) : `${r.kind} — ${r.why}`);
+for (const v of vectors.keyBoundKeys ?? []) {
+  const name = `the key from record secret ${v.recordSecret.slice(0, 8)}...`;
+  const r = await ask('keyFromSecret', { recordSecret: v.recordSecret });
+  const expected = [v.identity, v.keySalt, v.keyBinding];
+  const ok = r.kind === 'ok' && r.value !== null && typeof r.value === 'object' && same([r.value.identity, r.value.keySalt, r.value.keyBinding], expected);
+  ok ? pass++ : failures.push({ name, expected: JSON.stringify(expected), actual: outcome(r) });
+  console.log(`  ${ok ? 'PASS' : 'FAIL'}  ${name}`);
+}
+for (const v of vectors.keyBoundRecords ?? []) {
+  // The canonical text too: a fingerprint that agrees by accident over different text
+  // would not be agreement.
+  const c = await ask('canonicalise', v.fields);
+  const r = await ask('recordFingerprint', v.fields);
+  const expected = [v.canonical, v.algorithm, v.contentHash, v.fingerprint];
+  const ok = c.kind === 'ok' && c.value === v.canonical && r.kind === 'ok' && r.value !== null && typeof r.value === 'object' &&
+    same([c.value, r.value.algorithm, r.value.contentHash, r.value.fingerprint], expected);
+  ok ? pass++ : failures.push({ name: v.name, expected: JSON.stringify(expected), actual: `canonical: ${outcome(c)}; fingerprint: ${outcome(r)}` });
+  console.log(`  ${ok ? 'PASS' : 'FAIL'}  ${v.name}`);
+}
+for (const v of vectors.keyBoundChecks ?? []) {
+  const name = `${v.matches ? 'matches' : 'does not match'}: ${v.name}`;
+  const r = await ask('keyMatch', { identity: v.identity, fingerprint: v.fingerprint, keySalt: v.keySalt, contentHash: v.contentHash });
+  const ok = r.kind === 'ok' && r.value === v.matches;
+  ok ? pass++ : failures.push({ name, expected: String(v.matches), actual: outcome(r) });
+  console.log(`  ${ok ? 'PASS' : 'FAIL'}  ${name}`);
+}
+for (const v of vectors.keyBoundRefusals ?? []) {
+  const r = await ask('recordFingerprint', v.fields);
+  const ok = r.kind === 'refused';
+  ok ? pass++ : failures.push({ name: v.name, expected: 'refused — keyBinding must be 64 lowercase hex characters', actual: r.kind === 'ok' ? `accepted, returned ${JSON.stringify(r.value)}` : `${r.kind} — ${r.why}` });
+  console.log(`  ${ok ? 'PASS' : 'FAIL'}  refuses: ${v.name}`);
 }
 
 console.log(`\n${pass} passed, ${failures.length} failed`);

@@ -7,7 +7,8 @@
 //   node conformance/run.mjs                    test the reference implementation
 //   node conformance/run.mjs ./path/to/impl.mjs test another implementation
 //
-// An implementation must export `canonicalise(value)` and `computeCommitment(record)`.
+// An implementation must export `canonicalise(value)` and `computeCommitment(record)`;
+// the later sections fail, not skip, when it does not export what they test.
 // SPDX-License-Identifier: Apache-2.0
 
 import { readFileSync } from 'node:fs';
@@ -162,6 +163,56 @@ if (vectors.pairings?.length) {
       try { actual = await impl.dnaPairBinding(v.input.reportHash, v.input.identity, v.input.salt); } catch (e) { actual = `threw: ${e.message}`; }
       check('pairings', v.name, v.expected, actual);
       console.log(`  ${v.expected === actual ? 'PASS' : 'FAIL'}  ${v.name}`);
+    }
+  }
+}
+
+// Records that name their own key (SPEC 3.6.1): the key from its secret, fingerprints old
+// and new, whether a key matches a record, and the refusal of a malformed keyBinding.
+const KEY_BOUND = ['keyBoundKeys', 'keyBoundRecords', 'keyBoundChecks', 'keyBoundRefusals'];
+const keyBoundCount = KEY_BOUND.reduce((n, k) => n + (vectors[k]?.length ?? 0), 0);
+if (keyBoundCount) {
+  console.log('\nRecords that name their own key');
+  const needed = ['identityFromSecret', 'keySaltOf', 'keyBindingOf', 'computeRecordFingerprint', 'keyMatchesRecord'];
+  const missing = needed.filter((f) => typeof impl[f] !== 'function');
+  if (missing.length) {
+    console.error(`  implementation does not export ${missing.join(', ')}`);
+    fail += keyBoundCount;
+    failures.push({ section: 'keyBound', name: `${missing.join(', ')} not exposed by this implementation`, expected: 'functions', actual: 'nothing' });
+  } else {
+    const run = async (section, name, expected, f) => {
+      let actual;
+      try { actual = await f(); } catch (e) { actual = `threw: ${e.message}`; }
+      check(section, name, expected, actual);
+      console.log(`  ${expected === actual ? 'PASS' : 'FAIL'}  ${name}`);
+    };
+    for (const v of vectors.keyBoundKeys ?? []) {
+      await run('keyBoundKeys', `the key from record secret ${v.recordSecret.slice(0, 8)}...`,
+        JSON.stringify([v.identity, v.keySalt, v.keyBinding]),
+        async () => JSON.stringify([
+          await impl.identityFromSecret(v.recordSecret),
+          await impl.keySaltOf(v.recordSecret),
+          await impl.keyBindingOf(v.identity, v.keySalt),
+        ]));
+    }
+    for (const v of vectors.keyBoundRecords ?? []) {
+      await run('keyBoundRecords', v.name,
+        JSON.stringify([v.canonical, v.algorithm, v.contentHash, v.fingerprint]),
+        async () => {
+          const r = await impl.computeRecordFingerprint(v.fields);
+          return JSON.stringify([impl.canonicalise(v.fields), r.algorithm, r.contentHash, r.fingerprint]);
+        });
+    }
+    for (const v of vectors.keyBoundChecks ?? []) {
+      await run('keyBoundChecks', `${v.matches ? 'matches' : 'does not match'}: ${v.name}`,
+        v.matches ? 'matches' : 'does not match',
+        async () => ((await impl.keyMatchesRecord(v.identity, { fingerprint: v.fingerprint, keySalt: v.keySalt, contentHash: v.contentHash })) === true ? 'matches' : 'does not match'));
+    }
+    for (const v of vectors.keyBoundRefusals ?? []) {
+      let actual = 'accepted';
+      try { await impl.computeRecordFingerprint(v.fields); } catch { actual = 'refused'; }
+      check('keyBoundRefusals', v.name, 'refused', actual);
+      console.log(`  ${actual === 'refused' ? 'PASS' : 'FAIL'}  refuses: ${v.name}`);
     }
   }
 }
