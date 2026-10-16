@@ -27,6 +27,14 @@ laboratory records once it takes custody of material: stage, generation depth, e
 type, a reference to a medium it does not disclose, indexing status. Extends nothing; the
 link to the variety is a parent.
 
+**`animal-individual-v1.json`** — one animal (DRAFT, SPEC 11.8). Species, breed, name,
+individual ID and the ID scheme it belongs to, sex, date of birth, sire and dam, breeder or
+holder, herd. Extends nothing. Its `x-veilcore.sealedFields` is the exact set a record's
+fingerprint covers, every field present and in one form, so one animal can't be sealed two
+ways; the fingerprint rules themselves don't change. The claims of SPEC 4.5 aren't offered
+for it: it defines no field set, and identity and parentage are a laboratory's match or
+exclusion, attested by its signed report.
+
 **`cannabis-v0.1.json`** — plant varieties plus phenotype selection and chemotype. Two
 extra fields, published as an example of extension: a domain can extend the plant
 profile without permission and without anything upstream changing.

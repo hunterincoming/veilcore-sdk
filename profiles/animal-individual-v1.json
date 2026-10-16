@@ -1,0 +1,238 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "veilcore/profile/animal-individual/v1",
+  "title": "An individual animal (DRAFT)",
+  "status": "draft, published for comment on 16 October 2026 (SPEC 11.8)",
+  "description": "One animal, logged by its breeder, its holder or a registry. Name, originator (the breeder or holder), taxon (the species), claimed creation date (the date of birth) and the sire and dam are envelope fields. This schema is the envelope's profileData; the fields a record's fingerprint covers are in x-veilcore.sealedFields. The fingerprint rules are SPEC 3.6.1 and 4.4, unchanged.",
+  "type": "object",
+  "required": [
+    "nonce",
+    "sex"
+  ],
+  "properties": {
+    "nonce": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64,}$"
+    },
+    "breed": {
+      "type": "string"
+    },
+    "sex": {
+      "enum": [
+        "female",
+        "male",
+        "unknown"
+      ]
+    },
+    "individualId": {
+      "type": "string",
+      "description": "As written by the scheme that issued it. The holder's statement: that the ID belongs to the animal is for that scheme to say."
+    },
+    "idScheme": {
+      "type": "string"
+    },
+    "herd": {
+      "type": "string"
+    },
+    "parentIds": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "role": {
+            "enum": [
+              "sire",
+              "dam"
+            ]
+          },
+          "individualId": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "notes": {
+      "type": "string"
+    }
+  },
+  "x-veilcore": {
+    "parentRoles": [
+      "sire",
+      "dam"
+    ],
+    "sealedFields": {
+      "type": "object",
+      "description": "The committed fields of an animal record, exactly (SPEC 11.8): what its fingerprint is computed over, as the `fields` of an export's org.veilcore.registered-fingerprint extension carry them. Every field is present and none other; keyBinding is optional. One-line text has no control characters and no white space at either end (the pattern says so in JSON Schema's own terms; an implementation checks it as SPEC 11.8 states it). Cross-field rules a JSON schema can't state: species and breeder are not empty; name and individualId are not both empty; idScheme is empty exactly when individualId is; dateOfBirth is a real date; at most one sire and one dam, the sire first; a parent with no recordId has a name or an individual ID.",
+      "required": [
+        "breed",
+        "breeder",
+        "dateOfBirth",
+        "herd",
+        "idScheme",
+        "individualId",
+        "loggedAt",
+        "name",
+        "nonce",
+        "notes",
+        "parents",
+        "photoFingerprints",
+        "profile",
+        "sex",
+        "species"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "profile": {
+          "const": "veilcore/profile/animal-individual/v1"
+        },
+        "species": {
+          "type": "string",
+          "maxLength": 200,
+          "pattern": "^(?:\\S(?:[^\\p{Cc}]*\\S)?)?$",
+          "description": "As the holder writes it, e.g. \"Cattle (Bos taurus)\". Not empty.",
+          "minLength": 1
+        },
+        "breed": {
+          "type": "string",
+          "maxLength": 200,
+          "pattern": "^(?:\\S(?:[^\\p{Cc}]*\\S)?)?$",
+          "description": "Or empty."
+        },
+        "name": {
+          "type": "string",
+          "maxLength": 200,
+          "pattern": "^(?:\\S(?:[^\\p{Cc}]*\\S)?)?$",
+          "description": "The animal's name, or empty."
+        },
+        "individualId": {
+          "type": "string",
+          "maxLength": 200,
+          "pattern": "^(?:\\S(?:[^\\p{Cc}]*\\S)?)?$",
+          "description": "Exactly as written on its ear tag or registration, or empty. Never normalised."
+        },
+        "idScheme": {
+          "type": "string",
+          "maxLength": 200,
+          "pattern": "^(?:\\S(?:[^\\p{Cc}]*\\S)?)?$",
+          "description": "The scheme the individual ID belongs to, free text, e.g. \"Japan cattle ID (10 digits)\", \"ear tag\". Empty exactly when individualId is."
+        },
+        "sex": {
+          "enum": [
+            "female",
+            "male",
+            "unknown"
+          ]
+        },
+        "dateOfBirth": {
+          "type": "string",
+          "pattern": "^(\\d{4}-\\d{2}-\\d{2})?$",
+          "description": "YYYY-MM-DD, a real date, or empty. The holder's statement."
+        },
+        "parents": {
+          "type": "array",
+          "maxItems": 2,
+          "items": {
+            "type": "object",
+            "required": [
+              "role",
+              "name",
+              "individualId"
+            ],
+            "additionalProperties": false,
+            "properties": {
+              "role": {
+                "enum": [
+                  "sire",
+                  "dam"
+                ]
+              },
+              "name": {
+                "type": "string",
+                "maxLength": 200,
+                "pattern": "^(?:\\S(?:[^\\p{Cc}]*\\S)?)?$"
+              },
+              "individualId": {
+                "type": "string",
+                "maxLength": 200,
+                "pattern": "^(?:\\S(?:[^\\p{Cc}]*\\S)?)?$"
+              },
+              "recordId": {
+                "type": "string",
+                "pattern": "^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$",
+                "description": "The parent's own record, when the holder logged it."
+              }
+            }
+          }
+        },
+        "breeder": {
+          "type": "string",
+          "maxLength": 200,
+          "pattern": "^(?:\\S(?:[^\\p{Cc}]*\\S)?)?$",
+          "description": "The breeder or holder. Not empty.",
+          "minLength": 1
+        },
+        "herd": {
+          "type": "string",
+          "maxLength": 200,
+          "pattern": "^(?:\\S(?:[^\\p{Cc}]*\\S)?)?$",
+          "description": "Herd or farm, or empty."
+        },
+        "notes": {
+          "type": "string",
+          "maxLength": 20000
+        },
+        "photoFingerprints": {
+          "type": "array",
+          "maxItems": 500,
+          "items": {
+            "type": "string",
+            "pattern": "^[0-9a-f]{64}$"
+          }
+        },
+        "loggedAt": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 9007199254740991
+        },
+        "nonce": {
+          "type": "string",
+          "pattern": "^(?:[0-9a-f]{2}){32,64}$"
+        },
+        "keyBinding": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{64}$"
+        }
+      }
+    },
+    "notOffered": {
+      "claims": "The claims of SPEC 4.5 are not offered: this profile defines no field set, and the distinct claim answers a question about varieties. Identity and parentage are a match or an exclusion a laboratory works out across two or three profiles; its signed report is what attests them.",
+      "terms": "Agreements, royalties and terms are not offered for animal records by the VeilCore web application yet."
+    },
+    "correctionSeverity": {
+      "individualId": {
+        "descent": "material",
+        "terms": "material"
+      },
+      "idScheme": {
+        "descent": "material",
+        "terms": "material"
+      },
+      "sex": {
+        "descent": "material",
+        "terms": "material"
+      },
+      "breed": {
+        "descent": "material",
+        "terms": "cosmetic"
+      },
+      "herd": {
+        "descent": "cosmetic",
+        "terms": "cosmetic"
+      },
+      "notes": {
+        "descent": "cosmetic",
+        "terms": "cosmetic"
+      }
+    }
+  }
+}

@@ -20,5 +20,6 @@ export * from './anchors.js';
 export * from './fields.js';
 export * from './pairing.js';
 export * from './key-binding.js';
+export * from './animal-profile.js';
 export * from './evidence.js';
 export * from './rfc3161.js';

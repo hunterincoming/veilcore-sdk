@@ -566,6 +566,155 @@ def key_matches_record(identity, fingerprint, key_salt, content_hash):
     return key_bound_fingerprint(key_binding_of(identity, key_salt), content_hash) == fingerprint
 
 
+# ---- animal records (spec 11.8, draft) ----------------------------------------------------
+
+ANIMAL_PROFILE = "veilcore/profile/animal-individual/v1"
+_ANIMAL_REQUIRED = (
+    "breed", "breeder", "dateOfBirth", "herd", "idScheme", "individualId", "loggedAt", "name",
+    "nonce", "notes", "parents", "photoFingerprints", "profile", "sex", "species",
+)
+_ANIMAL_LINES = ("species", "breed", "name", "individualId", "idScheme", "breeder", "herd")
+_PARENT_KEYS = ("role", "name", "individualId", "recordId")
+# White space as ECMAScript's String.prototype.trim() strips it, so "no white space at either
+# end" means the same here as in the TypeScript implementation.
+_JS_SPACE = set("\t\n\v\f\r \u00a0\u1680\u2028\u2029\u202f\u205f\u3000\ufeff") | {
+    chr(c) for c in range(0x2000, 0x200B)
+}
+
+
+def _one_line_problem(what, v):
+    if not isinstance(v, str):
+        return f"{what} must be text"
+    if len(v) > 200:
+        return f"{what} must be at most 200 characters"
+    if any(unicodedata.category(ch) == "Cc" for ch in v):
+        return f"{what} must be one line, with no tabs or control characters"
+    if v and (v[0] in _JS_SPACE or v[-1] in _JS_SPACE):
+        return f"{what} must not start or end with a space"
+    return None
+
+
+def _calendar_date(v):
+    if not isinstance(v, str) or len(v) != 10 or v[4] != "-" or v[7] != "-":
+        return False
+    y, m, d = v[0:4], v[5:7], v[8:10]
+    if not (y.isascii() and y.isdigit() and m.isascii() and m.isdigit() and d.isascii() and d.isdigit()):
+        return False
+    y, m, d = int(y), int(m), int(d)
+    if not 1 <= m <= 12:
+        return False
+    days = [31, 29 if (y % 4 == 0 and (y % 100 != 0 or y % 400 == 0)) else 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31]
+    return 1 <= d <= days[m - 1]
+
+
+def _is_whole(n):
+    return isinstance(n, int) and not isinstance(n, bool) and 0 <= n <= MAX_SAFE or (
+        isinstance(n, float) and n.is_integer() and 0 <= n <= MAX_SAFE
+    )
+
+
+def animal_problems(fields):
+    """What is wrong with an animal record's committed fields (spec 11.8); [] when nothing is."""
+    if not isinstance(fields, dict):
+        return ["the fields must be an object"]
+    f = fields
+    out = []
+    if f.get("profile") != ANIMAL_PROFILE:
+        out.append(f"profile must be {ANIMAL_PROFILE}")
+    out += [f"{k} is missing" for k in _ANIMAL_REQUIRED if k not in f]
+    out += [f"{k} is not a field of this profile" for k in f if k not in _ANIMAL_REQUIRED and k != "keyBinding"]
+    for k in _ANIMAL_LINES:
+        if k in f:
+            p = _one_line_problem(k, f[k])
+            if p:
+                out.append(p)
+    if "notes" in f and (not isinstance(f["notes"], str) or len(f["notes"]) > 20000):
+        out.append("notes must be text of at most 20000 characters")
+    text = lambda k: f[k] if isinstance(f.get(k), str) else ""
+    if "species" in f and text("species") == "":
+        out.append("species must not be empty")
+    if "breeder" in f and text("breeder") == "":
+        out.append("breeder must not be empty")
+    if "name" in f and "individualId" in f and text("name") == "" and text("individualId") == "":
+        out.append("a name or an individual ID is needed")
+    if text("individualId") != "" and "idScheme" in f and text("idScheme") == "":
+        out.append("idScheme must say which ID scheme the individual ID belongs to")
+    if text("idScheme") != "" and "individualId" in f and text("individualId") == "":
+        out.append("idScheme is given but individualId is empty")
+    if "sex" in f and f["sex"] not in ("female", "male", "unknown"):
+        out.append("sex must be female, male or unknown")
+    if "dateOfBirth" in f and f["dateOfBirth"] != "" and not _calendar_date(f["dateOfBirth"]):
+        out.append("dateOfBirth must be empty or a date written YYYY-MM-DD")
+    if "loggedAt" in f and not _is_whole(f["loggedAt"]):
+        out.append("loggedAt must be a whole number of milliseconds, 0 or more")
+    nonce = f.get("nonce")
+    if "nonce" in f and not (
+        isinstance(nonce, str) and 64 <= len(nonce) <= 128 and len(nonce) % 2 == 0 and all(c in "0123456789abcdef" for c in nonce)
+    ):
+        out.append("nonce must be 32 to 64 bytes of lowercase hex")
+    if "keyBinding" in f and not _is_hex32(f["keyBinding"]):
+        out.append("keyBinding must be 64 lowercase hex characters")
+    photos = f.get("photoFingerprints")
+    if "photoFingerprints" in f:
+        if not isinstance(photos, list) or len(photos) > 500:
+            out.append("photoFingerprints must be a list of at most 500")
+        elif not all(_is_hex32(p) for p in photos):
+            out.append("each photo fingerprint must be 64 lowercase hex characters")
+    if "parents" in f:
+        out += _parent_problems(f["parents"])
+    return out
+
+
+def _record_id(v):
+    if not isinstance(v, str) or not 1 <= len(v) <= 128:
+        return False
+    ok = set("ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789")
+    return v[0] in ok and all(c in ok or c in "._:-" for c in v)
+
+
+def _parent_problems(parents):
+    if not isinstance(parents, list):
+        return ["parents must be a list"]
+    if len(parents) > 2:
+        return ["parents may name a sire and a dam, nothing more"]
+    out, roles = [], []
+    for i, p in enumerate(parents):
+        at = f"parent {i + 1}"
+        if not isinstance(p, dict):
+            out.append(f"{at} must be an object")
+            continue
+        out += [f"{at}: {k} is not a parent field" for k in p if k not in _PARENT_KEYS]
+        if p.get("role") in ("sire", "dam"):
+            roles.append(p["role"])
+        else:
+            out.append(f"{at}: role must be sire or dam")
+        for k in ("name", "individualId"):
+            if k not in p:
+                out.append(f"{at}: {k} is missing")
+            else:
+                pr = _one_line_problem(f"{at}: {k}", p[k])
+                if pr:
+                    out.append(pr)
+        if "recordId" in p and not _record_id(p["recordId"]):
+            out.append(f"{at}: recordId is not a record id")
+        if "recordId" not in p and p.get("name") == "" and p.get("individualId") == "":
+            out.append(f"{at}: needs a name, an individual ID or a linked record")
+    if len(roles) == 2 and roles[0] == roles[1]:
+        out.append("parents may name one sire and one dam")
+    elif len(roles) == 2 and roles[0] != "sire":
+        out.append("the sire comes before the dam")
+    return out
+
+
+def animal_record_fingerprint(fields):
+    """An animal record's fingerprint (spec 11.8): its form checked, then exactly
+    record_fingerprint. Raises for fields not in the profile's form."""
+    problems = animal_problems(fields)
+    if problems:
+        raise ValueError("not a valid animal record: " + "; ".join(problems))
+    return record_fingerprint(fields)
+
+
 def main():
     job = json.loads(sys.stdin.read())
     op = job["op"]
@@ -588,6 +737,8 @@ def main():
         print(json.dumps({"result": {"identity": identity, "keySalt": salt, "keyBinding": key_binding_of(identity, salt)}}))
     elif op == "recordFingerprint":
         print(json.dumps({"result": record_fingerprint(job["input"])}))
+    elif op == "animalFingerprint":
+        print(json.dumps({"result": animal_record_fingerprint(job["input"])}))
     elif op == "keyMatch":
         i = job["input"]
         print(json.dumps({"result": key_matches_record(i.get("identity"), i.get("fingerprint"), i.get("keySalt"), i.get("contentHash"))}))

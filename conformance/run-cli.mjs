@@ -22,6 +22,10 @@
 //   in:  {"op":"keyMatch","input":{"identity":"<hex>","fingerprint":"<hex>","keySalt":"<hex>","contentHash":"<hex>"}}
 //          out: {"result":true|false}  (SPEC 3.6.1; malformed input is false, not an error)
 //   (key order inside a result object is free for these three)
+//   in:  {"op":"animalFingerprint","input":{...an animal record's committed fields...}}
+//          out: as recordFingerprint, or a refusal for fields not in the profile's form
+//          (SPEC 11.8, draft). An implementation that doesn't check the animal profile is
+//          run with --without-animal-profile, and the result says those refusals were not run.
 //
 // An implementation refuses an invalid record either by writing {"error":"..."} (or
 // {"rejected":true}) or by exiting non-zero. Both are idiomatic - a Python raise and a
@@ -254,6 +258,45 @@ for (const v of vectors.keyBoundRefusals ?? []) {
   const ok = r.kind === 'refused';
   ok ? pass++ : failures.push({ name: v.name, expected: 'refused — keyBinding must be 64 lowercase hex characters', actual: r.kind === 'ok' ? `accepted, returned ${JSON.stringify(r.value)}` : `${r.kind} — ${r.why}` });
   console.log(`  ${ok ? 'PASS' : 'FAIL'}  refuses: ${v.name}`);
+}
+
+// Animal records (SPEC 11.8, draft). Their fingerprints are computed exactly as any record's,
+// so every implementation answers them with `recordFingerprint`: agreement there shows the
+// profile changed no rule. The profile's own form is checked with `animalFingerprint`, which
+// refuses fields not in the profile's form and otherwise answers as `recordFingerprint`. An
+// implementation that doesn't offer the profile check is asked once with a valid record; if it
+// can't answer, its refusals are never counted as passes (an unknown op looks like a refusal
+// from out here). It fails them, or with --without-animal-profile they are left out and the
+// result says so.
+console.log('\nAnimal records');
+const withoutAnimal = process.argv.includes('--without-animal-profile');
+for (const v of vectors.animalRecords ?? []) {
+  const c = await ask('canonicalise', v.fields);
+  const r = await ask('recordFingerprint', v.fields);
+  const expected = [v.canonical, v.algorithm, v.contentHash, v.fingerprint];
+  const ok = c.kind === 'ok' && c.value === v.canonical && r.kind === 'ok' && r.value !== null && typeof r.value === 'object' &&
+    same([c.value, r.value.algorithm, r.value.contentHash, r.value.fingerprint], expected);
+  ok ? pass++ : failures.push({ name: v.name, expected: JSON.stringify(expected), actual: `canonical: ${outcome(c)}; fingerprint: ${outcome(r)}` });
+  console.log(`  ${ok ? 'PASS' : 'FAIL'}  ${v.name}`);
+}
+const refusals = vectors.animalRefusals ?? [];
+if (refusals.length) {
+  const probe = vectors.animalRecords?.[0];
+  const p = probe ? await ask('animalFingerprint', probe.fields) : { kind: 'broken', why: 'no animal record to ask with' };
+  const offers = p.kind === 'ok' && p.value !== null && typeof p.value === 'object' && p.value.fingerprint === probe.fingerprint;
+  if (!offers && withoutAnimal) {
+    console.log(`  NOT RUN  ${refusals.length} animal-profile refusals: this implementation does not check the profile (--without-animal-profile)`);
+  } else if (!offers) {
+    for (const v of refusals) failures.push({ name: `refuses: ${v.name}`, expected: 'refused by animalFingerprint', actual: `the op is not answered for a valid record (${outcome(p)})` });
+    console.log(`  FAIL  ${refusals.length} animal-profile refusals: op animalFingerprint is not answered for a valid record (${outcome(p)}). Use --without-animal-profile to leave them out and say so.`);
+  } else {
+    for (const v of refusals) {
+      const r = await ask('animalFingerprint', v.fields);
+      const ok = r.kind === 'refused';
+      ok ? pass++ : failures.push({ name: v.name, expected: 'refused', actual: r.kind === 'ok' ? `accepted, returned ${JSON.stringify(r.value)}` : `${r.kind} — ${r.why}` });
+      console.log(`  ${ok ? 'PASS' : 'FAIL'}  refuses: ${v.name}`);
+    }
+  }
 }
 
 console.log(`\n${pass} passed, ${failures.length} failed`);

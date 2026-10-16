@@ -108,6 +108,13 @@ package (TypeScript), a Python implementation in `conformance/impl.py`, and a Ru
 implementation at https://github.com/hunterincoming/veilcore-rs. All three have the same
 author. An implementation by an unrelated party is the test this format still needs.
 
+Thirty more vectors cover the animal profile (SPEC 11.8, a draft): five animal records,
+whose fingerprints all three compute exactly as any record's, and twenty-five sets of fields
+the profile refuses, which this package (`computeAnimalRecordFingerprint`,
+`animalIndividualProblems`) and the Python implementation check. The Rust implementation
+computes the fingerprints and doesn't check the profile; run it with
+`--without-animal-profile`.
+
 ```
 npm test
 ```

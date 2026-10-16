@@ -314,6 +314,8 @@ const out = {
   keyBoundRecords: [],
   keyBoundChecks: [],
   keyBoundRefusals: [],
+  animalRecords: [],
+  animalRefusals: [],
 };
 
 for (const c of canonicalCases) {
@@ -421,6 +423,16 @@ out.keyBoundRecords = keyBound.records;
 out.keyBoundChecks = keyBound.checks;
 out.keyBoundRefusals = keyBound.refusals;
 
+// Animal records (SPEC 11.8, draft). Not computed here either: animal-individual-v1.json is a
+// byte-for-byte copy of the VeilCore web application's contract/vectors/animal-individual-v1.json,
+// written by its contract/scripts/animal-individual-vectors.mjs with node:crypto and this
+// package's canonicaliser only. Records carry their fields, canonical text, content hash and
+// fingerprint (and `appRecord`, the web application's own shape, which runners ignore);
+// refusals are fields the profile refuses. To update: copy the new file over it and run this.
+const animal = JSON.parse(readFileSync(new URL('./animal-individual-v1.json', import.meta.url), 'utf8'));
+out.animalRecords = animal.records;
+out.animalRefusals = animal.refusals;
+
 // Built before the shrink check below, which otherwise saw an empty attestations section
 // and refused every run.
 for (const c of attestationCases) {
@@ -456,6 +468,7 @@ console.log(
   `generated ${out.canonicalisation.length} canonicalisation, ${out.commitments.length} commitment, ` +
   `${out.inclusion.length} inclusion, ${out.rejections.length} rejection, ${out.attestations.length} attestation, ` +
   `${out.fieldSets.length} field-set, ${out.fieldRejections.length} field-rejection, ${out.commitmentRejections.length} commitment-rejection, ` +
-  `${out.pairings.length} pairing and ${out.keyBoundKeys.length + out.keyBoundRecords.length + out.keyBoundChecks.length + out.keyBoundRefusals.length} key-bound vectors`
+  `${out.pairings.length} pairing, ${out.keyBoundKeys.length + out.keyBoundRecords.length + out.keyBoundChecks.length + out.keyBoundRefusals.length} key-bound ` +
+  `and ${out.animalRecords.length + out.animalRefusals.length} animal-record vectors`
 );
 
