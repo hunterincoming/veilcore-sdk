@@ -1,26 +1,36 @@
-# veilcore-records
+# VeilCore record format
+
+`veilcore-records` on npm · Apache-2.0 · [SPEC.md](SPEC.md) ·
+[![conformance](https://github.com/hunterincoming/veilcore-sdk/actions/workflows/ci.yml/badge.svg)](https://github.com/hunterincoming/veilcore-sdk/actions/workflows/ci.yml)
+
+An open format for dated records of plant and animal genetic material. A record's fingerprint
+is plain SHA-256 over a canonical serialisation, so anyone can check that a record is
+unaltered: in any language, offline, with nothing from us. No account, no service, no fee.
+
+    npx veilcore-records verify record.json     # exit 0: it holds; 1: it doesn't
+
+- **151 conformance vectors**, including inputs an implementation must refuse: 121 for the
+  record format, the report pairing (SPEC 3.7) and records that name their own key
+  (SPEC 3.6.1), and 30 for the animal profile (SPEC 11.8, a draft).
+- **Three implementations pass them:** TypeScript (this package), Python (`conformance/impl.py`),
+  Rust ([veilcore-rs](https://github.com/hunterincoming/veilcore-rs), which computes the animal
+  records' fingerprints and leaves the profile's 25 refusals to this package). We wrote all
+  three; one written by someone else is the test the format still needs.
+- **Not tied to a chain.** Dating is a separate step. VeilCore anchors on Midnight mainnet;
+  an RFC 3161 timestamp is checked offline here.
+- **Field sets** (SPEC 4.5) let a holder later prove one fact about a sealed value, such as
+  germination of at least 95%, without showing the rest. The proof runs on VeilCore's claims
+  contract on Midnight mainnet.
+
+This proves a record hasn't changed since it was sealed. It doesn't prove the contents are
+true; lab signatures and the anchor's date are for that.
 
 A breeder cannot prove they held a variety first without showing the genetics. An examiner
 cannot confirm a test was run without taking custody of data they would rather not hold.
 A laboratory cannot demonstrate chain of custody without exposing its client list. In
-each case the party holding the evidence has to overshare or establish nothing.
-
-This is an open record format for plant and animal genetics, and other material whose value is
-bound up in what must stay private. You prove what a record said and when it existed,
-and prove a specific claim about it, without handing over the underlying data.
-
-**Verification requires SHA-256 and nothing from us.** No account, no service, no
-permission, no fee. A record outlives the party that issued it, the registry that
-listed it, and this package.
-
-> **The npm release lags this repository.** `veilcore-records` 0.13.0 on npm predates the
-> October 2026 number and string rules and fails 7 of the current conformance vectors.
-> Until 0.14 or later is published, clone and build:
->
-> ```
-> git clone https://github.com/hunterincoming/veilcore-sdk
-> cd veilcore-sdk && npm install && npm run build
-> ```
+each case the party holding the evidence has to overshare or establish nothing. This format
+is for proving what a record said and when it existed, and a specific claim about it,
+without handing over the underlying data.
 
 ---
 
@@ -188,7 +198,8 @@ fields — without disclosing the record needs a per-field commitment scheme.
 
 Section 4.5 of the specification defines one: field sets, up to sixteen values committed
 as separate leaves. The claims themselves (value, range, distinct, unchanged) are proved
-by a VeilCore claims contract that is not yet published or deployed.
+by VeilCore's claims contract, on Midnight mainnet since 8 October 2026 at
+`ef763eb4ad1846b716dbfa90c00560a9a943ffb4d1fc638b0707df5adefd070d` (no maintenance key).
 `examples/acr-trait-verification.mjs` and `examples/distinctness.mjs` show what a
 certifying body receives and what stays with the holder.
 

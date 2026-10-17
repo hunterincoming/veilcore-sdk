@@ -32,7 +32,8 @@ makes it fixed, which is the thing a court, a customs officer, or a buyer can wo
 npm install veilcore-records
 ```
 
-Version 0.15.0 or later includes the October 2026 number and string rules.
+Version 0.15.0 or later includes the October 2026 number and string rules; 0.16.0 or later
+also checks records that name their own key (SPEC 3.6.1) and animal records (SPEC 11.8).
 
 ```js
 import { computeCommitment, newNonce } from 'veilcore-records';

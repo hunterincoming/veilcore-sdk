@@ -1,0 +1,31 @@
+name: conformance
+
+# The unit tests and every conformance vector, against the TypeScript package and the
+# Python implementation, on every push and pull request. Nothing is published from here.
+
+on:
+  push:
+  pull_request:
+
+permissions: {}
+
+jobs:
+  test:
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6.4.0
+        with:
+          node-version: "24.11.1"
+      - run: npm ci
+      - run: npm run build
+      - name: Unit tests, checks and the vectors (TypeScript)
+        run: npm test
+      - name: The vectors (Python, conformance/impl.py)
+        run: npm run conformance:python
+      - name: What npm would publish
+        run: node scripts/check-pack.mjs
