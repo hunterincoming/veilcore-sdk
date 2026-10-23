@@ -316,6 +316,8 @@ const out = {
   keyBoundRefusals: [],
   animalRecords: [],
   animalRefusals: [],
+  strainRecords: [],
+  strainRefusals: [],
 };
 
 for (const c of canonicalCases) {
@@ -433,6 +435,12 @@ const animal = JSON.parse(readFileSync(new URL('./animal-individual-v1.json', im
 out.animalRecords = animal.records;
 out.animalRefusals = animal.refusals;
 
+// Strain and line records (SPEC 11.9, draft): likewise a byte-for-byte copy of the web
+// application's contract/vectors/strain-v1.json (its contract/scripts/strain-vectors.mjs).
+const strain = JSON.parse(readFileSync(new URL('./strain-v1.json', import.meta.url), 'utf8'));
+out.strainRecords = strain.records;
+out.strainRefusals = strain.refusals;
+
 // Built before the shrink check below, which otherwise saw an empty attestations section
 // and refused every run.
 for (const c of attestationCases) {
@@ -468,7 +476,8 @@ console.log(
   `generated ${out.canonicalisation.length} canonicalisation, ${out.commitments.length} commitment, ` +
   `${out.inclusion.length} inclusion, ${out.rejections.length} rejection, ${out.attestations.length} attestation, ` +
   `${out.fieldSets.length} field-set, ${out.fieldRejections.length} field-rejection, ${out.commitmentRejections.length} commitment-rejection, ` +
-  `${out.pairings.length} pairing, ${out.keyBoundKeys.length + out.keyBoundRecords.length + out.keyBoundChecks.length + out.keyBoundRefusals.length} key-bound ` +
-  `and ${out.animalRecords.length + out.animalRefusals.length} animal-record vectors`
+  `${out.pairings.length} pairing, ${out.keyBoundKeys.length + out.keyBoundRecords.length + out.keyBoundChecks.length + out.keyBoundRefusals.length} key-bound, ` +
+  `${out.animalRecords.length + out.animalRefusals.length} animal-record ` +
+  `and ${out.strainRecords.length + out.strainRefusals.length} strain-record vectors`
 );
 

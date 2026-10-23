@@ -16,6 +16,7 @@
 //     veilcore backup <file> [--out dir]   open a VeilCore web app backup file and
 //                                          check every record in it, with nothing
 //                                          from VeilCore: no site, no registry
+//                                          (each record's profile checked: animal, strain)
 //
 // Exit status is 0 when the answer is yes, 1 when it is no, 2 when the command
 // could not be run. That is what makes it usable in a script.
@@ -31,6 +32,7 @@ import {
   verifyInclusion,
   contestedStatus,
   computeRecordFingerprint, computeAnimalRecordFingerprint, ANIMAL_INDIVIDUAL_PROFILE,
+  computeStrainRecordFingerprint, STRAIN_PROFILE,
 } from 'veilcore-records';
 import { mkdir } from 'node:fs/promises';
 import { join } from 'node:path';
@@ -314,7 +316,11 @@ async function backup(path, rest) {
     out(`${id}  ${name}`);
     let fp;
     try {
-      fp = (fields.profile === ANIMAL_INDIVIDUAL_PROFILE ? await computeAnimalRecordFingerprint(fields) : await computeRecordFingerprint(fields)).fingerprint;
+      const compute =
+        fields.profile === ANIMAL_INDIVIDUAL_PROFILE ? computeAnimalRecordFingerprint
+        : fields.profile === STRAIN_PROFILE ? computeStrainRecordFingerprint
+        : computeRecordFingerprint;
+      fp = (await compute(fields)).fingerprint;
     } catch (e) {
       failed++;
       say('fingerprint', `CANNOT BE COMPUTED: ${e.message}`);

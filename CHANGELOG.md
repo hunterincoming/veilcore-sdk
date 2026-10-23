@@ -11,6 +11,14 @@ Versions before 0.16.0 are described in their commit messages and on npm.
   online). Opens password-locked files (version 4: PBKDF2-SHA256, AES-256-GCM); the password
   comes from `VEILCORE_BACKUP_PASSWORD` or is asked for. Keys in the file are never printed.
   Files saved before 23 October 2026 carry keys only, and it says so.
+- **Strain and line records (SPEC 11.9, a draft).** The `strain` profile, for microbial strains,
+  cell lines and insect lines: `strainProblems`, `isStrainRecord` and
+  `computeStrainRecordFingerprint`; the Python implementation's `strain_record_fingerprint`.
+  30 new vectors, copied unchanged from the web application's `strain-v1.json`: five records
+  and 25 sets of fields the profile refuses. `veilcore backup` checks a strain record's form.
+- 181 conformance vectors in all. TypeScript and Python pass all 181; the Rust implementation
+  (veilcore-rs 0.4.0, unchanged) passes 131, leaving both profiles' 50 refusals to this package
+  (`--without-animal-profile --without-strain-profile`).
 
 ## 0.16.0
 

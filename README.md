@@ -59,12 +59,13 @@ Exit status is 0 when it holds and 1 when it doesn't, so it drops into a script.
 isn't anchored, so the output says its date rests on the holder: dating is the separate step
 in the diagram, and a record that names an RFC 3161 timestamp has it checked offline too.
 
-- **151 conformance vectors**, including inputs an implementation must refuse: 121 for the
+- **181 conformance vectors**, including inputs an implementation must refuse: 121 for the
   record format, the report pairing (SPEC 3.7) and records that name their own key
-  (SPEC 3.6.1), and 30 for the animal profile (SPEC 11.8, a draft).
+  (SPEC 3.6.1), 30 for the animal profile (SPEC 11.8) and 30 for the strain and line
+  profile (SPEC 11.9, a draft).
 - **Three implementations pass them:** TypeScript (this package), Python (`conformance/impl.py`),
   Rust ([veilcore-rs](https://github.com/hunterincoming/veilcore-rs), which computes the animal
-  records' fingerprints and leaves the profile's 25 refusals to this package). We wrote all
+  and strain records' fingerprints and leaves the two profiles' 50 refusals to this package). We wrote all
   three; one written by someone else is the test the format still needs.
 - **Not tied to a chain.** Dating is a separate step. VeilCore anchors on Midnight mainnet;
   an RFC 3161 timestamp is checked offline here.
@@ -184,6 +185,10 @@ the profile refuses, which this package (`computeAnimalRecordFingerprint`,
 `animalIndividualProblems`) and the Python implementation check. The Rust implementation
 computes the fingerprints and doesn't check the profile; run it with
 `--without-animal-profile`.
+
+Thirty more do the same for the strain and line profile (SPEC 11.9, a draft: microbial
+strains, cell lines, insect lines): `computeStrainRecordFingerprint` and `strainProblems`
+here, `strain_record_fingerprint` in Python, `--without-strain-profile` for Rust.
 
 ```
 npm test

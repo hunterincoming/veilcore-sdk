@@ -10,7 +10,7 @@ what this repository builds, and anyone has to be able to check that.
 1. `npm run clean`: deletes `dist/` and `conformance/__pycache__/`, so nothing stale or
    compiled elsewhere can ride along.
 2. `npm run build`: regenerates the embedded `verify.py` and compiles `src/`.
-3. `npm test`: the unit tests, the checks and the 151 conformance vectors (TypeScript).
+3. `npm test`: the unit tests, the checks and the 181 conformance vectors (TypeScript).
 4. `npm run conformance:python`: the same vectors against `conformance/impl.py`.
 5. `node scripts/check-pack.mjs`: lists exactly what `npm pack` would upload and fails on
    anything that must not ship (`__pycache__`, `.pyc`, `src/`, `test/` and its TEST-ONLY
@@ -29,7 +29,7 @@ The Rust crate is checked separately, against these vectors:
 
 ```
 cd veilcore-rs && cargo test && cargo build --release
-node ../veilcore-sdk/conformance/run-cli.mjs "$PWD/target/release/conform" --without-animal-profile
+node ../veilcore-sdk/conformance/run-cli.mjs "$PWD/target/release/conform" --without-animal-profile --without-strain-profile
 ```
 
 A crate that does not answer the `keyFromSecret`, `recordFingerprint` and `keyMatch` ops

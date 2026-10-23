@@ -26,6 +26,9 @@
 //          out: as recordFingerprint, or a refusal for fields not in the profile's form
 //          (SPEC 11.8, draft). An implementation that doesn't check the animal profile is
 //          run with --without-animal-profile, and the result says those refusals were not run.
+//   in:  {"op":"strainFingerprint","input":{...a strain record's committed fields...}}
+//          out: as recordFingerprint, or refused for fields not in the strain profile's form
+//          (SPEC 11.9, draft); --without-strain-profile leaves those refusals out, and says so.
 //
 // An implementation refuses an invalid record either by writing {"error":"..."} (or
 // {"rejected":true}) or by exiting non-zero. Both are idiomatic - a Python raise and a
@@ -292,6 +295,45 @@ if (refusals.length) {
   } else {
     for (const v of refusals) {
       const r = await ask('animalFingerprint', v.fields);
+      const ok = r.kind === 'refused';
+      ok ? pass++ : failures.push({ name: v.name, expected: 'refused', actual: r.kind === 'ok' ? `accepted, returned ${JSON.stringify(r.value)}` : `${r.kind} — ${r.why}` });
+      console.log(`  ${ok ? 'PASS' : 'FAIL'}  refuses: ${v.name}`);
+    }
+  }
+}
+
+// Strain and line records (SPEC 11.9, draft). Their fingerprints are computed exactly as any record's,
+// so every implementation answers them with `recordFingerprint`: agreement there shows the
+// profile changed no rule. The profile's own form is checked with `strainFingerprint`, which
+// refuses fields not in the profile's form and otherwise answers as `recordFingerprint`. An
+// implementation that doesn't offer the profile check is asked once with a valid record; if it
+// can't answer, its refusals are never counted as passes (an unknown op looks like a refusal
+// from out here). It fails them, or with --without-strain-profile they are left out and the
+// result says so.
+console.log('\nStrain and line records');
+const withoutStrain = process.argv.includes('--without-strain-profile');
+for (const v of vectors.strainRecords ?? []) {
+  const c = await ask('canonicalise', v.fields);
+  const r = await ask('recordFingerprint', v.fields);
+  const expected = [v.canonical, v.algorithm, v.contentHash, v.fingerprint];
+  const ok = c.kind === 'ok' && c.value === v.canonical && r.kind === 'ok' && r.value !== null && typeof r.value === 'object' &&
+    same([c.value, r.value.algorithm, r.value.contentHash, r.value.fingerprint], expected);
+  ok ? pass++ : failures.push({ name: v.name, expected: JSON.stringify(expected), actual: `canonical: ${outcome(c)}; fingerprint: ${outcome(r)}` });
+  console.log(`  ${ok ? 'PASS' : 'FAIL'}  ${v.name}`);
+}
+const strainRefusalList = vectors.strainRefusals ?? [];
+if (strainRefusalList.length) {
+  const strainProbe = vectors.strainRecords?.[0];
+  const sp = strainProbe ? await ask('strainFingerprint', strainProbe.fields) : { kind: 'broken', why: 'no strain record to ask with' };
+  const strainOffers = sp.kind === 'ok' && sp.value !== null && typeof sp.value === 'object' && sp.value.fingerprint === strainProbe.fingerprint;
+  if (!strainOffers && withoutStrain) {
+    console.log(`  NOT RUN  ${strainRefusalList.length} strain-profile refusals: this implementation does not check the profile (--without-strain-profile)`);
+  } else if (!strainOffers) {
+    for (const v of strainRefusalList) failures.push({ name: `refuses: ${v.name}`, expected: 'refused by strainFingerprint', actual: `the op is not answered for a valid record (${outcome(sp)})` });
+    console.log(`  FAIL  ${strainRefusalList.length} strain-profile refusals: op strainFingerprint is not answered for a valid record (${outcome(sp)}). Use --without-strain-profile to leave them out and say so.`);
+  } else {
+    for (const v of strainRefusalList) {
+      const r = await ask('strainFingerprint', v.fields);
       const ok = r.kind === 'refused';
       ok ? pass++ : failures.push({ name: v.name, expected: 'refused', actual: r.kind === 'ok' ? `accepted, returned ${JSON.stringify(r.value)}` : `${r.kind} — ${r.why}` });
       console.log(`  ${ok ? 'PASS' : 'FAIL'}  refuses: ${v.name}`);

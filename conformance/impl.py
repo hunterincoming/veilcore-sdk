@@ -715,6 +715,117 @@ def animal_record_fingerprint(fields):
     return record_fingerprint(fields)
 
 
+# ---- strain and line records (spec 11.9, draft) -------------------------------------------
+
+STRAIN_PROFILE = "veilcore/profile/strain/v1"
+_STRAIN_GROUPS = (
+    "bacterium", "archaeon", "yeast", "filamentous-fungus", "microalga", "protist", "virus",
+    "cell-line", "insect", "other",
+)
+_STRAIN_REQUIRED = (
+    "deposits", "designation", "generation", "group", "loggedAt", "madeOn", "maker", "method",
+    "name", "nonce", "notes", "parents", "photoFingerprints", "profile", "species",
+)
+_STRAIN_LINES = ("species", "name", "designation", "method", "generation", "maker")
+_STRAIN_PARENT_KEYS = ("name", "deposit", "recordId")
+
+
+def strain_problems(fields):
+    """What is wrong with a strain record's committed fields (spec 11.9); [] when nothing is."""
+    if not isinstance(fields, dict):
+        return ["the fields must be an object"]
+    f = fields
+    out = []
+    if f.get("profile") != STRAIN_PROFILE:
+        out.append(f"profile must be {STRAIN_PROFILE}")
+    out += [f"{k} is missing" for k in _STRAIN_REQUIRED if k not in f]
+    out += [f"{k} is not a field of this profile" for k in f if k not in _STRAIN_REQUIRED and k != "keyBinding"]
+    for k in _STRAIN_LINES:
+        if k in f:
+            p = _one_line_problem(k, f[k])
+            if p:
+                out.append(p)
+    text = lambda k: f[k] if isinstance(f.get(k), str) else ""
+    if "species" in f and text("species") == "":
+        out.append("species must not be empty")
+    if "maker" in f and text("maker") == "":
+        out.append("maker must not be empty")
+    if "name" in f and "designation" in f and text("name") == "" and text("designation") == "":
+        out.append("a name or a designation is needed")
+    if "group" in f and f["group"] not in _STRAIN_GROUPS:
+        out.append("group must be one of " + ", ".join(_STRAIN_GROUPS))
+    if "deposits" in f:
+        d = f["deposits"]
+        if not isinstance(d, list) or len(d) > 8:
+            out.append("deposits must be a list of at most 8")
+        else:
+            for i, x in enumerate(d):
+                p = _one_line_problem(f"deposit {i + 1}", x)
+                if p:
+                    out.append(p)
+                elif x == "":
+                    out.append(f"deposit {i + 1} must not be empty")
+            if all(isinstance(x, str) for x in d) and len(set(d)) != len(d):
+                out.append("each deposit is listed once")
+    if "notes" in f and (not isinstance(f["notes"], str) or len(f["notes"]) > 20000):
+        out.append("notes must be text of at most 20000 characters")
+    if "madeOn" in f and f["madeOn"] != "" and not _calendar_date(f["madeOn"]):
+        out.append("madeOn must be empty or a date written YYYY-MM-DD")
+    if "loggedAt" in f and not _is_whole(f["loggedAt"]):
+        out.append("loggedAt must be a whole number of milliseconds, 0 or more")
+    nonce = f.get("nonce")
+    if "nonce" in f and not (
+        isinstance(nonce, str) and 64 <= len(nonce) <= 128 and len(nonce) % 2 == 0 and all(c in "0123456789abcdef" for c in nonce)
+    ):
+        out.append("nonce must be 32 to 64 bytes of lowercase hex")
+    if "keyBinding" in f and not _is_hex32(f["keyBinding"]):
+        out.append("keyBinding must be 64 lowercase hex characters")
+    photos = f.get("photoFingerprints")
+    if "photoFingerprints" in f:
+        if not isinstance(photos, list) or len(photos) > 500:
+            out.append("photoFingerprints must be a list of at most 500")
+        elif not all(_is_hex32(p) for p in photos):
+            out.append("each photo code must be 64 lowercase hex characters")
+    if "parents" in f:
+        out += _strain_parent_problems(f["parents"])
+    return out
+
+
+def _strain_parent_problems(parents):
+    if not isinstance(parents, list):
+        return ["parents must be a list"]
+    if len(parents) > 2:
+        return ["parents may name at most two parent strains"]
+    out = []
+    for i, p in enumerate(parents):
+        at = f"parent {i + 1}"
+        if not isinstance(p, dict):
+            out.append(f"{at} must be an object")
+            continue
+        out += [f"{at}: {k} is not a parent field" for k in p if k not in _STRAIN_PARENT_KEYS]
+        for k in ("name", "deposit"):
+            if k not in p:
+                out.append(f"{at}: {k} is missing")
+            else:
+                pr = _one_line_problem(f"{at}: {k}", p[k])
+                if pr:
+                    out.append(pr)
+        if "recordId" in p and not _record_id(p["recordId"]):
+            out.append(f"{at}: recordId is not a record id")
+        if "recordId" not in p and p.get("name") == "" and p.get("deposit") == "":
+            out.append(f"{at}: needs a name, a deposit number or a linked record")
+    return out
+
+
+def strain_record_fingerprint(fields):
+    """A strain record's fingerprint (spec 11.9): its form checked, then exactly
+    record_fingerprint. Raises for fields not in the profile's form."""
+    problems = strain_problems(fields)
+    if problems:
+        raise ValueError("not a valid strain record: " + "; ".join(problems))
+    return record_fingerprint(fields)
+
+
 def main():
     job = json.loads(sys.stdin.read())
     op = job["op"]
@@ -739,6 +850,8 @@ def main():
         print(json.dumps({"result": record_fingerprint(job["input"])}))
     elif op == "animalFingerprint":
         print(json.dumps({"result": animal_record_fingerprint(job["input"])}))
+    elif op == "strainFingerprint":
+        print(json.dumps({"result": strain_record_fingerprint(job["input"])}))
     elif op == "keyMatch":
         i = job["input"]
         print(json.dumps({"result": key_matches_record(i.get("identity"), i.get("fingerprint"), i.get("keySalt"), i.get("contentHash"))}))

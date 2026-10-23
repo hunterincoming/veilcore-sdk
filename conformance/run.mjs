@@ -247,6 +247,36 @@ if (animalCount) {
   }
 }
 
+// Strain and line records (SPEC 11.9, draft): the profile's form, and fingerprints computed exactly as
+// any record's. A record is checked through computeStrainRecordFingerprint, which refuses
+// fields not in the profile's form; a refusal vector must be refused by it.
+const strainCount = (vectors.strainRecords?.length ?? 0) + (vectors.strainRefusals?.length ?? 0);
+if (strainCount) {
+  console.log('\nStrain and line records');
+  if (typeof impl.computeStrainRecordFingerprint !== 'function') {
+    console.error('  implementation does not export computeStrainRecordFingerprint()');
+    fail += strainCount;
+    failures.push({ section: 'strain', name: 'computeStrainRecordFingerprint not exposed by this implementation', expected: 'a function', actual: 'nothing' });
+  } else {
+    for (const v of vectors.strainRecords ?? []) {
+      let actual;
+      try {
+        const r = await impl.computeStrainRecordFingerprint(v.fields);
+        actual = JSON.stringify([impl.canonicalise(v.fields), r.algorithm, r.contentHash, r.fingerprint]);
+      } catch (e) { actual = `threw: ${e.message}`; }
+      const expected = JSON.stringify([v.canonical, v.algorithm, v.contentHash, v.fingerprint]);
+      check('strainRecords', v.name, expected, actual);
+      console.log(`  ${expected === actual ? 'PASS' : 'FAIL'}  ${v.name}`);
+    }
+    for (const v of vectors.strainRefusals ?? []) {
+      let actual = 'accepted';
+      try { await impl.computeStrainRecordFingerprint(v.fields); } catch { actual = 'refused'; }
+      check('strainRefusals', v.name, 'refused', actual);
+      console.log(`  ${actual === 'refused' ? 'PASS' : 'FAIL'}  refuses: ${v.name}`);
+    }
+  }
+}
+
 console.log(`\n${pass} passed, ${fail} failed`);
 
 if (fail > 0) {
