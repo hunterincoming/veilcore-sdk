@@ -13,6 +13,9 @@
 //     veilcore diff before.json after.json what changed, and is it material
 //     veilcore canonical record.json       the exact bytes that get hashed
 //     veilcore inclusion proof.json        does this proof fold to its root
+//     veilcore backup <file> [--out dir]   open a VeilCore web app backup file and
+//                                          check every record in it, with nothing
+//                                          from VeilCore: no site, no registry
 //
 // Exit status is 0 when the answer is yes, 1 when it is no, 2 when the command
 // could not be run. That is what makes it usable in a script.
@@ -27,7 +30,12 @@ import {
   effectiveAnchors, standingOf, datingSummary, verifyAnchor,
   verifyInclusion,
   contestedStatus,
+  computeRecordFingerprint, computeAnimalRecordFingerprint, ANIMAL_INDIVIDUAL_PROFILE,
 } from 'veilcore-records';
+import { mkdir } from 'node:fs/promises';
+import { join } from 'node:path';
+import { webcrypto } from 'node:crypto';
+import { createInterface } from 'node:readline';
 
 const OK = 0, NO = 1, ERR = 2;
 
@@ -230,6 +238,136 @@ async function inclusion(path) {
 }
 
 // ---------------------------------------------------------------------------
+// A VeilCore web app backup file, opened without VeilCore.
+//
+// From 23 October 2026 the file carries, besides the keys, each record's sealed fields (the
+// exact JSON its proof code is computed over, SPEC 3.6.1) and each batched record's inclusion
+// proof. That is enough to check every record here: recompute its fingerprint, fold its proof
+// to the batch root, and name the transaction that dates the root. Keys are never printed.
+//
+// A password-locked file (version 4) is { locked: { kdf: 'PBKDF2-SHA256', iterations, salt,
+// alg: 'A256GCM', iv, ct } }: the version 3 JSON sealed with AES-256-GCM, additional data
+// "veilcore:backup:v4", under a key from PBKDF2-SHA256 over the NFC password. Base64url, no
+// padding. The password comes from VEILCORE_BACKUP_PASSWORD or is asked for.
+
+const b64u = (s) => new Uint8Array(Buffer.from(String(s), 'base64url'));
+
+const askPassword = () =>
+  new Promise((resolve) => {
+    if (process.env.VEILCORE_BACKUP_PASSWORD !== undefined) return resolve(process.env.VEILCORE_BACKUP_PASSWORD);
+    if (!process.stdin.isTTY) die('this backup is locked: set VEILCORE_BACKUP_PASSWORD, or run it in a terminal');
+    const rl = createInterface({ input: process.stdin, output: process.stdout, terminal: true });
+    // Typed characters aren't echoed.
+    rl._writeToOutput = (s) => { if (s.includes('Password')) process.stdout.write(s); };
+    rl.question('Password for this backup: ', (pw) => { rl.close(); process.stdout.write('\n'); resolve(pw); });
+  });
+
+const unlock = async (file) => {
+  const l = file.locked;
+  if (l.kdf !== 'PBKDF2-SHA256' || l.alg !== 'A256GCM') die('this locked backup uses a scheme this version does not know');
+  if (!Number.isInteger(l.iterations) || l.iterations < 600_000 || l.iterations > 10_000_000)
+    die('this locked backup names an iteration count VeilCore never uses');
+  const pw = await askPassword();
+  const subtle = webcrypto.subtle;
+  const base = await subtle.importKey('raw', new TextEncoder().encode(String(pw).normalize('NFC')), 'PBKDF2', false, ['deriveKey']);
+  const key = await subtle.deriveKey(
+    { name: 'PBKDF2', hash: 'SHA-256', salt: b64u(l.salt), iterations: l.iterations },
+    base, { name: 'AES-GCM', length: 256 }, false, ['decrypt'],
+  );
+  let plain;
+  try {
+    plain = await subtle.decrypt(
+      { name: 'AES-GCM', iv: b64u(l.iv), additionalData: new TextEncoder().encode('veilcore:backup:v4') },
+      key, b64u(l.ct),
+    );
+  } catch { console.error('veilcore: wrong password, or the file was changed'); process.exit(NO); }
+  return JSON.parse(new TextDecoder().decode(plain));
+};
+
+async function backup(path, rest) {
+  let file = await load(path);
+  if (file?.format !== 'veilcore-backup') die(`${path} is not a VeilCore backup file`);
+  if (file.locked) file = await unlock(file);
+  const outDir = rest[0] === '--out' ? rest[1] : undefined;
+  if (rest[0] === '--out' && !outDir) die('--out needs a folder');
+
+  const sealed = file.sealedFields && typeof file.sealedFields === 'object' ? file.sealedFields : {};
+  const rows = Array.isArray(file.recordData) ? file.recordData : [];
+  const proofs = file.proofs && typeof file.proofs === 'object' ? file.proofs : {};
+  const ids = Object.keys(sealed);
+  out();
+  out(`  backup saved           ${file.savedAt ?? '(no date)'}`);
+  out(`  records with fields    ${ids.length}`);
+  out();
+  if (ids.length === 0) {
+    out('  This file holds keys but no record contents: it was saved before 23 October');
+    out('  2026, or holds no records. Save a new backup from the app to carry them.');
+    out();
+    process.exit(NO);
+  }
+
+  let failed = 0;
+  for (const id of ids) {
+    const fields = sealed[id];
+    const row = rows.find((r) => r && r.id === id);
+    const name = fields.strainName || fields.name || fields.designation || fields.individualId || '(no name)';
+    out(`${id}  ${name}`);
+    let fp;
+    try {
+      fp = (fields.profile === ANIMAL_INDIVIDUAL_PROFILE ? await computeAnimalRecordFingerprint(fields) : await computeRecordFingerprint(fields)).fingerprint;
+    } catch (e) {
+      failed++;
+      say('fingerprint', `CANNOT BE COMPUTED: ${e.message}`);
+      out();
+      continue;
+    }
+    const expected = row?.recordFingerprint;
+    if (expected && expected !== fp) {
+      failed++;
+      say('fingerprint', 'DOES NOT MATCH the record');
+      say('recorded', expected);
+      say('computed', fp);
+      out();
+      continue;
+    }
+    say('fingerprint', expected ? 'holds' : 'computed (the file names none to compare)');
+    say('', fp);
+    const proof = proofs[fp];
+    if (!proof) {
+      say('batch', 'not in the file: the record was not batched when this backup was saved');
+    } else {
+      const folds = proof.commitment === fp && (await verifyInclusion(proof).catch(() => false));
+      if (!folds) {
+        failed++;
+        say('batch', `PROOF DOES NOT FOLD to its root (${proof.batchId ?? 'no batch id'})`);
+      } else {
+        say('batch', `${proof.batchId}: the proof folds to root`);
+        say('', proof.root);
+        const a = proof.anchor;
+        if (a?.txHash) {
+          say('dated by', `${a.chain} ${a.network}, transaction ${a.txHash}${a.blockHeight ? `, block ${a.blockHeight}` : ''}`);
+          out('                         Look the transaction up on any explorer for that network:');
+          out('                         it must publish this root. This tool does not go online.');
+        } else {
+          say('dated by', 'nothing yet: the batch root had no anchor when the backup was saved');
+        }
+      }
+    }
+    if (outDir) {
+      const dir = join(outDir, id.replace(/[^A-Za-z0-9._-]/g, '_'));
+      await mkdir(dir, { recursive: true });
+      await writeFile(join(dir, 'sealed-fields.json'), JSON.stringify(fields, null, 2) + '\n');
+      if (proof) await writeFile(join(dir, 'inclusion-proof.json'), JSON.stringify(proof, null, 2) + '\n');
+    }
+    out();
+  }
+  out(failed ? `FAILED: ${failed} of ${ids.length} records did not check out.` : `All ${ids.length} records check out.`);
+  if (outDir) out(`Written to ${outDir}: one folder per record (sealed-fields.json, inclusion-proof.json).`);
+  out();
+  process.exit(failed ? NO : OK);
+}
+
+// ---------------------------------------------------------------------------
 
 const usage = () => {
   out(`
@@ -247,6 +385,9 @@ veilcore — check a VeilCore record without writing any code
                                            another implementation
   veilcore inclusion <proof.json>          does this inclusion proof fold to
                                            its stated root
+  veilcore backup <file> [--out <folder>]  open a VeilCore backup file (asks
+                                           for its password if it has one) and
+                                           check every record in it
 
 Exit status is 0 when the answer is yes, 1 when it is no, 2 when the command
 could not be run.
@@ -263,6 +404,7 @@ switch (cmd) {
   case 'diff':      await diff(args[0], args[1]); break;
   case 'canonical': await canonical(args[0]); break;
   case 'inclusion': await inclusion(args[0]); break;
+  case 'backup':    await backup(args[0], args.slice(1)); break;
   case '--help': case '-h': case 'help': case undefined: usage(); break;
   default: die(`unknown command "${cmd}" — try veilcore --help`);
 }

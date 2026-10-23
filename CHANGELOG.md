@@ -2,7 +2,17 @@
 
 Versions before 0.16.0 are described in their commit messages and on npm.
 
-## 0.16.0 (unreleased)
+## 0.17.0 (unreleased)
+
+- **`veilcore backup <file> [--out <folder>]`.** Opens a VeilCore web app backup file and
+  checks every record in it with nothing from VeilCore: recomputes each record's fingerprint
+  from the sealed fields the file carries, folds each inclusion proof to its batch root, and
+  names the transaction that dates the root (to look up on any explorer; the tool doesn't go
+  online). Opens password-locked files (version 4: PBKDF2-SHA256, AES-256-GCM); the password
+  comes from `VEILCORE_BACKUP_PASSWORD` or is asked for. Keys in the file are never printed.
+  Files saved before 23 October 2026 carry keys only, and it says so.
+
+## 0.16.0
 
 Nothing about existing fingerprints changes: every record that verified under 0.15.0
 verifies the same way.

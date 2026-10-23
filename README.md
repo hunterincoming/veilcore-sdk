@@ -97,6 +97,18 @@ commands; `npx veilcore-records` lists them. From a clone, `node bin/veilcore.mj
 The people who need to check a record are examiners, control officials and analysts.
 Asking them to write a script is asking them not to check.
 
+### Open a VeilCore backup without VeilCore
+
+```
+npx veilcore-records backup "VeilCore backup 2026-10-23.json" --out my-records
+```
+
+A backup saved from the VeilCore web app since 23 October 2026 carries each record's sealed
+fields and inclusion proof. This checks every record in it (fingerprint, proof, and which
+transaction dates its batch) and, with `--out`, writes each record's files to a folder. It
+asks for the password if the file has one, and never prints a key. It's how a holder shows
+their records if VeilCore's site and registry are gone.
+
 From code:
 
 ```js
