@@ -2,6 +2,12 @@
 
 Versions before 0.16.0 are described in their commit messages and on npm.
 
+## 0.17.1
+
+- Same code as 0.17.0, which was tagged but never reached npm. Releases are now staged on npm
+  from CI with provenance and go live only when a maintainer approves them with 2FA
+  (RELEASING.md).
+
 ## 0.17.0
 
 - **`veilcore backup <file> [--out <folder>]`.** Opens a VeilCore web app backup file and

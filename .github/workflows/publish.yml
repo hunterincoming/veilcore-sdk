@@ -1,7 +1,9 @@
-# Publish veilcore-records to npm from CI, with provenance (RELEASING.md): npm trusted
+# Stage veilcore-records on npm from CI, with provenance (RELEASING.md): npm trusted
 # publishing, no long-lived npm token anywhere. Runs only when a version tag (v*) is pushed.
-# prepublishOnly runs the full gate (build, tests, every vector in TypeScript and Python,
-# the pack check) before anything is uploaded.
+# The full gate (build, tests, every vector in TypeScript and Python, the pack check) runs
+# before anything is uploaded. The version is only STAGED: it goes live when a maintainer
+# approves it on npmjs.com with two-factor authentication, so a stolen GitHub account or a
+# poisoned CI run alone cannot ship a release.
 name: publish
 on: { push: { tags: ['v*'] } }
 permissions: {}
@@ -16,7 +18,9 @@ jobs:
         with: { node-version: "24.11.1", registry-url: "https://registry.npmjs.org" }
       - name: The tag is the package version
         run: test "v$(node -p 'require("./package.json").version')" = "$GITHUB_REF_NAME"
-      - name: npm new enough for trusted publishing (11.5.1 or later)
-        run: node -e 'const [a,b,c]=process.argv[1].split(".").map(Number); process.exit(a>11||(a===11&&(b>5||(b===5&&c>=1)))?0:1)' "$(npm --version)"
       - run: npm ci
-      - run: npm publish --provenance --access public
+      - name: The gate
+        run: npm run clean && npm run build && npm test && npm run conformance:python && node scripts/check-pack.mjs
+      # Staged publishing needs npm 11.15.0 or later; Node 24.11.1 ships an older npm.
+      - name: Stage it on npm (live only once approved with 2FA)
+        run: npx --yes npm@11.15.0 stage publish --provenance --access public

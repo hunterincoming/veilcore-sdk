@@ -3,7 +3,7 @@
 This package is a verifier other people rely on, so what reaches npm has to be exactly
 what this repository builds, and anyone has to be able to check that.
 
-## The gate (runs on every `npm publish`)
+## The gate (runs on every `npm publish`, and as its own step in CI before staging)
 
 `prepublishOnly` runs, in order, and any failure stops the publish:
 
@@ -43,35 +43,32 @@ and npm shows it on the package page. **It can only be produced by a CI publish*
 (GitHub Actions or GitLab CI with OIDC). A publish from a laptop carries none, and
 nothing ties that tarball to a commit except trust in whoever ran it.
 
-To publish with provenance, using npm trusted publishing (no long-lived npm token):
+To publish with provenance, using npm trusted publishing (no long-lived npm token) and
+npm staged publishing (nothing goes live without a person's 2FA):
 
 1. On npmjs.com, package `veilcore-records` -> Settings -> Trusted publishing: add
-   GitHub Actions, repository `hunterincoming/veilcore-sdk`, workflow `publish.yml`.
-2. Then under Publishing access choose "Require two-factor authentication and disallow
-   tokens", so a leaked token cannot publish.
-3. Add `.github/workflows/publish.yml`:
+   GitHub Actions, repository `hunterincoming/veilcore-sdk`, workflow `publish.yml`,
+   environment blank. Under **Allowed actions** leave "publish directly" and "manage
+   dist-tags" **unticked**: this publisher can only stage.
+2. Under Publishing access choose "Require two-factor authentication and disallow tokens",
+   so a leaked token cannot publish.
+3. `.github/workflows/publish.yml` (in this repository) runs on a `v*` tag: `npm ci`, the
+   gate, then `npm stage publish --provenance --access public` with npm 11.15.0 (staging
+   needs 11.15.0 or later; Node 24.11.1 ships an older npm).
 
-```yaml
-name: publish
-on: { push: { tags: ['v*'] } }
-permissions: {}
-jobs:
-  publish:
-    runs-on: ubuntu-latest
-    permissions: { contents: read, id-token: write }
-    steps:
-      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
-        with: { persist-credentials: false }
-      - uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6.4.0
-        with: { node-version: "24.11.1", registry-url: "https://registry.npmjs.org" }
-      - run: npm ci
-      - run: npm publish --provenance --access public   # prepublishOnly runs the gate
-```
+Why staged: CI can build and sign a version but cannot make it live. A stolen GitHub
+account, a poisoned dependency in CI or a mistaken tag ends as a staged version nobody
+approves, not as a release thousands of verifiers install. The cost is one approval per
+release.
 
-   The action SHAs are the ones pinned in veilcore-midnight-testnet's CI. `ubuntu-latest`
-   ships python3, which the gate's Python steps need.
+4. Release: bump `version` in `package.json` and `package-lock.json`, commit, push, then
+   create a GitHub release with a new tag `vX.Y.Z` on that commit (the tag starts the run).
+5. When the run is green: npmjs.com -> `veilcore-records` -> **Staged Packages** -> check
+   the version and its provenance -> **Approve** (asks for 2FA). Or from a terminal:
+   `npm stage list`, then `npm stage approve <stage-id>`.
 
-4. Release: bump `version` in `package.json`, commit, `git tag vX.Y.Z`, push the tag.
+Never move or reuse a tag. If a run fails, fix it on main and release the next patch
+version (0.17.0 was tagged but never reached npm; 0.17.1 is the same code).
 
 Check the result: `npm view veilcore-records@X.Y.Z --json | grep -A3 attestations`, or
 `npm audit signatures` in a project that depends on it. The package page shows a
