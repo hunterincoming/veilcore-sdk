@@ -1,0 +1,160 @@
+{
+  "v": "veilcore/deal-record/v1",
+  "savedAt": "2026-10-23T12:00:00.000Z",
+  "license": {
+    "commitment": "c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3",
+    "issuerRecord": "d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4"
+  },
+  "keys": {
+    "issuer": "bc7cbcb5636375fa1d82434d466724d92377f53b980695dd49d26d0ce12205a5",
+    "licensee": "55154f42065ea5a1bea05463826be2684eb92df92c100027aabaae57ca554207"
+  },
+  "signing": "Ed25519 over \"veilcore/deal-message/v1\\n\" + canonical JSON of each message (veilcore-records canonicalise)",
+  "messages": [
+    {
+      "message": {
+        "type": "payout",
+        "method": "bank transfer",
+        "account": "Practice Bank 0001",
+        "currency": "USD",
+        "from": "issuer",
+        "at": 1782907200000
+      },
+      "signature": "25873036ce5a1df30cae9fcb2ebd21512d8b186f7a5d49ecfc097780a4c3e3e10a971364df22d051e9d03b18c0884cb3702318de0b900c49ab464be2aff0d70a",
+      "fingerprint": "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+      "receivedAt": 1782907201000,
+      "proof": "https://registry.test/proof/ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff"
+    },
+    {
+      "message": {
+        "type": "statement",
+        "statementId": "S-1",
+        "periodFrom": "2026-07-01",
+        "periodTo": "2026-07-31",
+        "basis": "sales",
+        "quantity": "241",
+        "currency": "USD",
+        "amountOwed": "120.50",
+        "from": "licensee",
+        "at": 1785672000000
+      },
+      "signature": "040f41f22a6954bfd2b0dd2d868e4eba13e31c23f3b57046e70bb07f0c5c3f943de589637fee10a083f0cb2498a35ef4724642f3507d2b66059c7c6feba8c007",
+      "fingerprint": "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+      "receivedAt": 1785672001000,
+      "proof": "https://registry.test/proof/ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff"
+    },
+    {
+      "message": {
+        "type": "reply",
+        "statementId": "S-1",
+        "statementSig": "040f41f22a6954bfd2b0dd2d868e4eba13e31c23f3b57046e70bb07f0c5c3f943de589637fee10a083f0cb2498a35ef4724642f3507d2b66059c7c6feba8c007",
+        "decision": "accepted",
+        "from": "issuer",
+        "at": 1785758400000
+      },
+      "signature": "4411ea35016af3c1a4172ae06edb3c14e20bb679e1f6c5a41b82c7a12e22f35a4a8dfc09891f97cb89348526feab66bbf44a752c7395bd196364eecc4e01de09",
+      "fingerprint": "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+      "receivedAt": 1785758401000,
+      "proof": "https://registry.test/proof/ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff"
+    },
+    {
+      "message": {
+        "type": "paid",
+        "statementId": "S-1",
+        "statementSig": "040f41f22a6954bfd2b0dd2d868e4eba13e31c23f3b57046e70bb07f0c5c3f943de589637fee10a083f0cb2498a35ef4724642f3507d2b66059c7c6feba8c007",
+        "amount": "120.50",
+        "currency": "USD",
+        "method": "bank transfer",
+        "payTo": "Practice Bank 0001",
+        "reference": "PRACTICE-0001",
+        "paidOn": "2026-08-05",
+        "from": "licensee",
+        "at": 1785931200000
+      },
+      "signature": "35b3c3364adabb4e2b49ff796021e1a81084e2e92a2ce3202412e91c15c2ed7ae906f13c2183f51668725b4eab3c948120d5c559aa94eedf86f548123f736207",
+      "fingerprint": "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+      "receivedAt": 1785931201000,
+      "proof": "https://registry.test/proof/ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff"
+    },
+    {
+      "message": {
+        "type": "received",
+        "statementId": "S-1",
+        "statementSig": "040f41f22a6954bfd2b0dd2d868e4eba13e31c23f3b57046e70bb07f0c5c3f943de589637fee10a083f0cb2498a35ef4724642f3507d2b66059c7c6feba8c007",
+        "amount": "120.5",
+        "currency": "USD",
+        "from": "issuer",
+        "at": 1786104000000
+      },
+      "signature": "0a6dd1d3a85381d0105855ce521645bbb262c6c15724860e96d7948caf070a38f25a199752ed1d78ce851331fc80f06cb3da67bc8d968627281289fd0a263606",
+      "fingerprint": "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+      "receivedAt": 1786104001000,
+      "proof": "https://registry.test/proof/ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff"
+    },
+    {
+      "message": {
+        "type": "statement",
+        "statementId": "S-2",
+        "periodFrom": "2026-08-01",
+        "periodTo": "2026-08-31",
+        "basis": "sales",
+        "quantity": "160",
+        "currency": "USD",
+        "amountOwed": "80.00",
+        "from": "licensee",
+        "at": 1788350400000
+      },
+      "signature": "9b3e067535492fcc002ae09abd5f039c10d0ba5d99184f54e1b73b84d2b8c379e77d95ff084191ef01b86f5edb9a3b85c626782415895c6dd76040abd76b8203",
+      "fingerprint": "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+      "receivedAt": 1788350401000,
+      "proof": "https://registry.test/proof/ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff"
+    },
+    {
+      "message": {
+        "type": "reply",
+        "statementId": "S-2",
+        "statementSig": "9b3e067535492fcc002ae09abd5f039c10d0ba5d99184f54e1b73b84d2b8c379e77d95ff084191ef01b86f5edb9a3b85c626782415895c6dd76040abd76b8203",
+        "decision": "accepted",
+        "from": "issuer",
+        "at": 1788436800000
+      },
+      "signature": "ddf0621c5eeac78d368a4207c96f742ac80081a0199fe11d89464c2f2a8e0c3fb4fadd4d4cec607151f7db6122c0597853250b35fbd4c9b4f3aabce585374208",
+      "fingerprint": "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+      "receivedAt": 1788436801000,
+      "proof": "https://registry.test/proof/ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff"
+    },
+    {
+      "message": {
+        "type": "statement",
+        "statementId": "S-3",
+        "periodFrom": "2026-09-01",
+        "periodTo": "2026-09-30",
+        "basis": "sales",
+        "quantity": "10",
+        "currency": "USD",
+        "amountOwed": "5.00",
+        "from": "licensee",
+        "at": 1790942400000
+      },
+      "signature": "ccf2520a4e046415f13a651d94cf638df6c776255ac112c7372c2eb18dd7a5a6af058bbae68e37ba29f146e5ac094dcf878abb1f62d1a3024abcec0d0746ca07",
+      "fingerprint": "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+      "receivedAt": 1790942401000,
+      "proof": "https://registry.test/proof/ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff"
+    },
+    {
+      "message": {
+        "type": "reply",
+        "statementId": "S-3",
+        "statementSig": "ccf2520a4e046415f13a651d94cf638df6c776255ac112c7372c2eb18dd7a5a6af058bbae68e37ba29f146e5ac094dcf878abb1f62d1a3024abcec0d0746ca07",
+        "decision": "disputed",
+        "note": "Our count is 40 units.",
+        "from": "issuer",
+        "at": 1791028800000
+      },
+      "signature": "cd00cfb8bd82e067f3f25793956d36479bf5ceb3e691e7819a3e038ee84fd19224432400fa9ba5806891e04e8eff97c9cb327ade538fc63c33f6da65431fdd01",
+      "fingerprint": "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+      "receivedAt": 1791028801000,
+      "proof": "https://registry.test/proof/ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff"
+    }
+  ]
+}

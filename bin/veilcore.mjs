@@ -33,6 +33,7 @@ import {
   contestedStatus,
   computeRecordFingerprint, computeAnimalRecordFingerprint, ANIMAL_INDIVIDUAL_PROFILE,
   computeStrainRecordFingerprint, STRAIN_PROFILE,
+  checkDealRecord, DEAL_RECORD_FORMAT,
 } from 'veilcore-records';
 import { mkdir } from 'node:fs/promises';
 import { join } from 'node:path';
@@ -373,6 +374,53 @@ async function backup(path, rest) {
   process.exit(failed ? NO : OK);
 }
 
+// A deal's signed messages: from a deal-record file, or every deal in a backup.
+async function deal(path) {
+  let file = await load(path);
+  if (file?.format === 'veilcore-backup' && file.locked) file = await unlock(file);
+  const records =
+    file?.v === DEAL_RECORD_FORMAT ? [file]
+    : file?.format === 'veilcore-backup' ? (Array.isArray(file.dealRecords) ? file.dealRecords : [])
+    : die(`${path} is neither a deal record nor a VeilCore backup file`);
+  if (records.length === 0) {
+    out();
+    out('  This backup holds no deal records: it was saved before 23 October 2026, or this');
+    out('  side has no license deals. Save a new backup from the app to carry them.');
+    out();
+    process.exit(NO);
+  }
+  let failed = 0;
+  for (const r of records) {
+    const c = await checkDealRecord(r);
+    out();
+    out(`License ${c.license?.commitment ?? '(unnamed)'}`);
+    for (const p of c.problems) { failed++; say('PROBLEM', p); }
+    say('messages', `${c.verified} of ${c.messages} signed by the side they name`);
+    for (const x of c.rejected) { failed++; say(`  #${x.index} ${x.type}`, `DOES NOT COUNT: ${x.reason}`); }
+    if (c.statements.length) out();
+    for (const s of c.statements) {
+      const state =
+        s.settled ? `settled: paid ${s.paid.paidOn} by ${s.paid.method}, ref ${s.paid.reference}`
+        : s.paid ? 'licensee says paid; licensor has not confirmed'
+        : s.reply === 'accepted' ? 'accepted, not paid'
+        : s.reply === 'disputed' ? 'disputed'
+        : 'not answered';
+      say(`${s.periodFrom}..${s.periodTo}`, `${s.amountOwed} ${s.currency}  ${state}`);
+      for (const n of s.notes) say('', n);
+    }
+    out();
+    const sums = (o) => Object.entries(o).map(([cur, v]) => `${v} ${cur}`).join(', ') || 'none';
+    say('settled (both signed)', sums(c.settled));
+    say('accepted, not settled', sums(c.open));
+  }
+  out();
+  out('Signatures show which of the deal\'s two keys said what, and that nothing changed since.');
+  out('They do not show who holds the keys: one person can make both. Confirm with the');
+  out('licensee that the licensee key is theirs before relying on this history.');
+  out();
+  process.exit(failed ? NO : OK);
+}
+
 // ---------------------------------------------------------------------------
 
 const usage = () => {
@@ -394,6 +442,10 @@ veilcore — check a VeilCore record without writing any code
   veilcore backup <file> [--out <folder>]  open a VeilCore backup file (asks
                                            for its password if it has one) and
                                            check every record in it
+  veilcore deal <file>                     check a license deal's signed
+                                           messages (a deal record, or every
+                                           deal in a backup) and total what
+                                           both sides signed as paid
 
 Exit status is 0 when the answer is yes, 1 when it is no, 2 when the command
 could not be run.
@@ -411,6 +463,7 @@ switch (cmd) {
   case 'canonical': await canonical(args[0]); break;
   case 'inclusion': await inclusion(args[0]); break;
   case 'backup':    await backup(args[0], args.slice(1)); break;
+  case 'deal':      await deal(args[0]); break;
   case '--help': case '-h': case 'help': case undefined: usage(); break;
   default: die(`unknown command "${cmd}" — try veilcore --help`);
 }

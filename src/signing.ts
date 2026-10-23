@@ -130,6 +130,21 @@ export const signAttestation = async (
  * belongs to a real laboratory — that is what a trust registry is for, and no amount of
  * cryptography substitutes for it.
  */
+/**
+ * Strict Ed25519 over UTF-8 text: a 32-byte public key and a 64-byte signature as lowercase
+ * hex, small-order and non-canonical keys refused. False for anything malformed, never an
+ * exception. What the other checks here use, for formats that sign their own payloads
+ * (deal records, deal-record.ts).
+ */
+export const verifyEd25519 = async (text: string, signatureHex: unknown, publicKeyHex: unknown): Promise<boolean> => {
+  try {
+    const key = await importPublic(publicKeyHex);
+    return await subtle().verify('Ed25519', key, signatureBytes(signatureHex), bytes(text));
+  } catch {
+    return false;
+  }
+};
+
 export const verifyAttestation = async (a: SignedAttestation): Promise<boolean> => {
   // A verifier: anything malformed (null, a missing attester, a signature that is not 128
   // lowercase hex, an algorithm other than ed25519) is false, never an exception.

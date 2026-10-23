@@ -110,6 +110,17 @@ transaction dates its batch) and, with `--out`, writes each record's files to a 
 asks for the password if the file has one, and never prints a key. It's how a holder shows
 their records if VeilCore's site and registry are gone.
 
+### Show a royalty history someone else can check
+
+```
+npx veilcore-records deal "VeilCore backup 2026-10-23.json"
+```
+
+Checks every signed message of each license deal in a backup (or one deal record from the
+app's "Download the deal's record") and totals what both sides signed as paid and received:
+the payer's own signatures, not the payee's spreadsheet. It also says what it can't show:
+who holds the keys. Confirm with the licensee before relying on it (SPEC 11.10).
+
 From code:
 
 ```js

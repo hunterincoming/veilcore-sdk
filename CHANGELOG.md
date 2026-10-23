@@ -2,6 +2,14 @@
 
 Versions before 0.16.0 are described in their commit messages and on npm.
 
+## Unreleased
+
+- **Deal records (SPEC 11.10, a draft).** `checkDealRecord` and `veilcore deal <file>`: checks
+  every signature in a license deal's record (or every deal in a backup), refuses messages from
+  the wrong side, and totals what both sides signed as paid and received. Built for showing a
+  royalty history to someone else, such as a lender. Says plainly what it cannot show: who
+  holds the keys. `verifyEd25519`: the strict Ed25519 check the other verifiers use.
+
 ## 0.17.1
 
 - Same code as 0.17.0, which was tagged but never reached npm. Releases are now staged on npm

@@ -24,3 +24,4 @@ export * from './animal-profile.js';
 export * from './strain-profile.js';
 export * from './evidence.js';
 export * from './rfc3161.js';
+export * from './deal-record.js';

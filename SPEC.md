@@ -786,6 +786,23 @@ A challenge carries: `challengeId`, `subjectCommitment`, `claimCommitment`, `gro
 
 **Vectors.** `strain-v1.json` gives records under this profile and fields that shall be refused. It is checked by the VeilCore web application, the VeilCore registry, and the TypeScript and Python implementations here; the Rust implementation computes the fingerprints and leaves the profile's refusals out (`--without-strain-profile`). Like the other profiles' vectors, it is outside the 100 record-format vectors of section 10.
 
+
+## 11.10 - Deal records (draft)
+
+A deal record is the signed messages of one license deal, as either side keeps them. It lets a third party (a buyer, a court, a lender) read a royalty history that the payer signed, rather than one the payee typed.
+
+**Shape.** A JSON object: `v` is `veilcore/deal-record/v1`; `keys.issuer` and `keys.licensee` are the deal's two Ed25519 public keys, 32 bytes as lowercase hex; `license` names the license commitment and the issuing record; `messages` is a list of `{ message, signature }`, and may carry other fields a reader ignores. Each `message` has `type`, `from` (`issuer` or `licensee`) and `at` (milliseconds since 1970, signed), plus the fields of its type.
+
+**Signatures.** A message's `signature` is 64 bytes, lowercase hex: Ed25519 (RFC 8032) by the key of the side named in `from`, over the UTF-8 bytes of `veilcore/deal-message/v1` followed by a newline (0x0A), followed by the canonical form of the message (section 4.1). A verifier shall refuse a small-order or non-canonically encoded public key (section 7).
+
+**Who sends what.** A message counts only when its signature verifies and it comes from the side that may send its type: the issuer sends `terms`, `payout`, `reply`, `received` and `credential`; the licensee sends `agree`, `plant-record`, `statement` and `paid`. A `reply`, `paid` or `received` names its statement by the statement's own signature (`statementSig`), and counts only if that statement is in the record and counts. The first `reply`, `paid` and `received` for a statement stand; later ones are noted and ignored. Amounts are decimal strings and compare as numbers ("10" equals "10.00").
+
+**Settled.** A statement is settled when the licensee signed `paid` and the issuer signed `received` for the same amount in the same currency. Only settled amounts are totalled as paid.
+
+**What it does not establish.** That the two keys belong to two different people: anyone can make both and sign a whole deal with themselves. A reader relying on the history should confirm with the licensee that the licensee key is theirs. It does not establish that money moved, except as both sides' signed statements; a payment made on a public chain can also be checked there.
+
+**Reference.** `checkDealRecord` and `veilcore deal <file>` in this package. `test/fixtures/deal-record-app.json` was made by the VeilCore web application's own code and is the cross-check for other implementations.
+
 ---
 
 ## 12 - What is not yet specified
