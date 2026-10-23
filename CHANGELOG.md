@@ -2,7 +2,7 @@
 
 Versions before 0.16.0 are described in their commit messages and on npm.
 
-## Unreleased
+## 0.18.0
 
 - **Deal records (SPEC 11.10, a draft).** `checkDealRecord` and `veilcore deal <file>`: checks
   every signature in a license deal's record (or every deal in a backup), refuses messages from
