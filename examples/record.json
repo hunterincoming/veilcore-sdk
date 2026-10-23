@@ -1,0 +1,30 @@
+{
+  "formatVersion": "0.1",
+  "recordId": "vc_rec_example_01",
+  "subjectType": "plant-genetic-material",
+  "profile": "veilcore/profile/plant-variety/v1",
+  "commitment": "b14a81acd4bcb71e3931999e18b79f4945295d57c44f06ecc069482a98abb8e3",
+  "commitmentAlgorithm": "sha256/canonical-json/v1",
+  "anchor": {
+    "chain": "midnight",
+    "network": "undeployed"
+  },
+  "sealedAt": "2026-10-23T09:00:00Z",
+  "holder": {
+    "id": "vc_hld_example"
+  },
+  "parents": [],
+  "attestations": [],
+  "subject": {
+    "name": "Harbour Mist (example)",
+    "originator": "Example Breeder (test data)",
+    "taxon": "Lactuca sativa",
+    "claimedCreationDate": "2026-03-01"
+  },
+  "profileData": {
+    "propagationType": "seed",
+    "breedingMethod": "cross",
+    "notes": "Example record for the README. Not a real variety.",
+    "nonce": "5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e5e"
+  }
+}

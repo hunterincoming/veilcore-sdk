@@ -7,7 +7,57 @@ An open format for dated records of plant and animal genetic material. A record'
 is plain SHA-256 over a canonical serialisation, so anyone can check that a record is
 unaltered: in any language, offline, with nothing from us. No account, no service, no fee.
 
-    npx veilcore-records verify record.json     # exit 0: it holds; 1: it doesn't
+```mermaid
+flowchart LR
+  A["Breeder's device<br/>writes the record"] -->|"SHA-256 over<br/>canonical JSON"| B["Fingerprint<br/>(32 bytes)"]
+  B -->|"batched with others"| C["Anchored on a ledger<br/>(VeilCore uses Midnight)"]
+  A -. "record stays private,<br/>shown only to who it chooses" .-> D["Examiner, buyer, court"]
+  C -->|"date"| D
+  D -->|"recompute the fingerprint,<br/>offline, any language"| E{"Same?"}
+```
+
+## Try it in 30 seconds
+
+Node 20 or later. Download the example record and check it:
+
+```bash
+curl -sO https://raw.githubusercontent.com/hunterincoming/veilcore-sdk/main/examples/record.json
+npx veilcore-records verify record.json
+```
+
+```
+vc_rec_example_01
+
+  commitment             holds
+                         b14a81acd4bcb71e3931999e18b79f4945295d57c44f06ecc069482a98abb8e3
+
+  attestations           none
+
+  Nobody outside the holder has vouched for this record. That is not a
+  fault, but it means the contents rest on the holder's own assertion.
+
+  anchors                none
+  dating                 This record states no anchor that could be checked. Its date rests on whoever holds it, not on anything independent.
+
+Verified.
+```
+
+Now edit the variety's name in `record.json` (say `"Harbour Mist (example)"` to `"Harbour Mist (edited)"`) and run it again:
+
+```
+vc_rec_example_01
+
+  commitment             DOES NOT HOLD
+  reason                 commitment does not match contents
+  recorded               b14a81acd4bcb71e3931999e18b79f4945295d57c44f06ecc069482a98abb8e3
+  computed               f1ba7c0d4da55a7f73fd8b35da2b1aff822f898d6d20a7e4295ce5bd77405d03
+  ...
+FAILED.
+```
+
+Exit status is 0 when it holds and 1 when it doesn't, so it drops into a script. The example
+isn't anchored, so the output says its date rests on the holder: dating is the separate step
+in the diagram, and a record that names an RFC 3161 timestamp has it checked offline too.
 
 - **151 conformance vectors**, including inputs an implementation must refuse: 121 for the
   record format, the report pairing (SPEC 3.7) and records that name their own key
@@ -40,11 +90,9 @@ without handing over the underlying data.
 npx veilcore-records verify record.json
 ```
 
-From a clone of this repository, `node bin/veilcore.mjs verify record.json` does the same.
-
 It reports whether the commitment holds, what the attestations establish, and what the
-anchor does and does not date. Exit status is 0 when the answer is yes, 1 when it is no.
-`seal`, `diff`, `canonical` and `inclusion` are the other commands.
+anchor does and does not date. `seal`, `diff`, `canonical` and `inclusion` are the other
+commands; `npx veilcore-records` lists them. From a clone, `node bin/veilcore.mjs` does the same.
 
 The people who need to check a record are examiners, control officials and analysts.
 Asking them to write a script is asking them not to check.
