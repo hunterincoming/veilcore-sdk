@@ -2,7 +2,7 @@
 
 Versions before 0.16.0 are described in their commit messages and on npm.
 
-## 0.17.0 (unreleased)
+## 0.17.0
 
 - **`veilcore backup <file> [--out <folder>]`.** Opens a VeilCore web app backup file and
   checks every record in it with nothing from VeilCore: recomputes each record's fingerprint

@@ -1,0 +1,22 @@
+# Publish veilcore-records to npm from CI, with provenance (RELEASING.md): npm trusted
+# publishing, no long-lived npm token anywhere. Runs only when a version tag (v*) is pushed.
+# prepublishOnly runs the full gate (build, tests, every vector in TypeScript and Python,
+# the pack check) before anything is uploaded.
+name: publish
+on: { push: { tags: ['v*'] } }
+permissions: {}
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    permissions: { contents: read, id-token: write }
+    steps:
+      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
+        with: { persist-credentials: false }
+      - uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6.4.0
+        with: { node-version: "24.11.1", registry-url: "https://registry.npmjs.org" }
+      - name: The tag is the package version
+        run: test "v$(node -p 'require("./package.json").version')" = "$GITHUB_REF_NAME"
+      - name: npm new enough for trusted publishing (11.5.1 or later)
+        run: node -e 'const [a,b,c]=process.argv[1].split(".").map(Number); process.exit(a>11||(a===11&&(b>5||(b===5&&c>=1)))?0:1)' "$(npm --version)"
+      - run: npm ci
+      - run: npm publish --provenance --access public
