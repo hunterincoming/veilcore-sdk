@@ -49,6 +49,8 @@ export type DealRecordCheck = {
   verified: number;
   /** Messages that don't count, and why. */
   rejected: { index: number; type: string; reason: string }[];
+  /** Signed and verified, but of a kind this version doesn't read. */
+  unread: { index: number; type: string }[];
   statements: DealStatementLine[];
   /** Per currency, what both sides signed as paid and received. */
   settled: Record<string, string>;
@@ -98,6 +100,10 @@ const SENDER: Record<string, Side | 'either'> = {
   paid: 'licensee',
   received: 'issuer',
   credential: 'issuer',
+  // Handing a license on (the web app's hand-on.ts): the holder asks, the licensor names the
+  // new holder's commitment.
+  'handon-ask': 'licensee',
+  handon: 'issuer',
 };
 
 /**
@@ -111,6 +117,7 @@ export const checkDealRecord = async (record: unknown): Promise<DealRecordCheck>
     messages: 0,
     verified: 0,
     rejected: [],
+    unread: [],
     statements: [],
     settled: {},
     open: {},
@@ -124,6 +131,7 @@ export const checkDealRecord = async (record: unknown): Promise<DealRecordCheck>
     messages: 0,
     verified: 0,
     rejected: [],
+    unread: [],
     statements: [],
     settled: {},
     open: {},
@@ -159,7 +167,9 @@ export const checkDealRecord = async (record: unknown): Promise<DealRecordCheck>
     out.verified++;
     const sender = SENDER[type];
     if (!sender) {
-      reject('unknown message type');
+      // Signed and verified, but a kind this version doesn't read: noted, not a failure, so a
+      // newer app's record still checks with an older tool.
+      out.unread.push({ index, type });
       continue;
     }
     if (sender !== 'either' && sender !== m.from) {

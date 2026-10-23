@@ -397,6 +397,7 @@ async function deal(path) {
     for (const p of c.problems) { failed++; say('PROBLEM', p); }
     say('messages', `${c.verified} of ${c.messages} signed by the side they name`);
     for (const x of c.rejected) { failed++; say(`  #${x.index} ${x.type}`, `DOES NOT COUNT: ${x.reason}`); }
+    for (const x of c.unread) say(`  #${x.index} ${x.type}`, 'signed, but a kind this version does not read');
     if (c.statements.length) out();
     for (const s of c.statements) {
       const state =

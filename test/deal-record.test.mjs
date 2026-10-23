@@ -166,3 +166,17 @@ test('veilcore deal: a record file, and the deals inside a backup', async () => 
   await writeFile(empty, JSON.stringify({ format: 'veilcore-backup', version: 3 }));
   assert.equal((await run(['deal', empty])).code, 1);
 });
+
+test('hand-on messages count from the right side; an unknown kind is unread, not a failure', async () => {
+  const I = await party(), L = await party();
+  const r = await recordOf(I, L, [
+    [L, { type: 'handon-ask', to: 'Second Grower', from: 'licensee', at: at('2026-10-01') }],
+    [I, { type: 'handon', newLicense: 'ab'.repeat(32), to: 'Second Grower', from: 'issuer', at: at('2026-10-02') }],
+    [L, { type: 'handon', newLicense: 'cd'.repeat(32), to: 'Mallory', from: 'licensee', at: at('2026-10-03') }],
+    [I, { type: 'something-newer', from: 'issuer', at: at('2026-10-04') }],
+  ]);
+  const c = await checkDealRecord(r);
+  assert.equal(c.verified, 4);
+  assert.deepEqual(c.rejected.map((x) => [x.type, /comes from the issuer/.test(x.reason)]), [['handon', true]]);
+  assert.deepEqual(c.unread, [{ index: 3, type: 'something-newer' }]);
+});
