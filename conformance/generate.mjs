@@ -285,7 +285,7 @@ const fieldRejectionCases = [
 
 // A report paired with a ledger identity (SPEC 3.7). Not part of the record format: the
 // value a ledger pairing publishes. The inputs are those of the same binding's vector in
-// veilcore-midnight-testnet's contract/vectors/v1.json (report hash s2, identity
+// the veilcore repository's contract/vectors/v1.json (report hash s2, identity
 // commit(s1), salt s3), so the two vector sets give the same answer.
 const pairingCases = [
   {
