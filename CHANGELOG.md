@@ -5,7 +5,8 @@ Versions before 0.16.0 are described in their commit messages and on npm.
 ## 0.18.1
 
 - **Deal records:** `handon` and `handon-ask` (handing a license on to a new holder, with the
-  licensor's approval) are read and checked for the right sender. A signed message of a kind
+  licensor's approval) and `handon-off` (the licensor calling one off) are read and checked
+  for the right sender. A signed message of a kind
   this version doesn't know is reported as unread, not as a failure, so newer records still
   check with an older tool.
 

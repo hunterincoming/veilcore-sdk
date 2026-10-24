@@ -101,9 +101,10 @@ const SENDER: Record<string, Side | 'either'> = {
   received: 'issuer',
   credential: 'issuer',
   // Handing a license on (the web app's hand-on.ts): the holder asks, the licensor names the
-  // new holder's commitment.
+  // new holder's commitment, or calls that off.
   'handon-ask': 'licensee',
   handon: 'issuer',
+  'handon-off': 'issuer',
 };
 
 /**
