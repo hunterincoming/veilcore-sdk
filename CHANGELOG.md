@@ -2,7 +2,7 @@
 
 Versions before 0.16.0 are described in their commit messages and on npm.
 
-## Unreleased
+## 0.18.1
 
 - **Deal records:** `handon` and `handon-ask` (handing a license on to a new holder, with the
   licensor's approval) are read and checked for the right sender. A signed message of a kind
