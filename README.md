@@ -300,4 +300,8 @@ Published for comment. The specification is stable enough to implement against a
 specific correction is more useful than general agreement — section 13 says where review
 is most needed.
 
+**[How the format changes](GOVERNANCE.md)**: a record that verifies today keeps verifying;
+what counts as a breaking change and how one is decided; and what has to be true before
+the format is called 1.0.
+
 Apache-2.0
