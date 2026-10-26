@@ -34,7 +34,7 @@ A breaking change goes through, in order:
 
 1. An issue on this repository that states the problem before any solution.
 2. At least 30 days open for comment, announced in the README.
-3. Test vectors for the new behaviour, including what an implementation must refuse.
+3. Test vectors for the new behavior, including what an implementation must refuse.
 4. Two implementations passing them.
 5. A release that reads both the old and the new version.
 
@@ -50,8 +50,8 @@ Security problems go privately, as [SECURITY.md](SECURITY.md) says.
 ## Who decides
 
 Today, the authors of the specification (VeilCore's founders) decide, on the issue, in public,
-with the reason written down. Every decision that changes the format is in
-[CHANGELOG.md](CHANGELOG.md).
+with the reason written down. Every change to the format is listed in
+[CHANGELOG.md](CHANGELOG.md), from 0.16.0 on; earlier ones are in the commit history.
 
 The comments that carry most weight are from people who have implemented the format and pass
 the vectors, because they find what a reader of the text alone can't.
