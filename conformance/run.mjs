@@ -277,6 +277,36 @@ if (strainCount) {
   }
 }
 
+// Document records (SPEC 11.11, draft): the profile's form, and fingerprints computed exactly as
+// any record's. A record is checked through computeDocumentRecordFingerprint, which refuses
+// fields not in the profile's form; a refusal vector must be refused by it.
+const documentCount = (vectors.documentRecords?.length ?? 0) + (vectors.documentRefusals?.length ?? 0);
+if (documentCount) {
+  console.log('\nDocument records');
+  if (typeof impl.computeDocumentRecordFingerprint !== 'function') {
+    console.error('  implementation does not export computeDocumentRecordFingerprint()');
+    fail += documentCount;
+    failures.push({ section: 'document', name: 'computeDocumentRecordFingerprint not exposed by this implementation', expected: 'a function', actual: 'nothing' });
+  } else {
+    for (const v of vectors.documentRecords ?? []) {
+      let actual;
+      try {
+        const r = await impl.computeDocumentRecordFingerprint(v.fields);
+        actual = JSON.stringify([impl.canonicalise(v.fields), r.algorithm, r.contentHash, r.fingerprint]);
+      } catch (e) { actual = `threw: ${e.message}`; }
+      const expected = JSON.stringify([v.canonical, v.algorithm, v.contentHash, v.fingerprint]);
+      check('documentRecords', v.name, expected, actual);
+      console.log(`  ${expected === actual ? 'PASS' : 'FAIL'}  ${v.name}`);
+    }
+    for (const v of vectors.documentRefusals ?? []) {
+      let actual = 'accepted';
+      try { await impl.computeDocumentRecordFingerprint(v.fields); } catch { actual = 'refused'; }
+      check('documentRefusals', v.name, 'refused', actual);
+      console.log(`  ${actual === 'refused' ? 'PASS' : 'FAIL'}  refuses: ${v.name}`);
+    }
+  }
+}
+
 console.log(`\n${pass} passed, ${fail} failed`);
 
 if (fail > 0) {

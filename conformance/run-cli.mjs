@@ -26,6 +26,9 @@
 //          out: as recordFingerprint, or a refusal for fields not in the profile's form
 //          (SPEC 11.8, draft). An implementation that doesn't check the animal profile is
 //          run with --without-animal-profile, and the result says those refusals were not run.
+//   in:  {"op":"documentFingerprint","input":{...a document record's committed fields...}}
+//          out: as recordFingerprint, or refused for fields not in the document profile's form
+//          (SPEC 11.11, draft); --without-document-profile leaves those refusals out, and says so.
 //   in:  {"op":"strainFingerprint","input":{...a strain record's committed fields...}}
 //          out: as recordFingerprint, or refused for fields not in the strain profile's form
 //          (SPEC 11.9, draft); --without-strain-profile leaves those refusals out, and says so.
@@ -334,6 +337,45 @@ if (strainRefusalList.length) {
   } else {
     for (const v of strainRefusalList) {
       const r = await ask('strainFingerprint', v.fields);
+      const ok = r.kind === 'refused';
+      ok ? pass++ : failures.push({ name: v.name, expected: 'refused', actual: r.kind === 'ok' ? `accepted, returned ${JSON.stringify(r.value)}` : `${r.kind} — ${r.why}` });
+      console.log(`  ${ok ? 'PASS' : 'FAIL'}  refuses: ${v.name}`);
+    }
+  }
+}
+
+// Document records (SPEC 11.11, draft). Their fingerprints are computed exactly as any record's,
+// so every implementation answers them with `recordFingerprint`: agreement there shows the
+// profile changed no rule. The profile's own form is checked with `documentFingerprint`, which
+// refuses fields not in the profile's form and otherwise answers as `recordFingerprint`. An
+// implementation that doesn't offer the profile check is asked once with a valid record; if it
+// can't answer, its refusals are never counted as passes (an unknown op looks like a refusal
+// from out here). It fails them, or with --without-document-profile they are left out and the
+// result says so.
+console.log('\nDocument records');
+const withoutDocument = process.argv.includes('--without-document-profile');
+for (const v of vectors.documentRecords ?? []) {
+  const c = await ask('canonicalise', v.fields);
+  const r = await ask('recordFingerprint', v.fields);
+  const expected = [v.canonical, v.algorithm, v.contentHash, v.fingerprint];
+  const ok = c.kind === 'ok' && c.value === v.canonical && r.kind === 'ok' && r.value !== null && typeof r.value === 'object' &&
+    same([c.value, r.value.algorithm, r.value.contentHash, r.value.fingerprint], expected);
+  ok ? pass++ : failures.push({ name: v.name, expected: JSON.stringify(expected), actual: `canonical: ${outcome(c)}; fingerprint: ${outcome(r)}` });
+  console.log(`  ${ok ? 'PASS' : 'FAIL'}  ${v.name}`);
+}
+const documentRefusalList = vectors.documentRefusals ?? [];
+if (documentRefusalList.length) {
+  const documentProbe = vectors.documentRecords?.[0];
+  const dp = documentProbe ? await ask('documentFingerprint', documentProbe.fields) : { kind: 'broken', why: 'no document record to ask with' };
+  const documentOffers = dp.kind === 'ok' && dp.value !== null && typeof dp.value === 'object' && dp.value.fingerprint === documentProbe.fingerprint;
+  if (!documentOffers && withoutDocument) {
+    console.log(`  NOT RUN  ${documentRefusalList.length} document-profile refusals: this implementation does not check the profile (--without-document-profile)`);
+  } else if (!documentOffers) {
+    for (const v of documentRefusalList) failures.push({ name: `refuses: ${v.name}`, expected: 'refused by documentFingerprint', actual: `the op is not answered for a valid record (${outcome(dp)})` });
+    console.log(`  FAIL  ${documentRefusalList.length} document-profile refusals: op documentFingerprint is not answered for a valid record (${outcome(dp)}). Use --without-document-profile to leave them out and say so.`);
+  } else {
+    for (const v of documentRefusalList) {
+      const r = await ask('documentFingerprint', v.fields);
       const ok = r.kind === 'refused';
       ok ? pass++ : failures.push({ name: v.name, expected: 'refused', actual: r.kind === 'ok' ? `accepted, returned ${JSON.stringify(r.value)}` : `${r.kind} — ${r.why}` });
       console.log(`  ${ok ? 'PASS' : 'FAIL'}  refuses: ${v.name}`);

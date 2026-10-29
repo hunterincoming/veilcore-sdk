@@ -200,6 +200,9 @@ computes the fingerprints and doesn't check the profile; run it with
 Thirty more do the same for the strain and line profile (SPEC 11.9, a draft: microbial
 strains, cell lines, insect lines): `computeStrainRecordFingerprint` and `strainProblems`
 here, `strain_record_fingerprint` in Python, `--without-strain-profile` for Rust.
+Thirty-two more for the document profile (SPEC 11.11, a draft: a permit, a COA, a contract,
+sealed by each file's SHA-256): `computeDocumentRecordFingerprint` and `documentProblems`
+here, `document_record_fingerprint` in Python, `--without-document-profile` for others.
 
 ```
 npm test

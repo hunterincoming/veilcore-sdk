@@ -16,7 +16,7 @@
 //     veilcore backup <file> [--out dir]   open a VeilCore web app backup file and
 //                                          check every record in it, with nothing
 //                                          from VeilCore: no site, no registry
-//                                          (each record's profile checked: animal, strain)
+//                                          (each record's profile checked: animal, strain, document)
 //
 // Exit status is 0 when the answer is yes, 1 when it is no, 2 when the command
 // could not be run. That is what makes it usable in a script.
@@ -33,6 +33,7 @@ import {
   contestedStatus,
   computeRecordFingerprint, computeAnimalRecordFingerprint, ANIMAL_INDIVIDUAL_PROFILE,
   computeStrainRecordFingerprint, STRAIN_PROFILE,
+  computeDocumentRecordFingerprint, DOCUMENT_PROFILE,
   checkDealRecord, DEAL_RECORD_FORMAT,
 } from 'veilcore-records';
 import { mkdir } from 'node:fs/promises';
@@ -313,13 +314,14 @@ async function backup(path, rest) {
   for (const id of ids) {
     const fields = sealed[id];
     const row = rows.find((r) => r && r.id === id);
-    const name = fields.strainName || fields.name || fields.designation || fields.individualId || '(no name)';
+    const name = fields.strainName || fields.name || fields.title || fields.designation || fields.individualId || '(no name)';
     out(`${id}  ${name}`);
     let fp;
     try {
       const compute =
         fields.profile === ANIMAL_INDIVIDUAL_PROFILE ? computeAnimalRecordFingerprint
         : fields.profile === STRAIN_PROFILE ? computeStrainRecordFingerprint
+        : fields.profile === DOCUMENT_PROFILE ? computeDocumentRecordFingerprint
         : computeRecordFingerprint;
       fp = (await compute(fields)).fingerprint;
     } catch (e) {

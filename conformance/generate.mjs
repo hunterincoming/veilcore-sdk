@@ -318,6 +318,8 @@ const out = {
   animalRefusals: [],
   strainRecords: [],
   strainRefusals: [],
+  documentRecords: [],
+  documentRefusals: [],
 };
 
 for (const c of canonicalCases) {
@@ -440,6 +442,11 @@ out.animalRefusals = animal.refusals;
 const strain = JSON.parse(readFileSync(new URL('./strain-v1.json', import.meta.url), 'utf8'));
 out.strainRecords = strain.records;
 out.strainRefusals = strain.refusals;
+// Document records (SPEC 11.11, draft), copied byte for byte from the web application's
+// contract/vectors/document-v1.json (its contract/scripts/document-vectors.mjs).
+const documentV = JSON.parse(readFileSync(new URL('./document-v1.json', import.meta.url), 'utf8'));
+out.documentRecords = documentV.records;
+out.documentRefusals = documentV.refusals;
 
 // Built before the shrink check below, which otherwise saw an empty attestations section
 // and refused every run.
@@ -477,7 +484,7 @@ console.log(
   `${out.inclusion.length} inclusion, ${out.rejections.length} rejection, ${out.attestations.length} attestation, ` +
   `${out.fieldSets.length} field-set, ${out.fieldRejections.length} field-rejection, ${out.commitmentRejections.length} commitment-rejection, ` +
   `${out.pairings.length} pairing, ${out.keyBoundKeys.length + out.keyBoundRecords.length + out.keyBoundChecks.length + out.keyBoundRefusals.length} key-bound, ` +
-  `${out.animalRecords.length + out.animalRefusals.length} animal-record ` +
-  `and ${out.strainRecords.length + out.strainRefusals.length} strain-record vectors`
+  `${out.animalRecords.length + out.animalRefusals.length} animal-record, ` +
+  `${out.strainRecords.length + out.strainRefusals.length} strain-record and ${out.documentRecords.length + out.documentRefusals.length} document-record vectors`
 );
 

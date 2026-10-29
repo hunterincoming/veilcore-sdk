@@ -2,6 +2,17 @@
 
 Versions before 0.16.0 are described in their commit messages and on npm.
 
+## Unreleased
+
+- **Document records (SPEC 11.11, a draft).** `computeDocumentRecordFingerprint`,
+  `documentProblems` and `isDocumentRecord`; `document_record_fingerprint` in Python; 32
+  vectors (`conformance/document-v1.json`, from the web application) with
+  `--without-document-profile` for implementations that don't check the profile. A document is
+  sealed by each file's SHA-256, name and size; the file never is. `veilcore backup` checks a
+  document record's form.
+- **SPEC 11.8 and 11.9:** agreements are now offered for animal and strain records, each with
+  terms of its own (`subject` in the terms).
+
 ## 0.18.1
 
 - **Deal records:** `handon` and `handon-ask` (handing a license on to a new holder, with the

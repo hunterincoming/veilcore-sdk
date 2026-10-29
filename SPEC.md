@@ -735,7 +735,9 @@ A challenge carries: `challengeId`, `subjectCommitment`, `claimCommitment`, `gro
 
 **What an animal record is offered.** Everything that does not depend on the subject being a plant: the dated record and the key it names (section 3.6.1); a DNA report saved to the record, paired on a ledger (section 3.7) and dated by a record of its own; the sire and dam, linked to their own records where the holder logged them; a laboratory's signed receipt for a sample and its signed report (sections 3.3 and 7); selective disclosure, where the sire and dam are shown under `parent-names` and the individual ID and its scheme under a grant of their own; corrections (section 6).
 
-**What it is not offered, and why.** The claims of section 4.5 are not offered for animal records. This profile defines no field set, and the claim that motivates them, **distinct** ("these two records differ in at least k comparable values"), answers a question about varieties against a threshold an examining body sets. The questions asked of an animal's DNA are identity (is this sample from the animal in the record?) and parentage (are the stated sire and dam compatible with it?). Cattle tests for both commonly use standard STR (microsatellite) panels, and increasingly SNP panels. Either way the answer is a match or an exclusion that a laboratory works out across two or three profiles, not a count of differing slots, so it is attested by the laboratory's signed report rather than proved one value at a time. Agreements, royalties and terms (section 3.5) are not offered for animal records by the VeilCore web application yet.
+**What it is not offered, and why.** The claims of section 4.5 are not offered for animal records. This profile defines no field set, and the claim that motivates them, **distinct** ("these two records differ in at least k comparable values"), answers a question about varieties against a threshold an examining body sets. The questions asked of an animal's DNA are identity (is this sample from the animal in the record?) and parentage (are the stated sire and dam compatible with it?). Cattle tests for both commonly use standard STR (microsatellite) panels, and increasingly SNP panels. Either way the answer is a match or an exclusion that a laboratory works out across two or three profiles, not a count of differing slots, so it is attested by the laboratory's signed report rather than proved one value at a time.
+
+**Agreements (from 29 October 2026).** Agreements, royalties and terms (section 3.5) are offered for animal records, with terms of their own: the rights are breeding with the licensee's own animals; breeding and collecting semen or embryos for their own use; or breeding, collecting and selling semen, embryos or breeding stock; and a royalty is charged per dose, per offspring born or per unit sold. The terms carry `subject: "animal"`, so both parties' tools word them the same way. An offspring royalty rides on animals later logged with the record as sire or dam, both holders confirming (section 3.5).
 
 **Vectors.** `animal-individual-v1.json` gives records under this profile (their fields, canonical bytes, content hash and fingerprint, with and without a key) and fields that shall be refused. It is published with the VeilCore web application and checked there, by the VeilCore registry, and by the TypeScript and Python implementations; the Rust implementation checks the fingerprints. Like the profiles themselves, it is outside the 100 record-format vectors of section 10.
 
@@ -780,7 +782,9 @@ A challenge carries: `challengeId`, `subjectCommitment`, `claimCommitment`, `gro
 
 **What a strain record is offered.** Everything that does not depend on the subject being a plant: the dated record and its key; a DNA report (for a strain, typically a genome sequence or a typing result) saved to the record and dated by a record of its own; parent strains, linked where the holder logged them; a laboratory's signed receipt and report; selective disclosure, where the parent strains are shown with their deposit numbers under `parent-names`; corrections (section 6).
 
-**What it is not offered.** The claims of section 4.5, for the reason given in section 11.8. Agreements, royalties and terms (section 3.5) are not offered for strain records by the VeilCore web application yet: a license for a strain turns on use, subculture and derived strains, not on propagation from a variety, and needs terms of its own.
+**What it is not offered.** The claims of section 4.5, for the reason given in section 11.8.
+
+**Agreements (from 29 October 2026).** A license for a strain turns on use, subculture and derived strains, not on propagation from a variety, so it has terms of its own: use only; use and subculture for the licensee's own production; or use, subculture and making derived strains; with a royalty per production batch or per unit sold, and an optional royalty on derived strains declared from the record. The terms carry `subject: "strain"`.
 
 **What it does not establish.** Everything in section 9.3 holds. A strain record establishes that a description of a strain existed by a date. It is not a deposit: it does not replace a deposit with a recognised depositary, which is what patent procedure in most jurisdictions relies on for a microorganism, and a deposit number in the record is the holder's statement until the depositary confirms it. It does not establish that a culture is viable, pure, or the strain described.
 
@@ -804,6 +808,45 @@ A deal record is the signed messages of one license deal, as either side keeps t
 **Reference.** `checkDealRecord` and `veilcore deal <file>` in this package. `test/fixtures/deal-record-app.json` was made by the VeilCore web application's own code and is the cross-check for other implementations.
 
 ---
+
+## 11.11 - Document records: the document profile (draft)
+
+**Draft, 29 October 2026.** This section defines one profile, `veilcore/profile/document/v1`, published by the authors of this specification, for one document: a permit, a certificate of analysis, a laboratory report, a contract, a protocol, a transport document, an invoice. It is a draft: until this section says version 1 is final, its committed fields may still change under this identifier, and the VeilCore web application offers it on test networks only. Once final, any change to the committed fields is a new profile, `veilcore/profile/document/v2`. The record format version is unchanged.
+
+**What it is for.** Genetics work runs on paperwork, and disputes start there: which certificate was sent, which version of a protocol was in force, which transport document went with which shipment. A document record dates the exact bytes of a file without the file ever being in the record or leaving the holder's device: the record holds each file's SHA-256, name and size. This is the shape of document timestamping (OpenTimestamps and similar); a record adds what any record here has: it is private until the holder shows it, it carries a key (section 3.6.1), and it can name the genetic records the document concerns.
+
+**The fingerprint rules do not change**, exactly as in section 11.8.
+
+**Committed fields.** Exactly these, every one present, none other:
+
+| Field        | What it holds                                                                                                              |
+| ------------ | -------------------------------------------------------------------------------------------------------------------------- |
+| `profile`    | `veilcore/profile/document/v1`                                                                                             |
+| `type`       | One of `permit`, `certificate-of-analysis`, `lab-report`, `contract`, `protocol`, `transport`, `invoice`, `other`          |
+| `title`      | What the holder calls it. Not empty                                                                                        |
+| `issuer`     | Who issued it, as written on it, or empty. The holder's statement                                                          |
+| `reference`  | Its number (a permit, an invoice, a lot), or empty                                                                         |
+| `issued`     | The date written on it, `YYYY-MM-DD`, a real date, or empty. The holder's statement                                       |
+| `files`      | 1 to 20 files, each `{ name, sha256, size }`: a one-line name, not empty; the SHA-256 of its bytes, 64 lowercase hex characters; its size in bytes, a whole number from 0 to 2^53 - 1. No two with the same `sha256` |
+| `about`      | At most 20 records it concerns, each `{ name }` and, when it is a record the holder logged, `recordId`. Not parents         |
+| `holder`     | Who holds and seals it. Not empty                                                                                          |
+| `notes`      | Free text, or empty                                                                                                        |
+| `loggedAt`   | When it was sealed, milliseconds since 1970 by the sealing device's clock, a whole number                                  |
+| `nonce`      | 32 to 64 random bytes, lowercase hex (section 4.3)                                                                         |
+| `keyBinding` | Optional, as in section 3.6.1                                                                                              |
+
+**Canonical form.** As in section 11.8: a value in any other form shall be refused, never tidied. The one-line fields (`title`, `issuer`, `reference`, `holder`, a file's `name`, an `about` entry's `name`) are text of at most 200 characters, with no control character and no white space at either end. `notes` is at most 20,000 characters. An `about` entry with an empty name and no `recordId` shall be refused.
+
+**`about` is not `parents`.** A document descends from nothing. A verifier shall not treat an `about` entry as declared descent (section 3.4), and an obligation on a genetic record (section 3.5) does not ride to a document that names it.
+
+**Checking a file against it.** A SHA-256 the holder merely states is a file's establishes nothing: it could be stated after the date. A verifier therefore checks a file against the record's committed fields themselves: recompute the record's fingerprint from them (sections 3.6.1, 4.4), establish the date of that fingerprint (sections 5 and 7), compute the SHA-256 of the file presented, and accept it only if it equals one of `files[].sha256`. The VeilCore web application carries the committed fields after the `#` of a link (`/check-document#d=`, base64url of `{"v":1,"fields":{...}}`), which a browser does not send to any server; an evidence bundle (section 8) carries them too. Sharing them shows every committed field, including `notes` and the names in `about`; it never shows the file.
+
+**What a document record is offered.** The dated record and its key, the check above, the evidence bundle. **Not offered:** a DNA report, laboratory receipts and reports, agreements, the claims of section 4.5, descent. Those concern genetics; a document points at genetics through `about`.
+
+**What it does not establish.** Everything in section 9.3 holds. A document record establishes that a file with exactly these bytes was in the holder's hands by the record's date. It does not establish that the document is genuine, that the named issuer issued it, or that what it says is true; nor that no other version existed. It does rule out a version made after the date being passed off as the earlier one.
+
+**Vectors.** `document-v1.json` gives records under this profile and fields that shall be refused. It is checked by the VeilCore web application, the VeilCore registry, and the TypeScript and Python implementations here. Like the other profiles' vectors, it is outside the 100 record-format vectors of section 10.
+
 
 ## 12 - What is not yet specified
 
