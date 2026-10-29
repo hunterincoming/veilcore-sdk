@@ -4,6 +4,11 @@ Versions before 0.16.0 are described in their commit messages and on npm.
 
 ## Unreleased
 
+- **Field sets on records that name their key (SPEC 3.6.1).** `computeRecordFingerprint` takes
+  fields with `fieldSchema` and `fieldSetRoot`: the content hash is then the SPEC 4.5
+  commitment, so a claims-contract proof about that commitment is about the record. Eight more
+  key-bound vectors (two records, two checks, four refusals); Python too. The Rust
+  implementation needs the same change before it passes them.
 - **Document records (SPEC 11.11, a draft).** `computeDocumentRecordFingerprint`,
   `documentProblems` and `isDocumentRecord`; `document_record_fingerprint` in Python; 32
   vectors (`conformance/document-v1.json`, from the web application) with

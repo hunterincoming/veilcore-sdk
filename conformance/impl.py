@@ -547,9 +547,16 @@ def record_fingerprint(fields):
         raise ValueError("the committed fields are a JSON object")
     if "keyBinding" in fields and not _is_hex32(fields["keyBinding"]):
         raise ValueError("keyBinding must be 64 lowercase hex characters (spec 3.6.1)")
+    # A field set comes whole, and the content hash is then the 4.5 commitment over it.
+    with_set = "fieldSchema" in fields or "fieldSetRoot" in fields
+    if with_set and not (_is_hex32(fields.get("fieldSchema")) and _is_hex32(fields.get("fieldSetRoot"))):
+        raise ValueError("fieldSchema and fieldSetRoot come together, each 64 lowercase hex characters (spec 4.5)")
     content = hashlib.sha256(canonicalise(fields).encode("utf-8")).hexdigest()
+    if with_set:
+        content = _key_h("veilcore:v1:frecord", ("fieldSetRoot", fields["fieldSetRoot"]), ("jsonDigest", content))
     if "keyBinding" not in fields:
-        return {"algorithm": "sha256/canonical-json/v1", "contentHash": content, "fingerprint": content}
+        algorithm = "sha256/fields/v1" if with_set else "sha256/canonical-json/v1"
+        return {"algorithm": algorithm, "contentHash": content, "fingerprint": content}
     return {
         "algorithm": KEY_BOUND_ALGORITHM,
         "contentHash": content,

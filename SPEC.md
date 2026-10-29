@@ -155,6 +155,12 @@ It reveals nothing about the secret behind the identity. It does link the record
 
 **What a verifier checks.** Given the fingerprint (from a source it trusts for that record, such as the link the holder sent, matched against the registry's answer), an identity, `keySalt` and `contentHash`: recompute `H("veilcore:v1:keyrecord", H("veilcore:v1:keybind", identity, keySalt), contentHash)`. If it differs from the fingerprint, the identity is not the record's and a verifier shall refuse to treat any proof by it as a proof about the record. If it matches, a control proof by that identity is a proof by the key the record named when it was sealed. `contentHash` reveals nothing about the record's content: the content includes the nonce of section 4.3.
 
+**With a field set.** Committed fields that carry a field set (section 4.5: `fieldSchema` and `fieldSetRoot`, both or neither, each 64 lowercase hex characters) take, in place of the plain SHA-256 above,
+
+    contentHash = H("veilcore:v1:frecord", fieldSetRoot, SHA-256 of the canonical serialisation of the committed fields)
+
+which is the commitment of section 4.5, so a claim proved on a ledger about that commitment is a claim about this record. The fingerprint is built around it exactly as above; with no `keyBinding` the fingerprint is that commitment itself, algorithm `sha256/fields/v1`. A verifier holding a claim's commitment and the record's `keyBinding` recomputes `H("veilcore:v1:keyrecord", keyBinding, commitment)` and compares it with the record's fingerprint; `keyBinding` reveals nothing about the key, so it may be published with the fingerprint. Committed fields carrying only one of `fieldSchema` and `fieldSetRoot`, or either in any other form, shall be refused.
+
 **Records sealed without `keyBinding` remain valid** and their fingerprints are unchanged. For them the link between an identity and the record stays the holder's statement, and a verifier shall say so. A verifier told by a registry that a record carries a `keyBinding` shall not fall back to that weaker reading when a holder's link leaves `keySalt` and `contentHash` out.
 
 **What it does not establish.** That whoever controls the key now is the person who sealed the record (section 3.6: rotations, recoveries and sales look alike), who that person is, or who bred the subject. And the identity's own anchor dates the key, not the record: a key anchored early can be named by a record sealed later. The record and its key are dated together by the record's fingerprint's own anchor (section 5).
