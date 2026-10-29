@@ -67,7 +67,7 @@ const REQUIRED = [
   'title',
   'type',
 ] as const;
-const ALLOWED = new Set<string>([...REQUIRED, 'keyBinding']);
+const ALLOWED = new Set<string>([...REQUIRED, 'keyBinding', 'fieldSchema', 'fieldSetRoot']);
 const LINES = ['title', 'issuer', 'reference', 'holder'] as const;
 
 const HEX64 = /^[0-9a-f]{64}$/;
@@ -180,6 +180,12 @@ export const validateDocumentFields = (fields: unknown): string[] => {
     out.push('nonce must be 32 to 64 bytes of lowercase hex');
   if (f.keyBinding !== undefined && !(typeof f.keyBinding === 'string' && HEX64.test(f.keyBinding)))
     out.push('keyBinding must be 64 lowercase hex characters');
+  // A field set (SPEC 4.5): its schema id and root come together, or neither is there.
+  if ((f.fieldSchema === undefined) !== (f.fieldSetRoot === undefined))
+    out.push('fieldSchema and fieldSetRoot come together, or neither');
+  for (const k of ['fieldSchema', 'fieldSetRoot'] as const)
+    if (f[k] !== undefined && !(typeof f[k] === 'string' && HEX64.test(f[k])))
+      out.push(`${k} must be 64 lowercase hex characters`);
   return out;
 };
 

@@ -856,7 +856,7 @@ def document_problems(fields):
     if f.get("profile") != DOCUMENT_PROFILE:
         out.append(f"profile must be {DOCUMENT_PROFILE}")
     out += [f"{k} is missing" for k in _DOCUMENT_REQUIRED if k not in f]
-    out += [f"{k} is not a field of this profile" for k in f if k not in _DOCUMENT_REQUIRED and k != "keyBinding"]
+    out += [f"{k} is not a field of this profile" for k in f if k not in _DOCUMENT_REQUIRED and k not in ("keyBinding", "fieldSchema", "fieldSetRoot")]
     for k in _DOCUMENT_LINES:
         if k in f:
             p = _one_line_problem(k, f[k])
@@ -885,6 +885,12 @@ def document_problems(fields):
         out.append("nonce must be 32 to 64 bytes of lowercase hex")
     if "keyBinding" in f and not _is_hex32(f["keyBinding"]):
         out.append("keyBinding must be 64 lowercase hex characters")
+    # A field set (spec 4.5): its schema id and root come together, or neither is there.
+    if ("fieldSchema" in f) != ("fieldSetRoot" in f):
+        out.append("fieldSchema and fieldSetRoot come together, or neither")
+    for k in ("fieldSchema", "fieldSetRoot"):
+        if k in f and not _is_hex32(f[k]):
+            out.append(f"{k} must be 64 lowercase hex characters")
     return out
 
 
