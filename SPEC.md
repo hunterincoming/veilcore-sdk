@@ -2,7 +2,7 @@
 
 **A specification for evidence of prior possession of plant and animal genetic material**
 
-Version 0.1 - August 2026, revised 16 October 2026 (section 3.6.1: a record that names its own key; section 11.8, a draft: animal records; the record format version is unchanged)
+Version 0.1 - August 2026, revised 31 October 2026 (section 3.6.1: a record that names its own key; sections 11.8 and 11.11, final: animal and document records; sections 11.9 and 11.10, drafts: strain and deal records; the record format version is unchanged)
 
 ---
 
@@ -10,7 +10,7 @@ Version 0.1 - August 2026, revised 16 October 2026 (section 3.6.1: a record that
 
 This is a draft specification, published for comment. It describes a record format and a verification procedure. It is not a description of a product.
 
-**The format is open.** Anyone may implement it. There is no license fee, no certification requirement, and no dependency on any company for the format to function. Three implementations - in TypeScript, Python and Rust - pass the same 121 conformance vectors, and the five animal-record fingerprints of section 11.8 (draft); the TypeScript and Python implementations also check that profile's 25 refusals. All three have the same author, so they show the vectors hold across languages, not that a third party can implement the format from this document alone. An implementation by an unrelated party is the test this document most needs. The vectors cover canonicalisation, commitment computation, inclusion proofs, rejections, attestation payloads, field sets and (since October 2026) the report pairing of section 3.7 and records that name their own key (section 3.6.1); corrections and resolution are implemented in the reference implementation and are not yet part of the vector set.
+**The format is open.** Anyone may implement it. There is no license fee, no certification requirement, and no dependency on any company for the format to function. Three implementations - in TypeScript, Python and Rust - pass the same 121 conformance vectors, and the five animal-record fingerprints of section 11.8; the TypeScript and Python implementations also check that profile's 25 refusals. All three have the same author, so they show the vectors hold across languages, not that a third party can implement the format from this document alone. An implementation by an unrelated party is the test this document most needs. The vectors cover canonicalisation, commitment computation, inclusion proofs, rejections, attestation payloads, field sets and (since October 2026) the report pairing of section 3.7 and records that name their own key (section 3.6.1); corrections and resolution are implemented in the reference implementation and are not yet part of the vector set.
 
 **Verification is free and requires no account, permanently.** This is a design constraint rather than a pricing decision: a record whose verification can be withheld is not evidence.
 
@@ -704,9 +704,9 @@ A challenge carries: `challengeId`, `subjectCommitment`, `claimCommitment`, `gro
 
 **Nothing here is adjudicated.** A verifier is told that a record is contested, on what ground, and whether it was answered. Where a matter has been resolved, the resolution records which outside authority ruled and a reference a verifier can check for themselves. A registry that ruled on a contested claim would be substituting its judgement for a court's, and would stop being usable by either party the first time it did so.
 
-## 11.8 - Animal records: the animal-individual profile (draft)
+## 11.8 - Animal records: the animal-individual profile
 
-**This section is a draft, published for comment on 16 October 2026.** It defines one profile, `veilcore/profile/animal-individual/v1`, published by the authors of this specification. A record under it describes one animal, logged by its breeder, its holder or a registry. The record format version is unchanged.
+**Version 1 is final (16 October 2026).** Any change to its committed fields is a new profile, `veilcore/profile/animal-individual/v2`, and records under v1 keep checking exactly as they do. This section defines one profile, `veilcore/profile/animal-individual/v1`, published by the authors of this specification. A record under it describes one animal, logged by its breeder, its holder or a registry. The record format version is unchanged.
 
 **The fingerprint rules do not change.** A record's fingerprint is computed exactly as for any record: SHA-256 of the canonical serialisation (section 4.4) of its committed fields, and, when those fields carry a `keyBinding`, `H("veilcore:v1:keyrecord", keyBinding, contentHash)` (section 3.6.1). The profile says only which fields are committed and in what form. A record sealed under any other profile, or under none, is computed and checked exactly as before.
 
@@ -815,15 +815,15 @@ A deal record is the signed messages of one license deal, as either side keeps t
 
 ---
 
-## 11.11 - Document records: the document profile (draft)
+## 11.11 - Document records: the document profile
 
-**Draft, 29 October 2026.** This section defines one profile, `veilcore/profile/document/v1`, published by the authors of this specification, for one document: a permit, a certificate of analysis, a laboratory report, a contract, a protocol, a transport document, an invoice. It is a draft: until this section says version 1 is final, its committed fields may still change under this identifier, and the VeilCore web application offers it on test networks only. Once final, any change to the committed fields is a new profile, `veilcore/profile/document/v2`. The record format version is unchanged.
+**Version 1 is final (31 October 2026; published as a draft on 29 October).** This section defines one profile, `veilcore/profile/document/v1`, published by the authors of this specification, for one document: a permit, a certificate of analysis, a laboratory report, a contract, a protocol, a transport document, an invoice. Any change to its committed fields is a new profile, `veilcore/profile/document/v2`, and records under v1 keep checking exactly as they do. The record format version is unchanged.
 
 **What it is for.** Genetics work runs on paperwork, and disputes start there: which certificate was sent, which version of a protocol was in force, which transport document went with which shipment. A document record dates the exact bytes of a file without the file ever being in the record or leaving the holder's device: the record holds each file's SHA-256, name and size. This is the shape of document timestamping (OpenTimestamps and similar); a record adds what any record here has: it is private until the holder shows it, it carries a key (section 3.6.1), and it can name the genetic records the document concerns.
 
-**The fingerprint rules do not change**, exactly as in section 11.8.
+**The fingerprint rules do not change**, exactly as in section 11.8. A record that carries a field set takes the commitment of section 4.5 as its content hash (section 3.6.1, "With a field set").
 
-**Committed fields.** Exactly these, every one present, none other:
+**Committed fields.** Exactly these, every one present except the optional ones, none other:
 
 | Field        | What it holds                                                                                                              |
 | ------------ | -------------------------------------------------------------------------------------------------------------------------- |
@@ -840,6 +840,7 @@ A deal record is the signed messages of one license deal, as either side keeps t
 | `loggedAt`   | When it was sealed, milliseconds since 1970 by the sealing device's clock, a whole number                                  |
 | `nonce`      | 32 to 64 random bytes, lowercase hex (section 4.3)                                                                         |
 | `keyBinding` | Optional, as in section 3.6.1                                                                                              |
+| `fieldSchema`, `fieldSetRoot` | Optional, both or neither: a field set of the numbers printed on the document (section 4.5), such as a certificate's results under a published schema |
 
 **Canonical form.** As in section 11.8: a value in any other form shall be refused, never tidied. The one-line fields (`title`, `issuer`, `reference`, `holder`, a file's `name`, an `about` entry's `name`) are text of at most 200 characters, with no control character and no white space at either end. `notes` is at most 20,000 characters. An `about` entry with an empty name and no `recordId` shall be refused.
 
@@ -847,7 +848,7 @@ A deal record is the signed messages of one license deal, as either side keeps t
 
 **Checking a file against it.** A SHA-256 the holder merely states is a file's establishes nothing: it could be stated after the date. A verifier therefore checks a file against the record's committed fields themselves: recompute the record's fingerprint from them (sections 3.6.1, 4.4), establish the date of that fingerprint (sections 5 and 7), compute the SHA-256 of the file presented, and accept it only if it equals one of `files[].sha256`. The VeilCore web application carries the committed fields after the `#` of a link (`/check-document#d=`, base64url of `{"v":1,"fields":{...}}`), which a browser does not send to any server; an evidence bundle (section 8) carries them too. Sharing them shows every committed field, including `notes` and the names in `about`; it never shows the file.
 
-**What a document record is offered.** The dated record and its key, the check above, the evidence bundle. **Not offered:** a DNA report, laboratory receipts and reports, agreements, the claims of section 4.5, descent. Those concern genetics; a document points at genetics through `about`.
+**What a document record is offered.** The dated record and its key, the check above, the evidence bundle, and, when it carries a field set, the claims of section 4.5 about the numbers sealed with it: a certificate's holder can prove that one result is at most or at least a bound, or is a stated value, without showing the others or the certificate. Such a claim proves what the holder sealed, not that a laboratory measured it, unless a laboratory attests the record (section 4.5). **Not offered:** a DNA report, laboratory receipts and reports, agreements, descent. Those concern genetics; a document points at genetics through `about`.
 
 **What it does not establish.** Everything in section 9.3 holds. A document record establishes that a file with exactly these bytes was in the holder's hands by the record's date. It does not establish that the document is genuine, that the named issuer issued it, or that what it says is true; nor that no other version existed. It does rule out a version made after the date being passed off as the earlier one.
 

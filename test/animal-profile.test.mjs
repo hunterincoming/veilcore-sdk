@@ -1,4 +1,4 @@
-// Animal records (SPEC 11.8, draft).
+// Animal records (SPEC 11.8, final).
 //
 // Every animal vector, in both entry points and in the Python implementation; the shared set
 // carries exactly the published animal-individual-v1.json; the profile's form is checked and

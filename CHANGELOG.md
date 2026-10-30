@@ -9,12 +9,16 @@ Versions before 0.16.0 are described in their commit messages and on npm.
   commitment, so a claims-contract proof about that commitment is about the record. Eight more
   key-bound vectors (two records, two checks, four refusals); Python too. The Rust
   implementation needs the same change before it passes them.
-- **Document records (SPEC 11.11, a draft).** `computeDocumentRecordFingerprint`,
-  `documentProblems` and `isDocumentRecord`; `document_record_fingerprint` in Python; 32
+- **Document records (SPEC 11.11, version 1 final on 31 October 2026).** `computeDocumentRecordFingerprint`,
+  `documentProblems` and `isDocumentRecord`; `document_record_fingerprint` in Python; 36
   vectors (`conformance/document-v1.json`, from the web application) with
   `--without-document-profile` for implementations that don't check the profile. A document is
   sealed by each file's SHA-256, name and size; the file never is. `veilcore backup` checks a
   document record's form.
+- **A document record may carry a field set** (`fieldSchema` and `fieldSetRoot`, both or neither):
+  a certificate's numbers, sealed with it so one can be proved later (SPEC 4.5). SPEC 11.11 now
+  lists the two fields and the claims a document is offered.
+- **SPEC 11.8 says version 1 is final**, as decided on 16 October; the heading still said draft.
 - **SPEC 11.8 and 11.9:** agreements are now offered for animal and strain records, each with
   terms of its own (`subject` in the terms).
 

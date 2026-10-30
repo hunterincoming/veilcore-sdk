@@ -573,7 +573,7 @@ def key_matches_record(identity, fingerprint, key_salt, content_hash):
     return key_bound_fingerprint(key_binding_of(identity, key_salt), content_hash) == fingerprint
 
 
-# ---- animal records (spec 11.8, draft) ----------------------------------------------------
+# ---- animal records (spec 11.8, final) ----------------------------------------------------
 
 ANIMAL_PROFILE = "veilcore/profile/animal-individual/v1"
 _ANIMAL_REQUIRED = (
@@ -833,7 +833,7 @@ def strain_record_fingerprint(fields):
     return record_fingerprint(fields)
 
 
-# ---- document records (spec 11.11, draft) -------------------------------------------------
+# ---- document records (spec 11.11, final) -------------------------------------------------
 
 DOCUMENT_PROFILE = "veilcore/profile/document/v1"
 _DOCUMENT_TYPES = (

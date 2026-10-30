@@ -1,4 +1,4 @@
-// Animal records: the animal-individual profile (SPEC 11.8, draft).
+// Animal records: the animal-individual profile (SPEC 11.8, final).
 //
 // A record under `veilcore/profile/animal-individual/v1` describes one animal. Its fingerprint
 // is computed exactly as any record's (computeRecordFingerprint, SPEC 3.6.1 and 4.4): the

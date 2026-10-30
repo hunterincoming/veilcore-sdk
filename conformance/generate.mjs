@@ -427,7 +427,7 @@ out.keyBoundRecords = keyBound.records;
 out.keyBoundChecks = keyBound.checks;
 out.keyBoundRefusals = keyBound.refusals;
 
-// Animal records (SPEC 11.8, draft). Not computed here either: animal-individual-v1.json is a
+// Animal records (SPEC 11.8, final). Not computed here either: animal-individual-v1.json is a
 // byte-for-byte copy of the VeilCore web application's contract/vectors/animal-individual-v1.json,
 // written by its contract/scripts/animal-individual-vectors.mjs with node:crypto and this
 // package's canonicaliser only. Records carry their fields, canonical text, content hash and
@@ -442,7 +442,7 @@ out.animalRefusals = animal.refusals;
 const strain = JSON.parse(readFileSync(new URL('./strain-v1.json', import.meta.url), 'utf8'));
 out.strainRecords = strain.records;
 out.strainRefusals = strain.refusals;
-// Document records (SPEC 11.11, draft), copied byte for byte from the web application's
+// Document records (SPEC 11.11, final), copied byte for byte from the web application's
 // contract/vectors/document-v1.json (its contract/scripts/document-vectors.mjs).
 const documentV = JSON.parse(readFileSync(new URL('./document-v1.json', import.meta.url), 'utf8'));
 out.documentRecords = documentV.records;

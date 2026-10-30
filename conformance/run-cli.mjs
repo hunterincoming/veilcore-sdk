@@ -24,11 +24,11 @@
 //   (key order inside a result object is free for these three)
 //   in:  {"op":"animalFingerprint","input":{...an animal record's committed fields...}}
 //          out: as recordFingerprint, or a refusal for fields not in the profile's form
-//          (SPEC 11.8, draft). An implementation that doesn't check the animal profile is
+//          (SPEC 11.8, final). An implementation that doesn't check the animal profile is
 //          run with --without-animal-profile, and the result says those refusals were not run.
 //   in:  {"op":"documentFingerprint","input":{...a document record's committed fields...}}
 //          out: as recordFingerprint, or refused for fields not in the document profile's form
-//          (SPEC 11.11, draft); --without-document-profile leaves those refusals out, and says so.
+//          (SPEC 11.11, final); --without-document-profile leaves those refusals out, and says so.
 //   in:  {"op":"strainFingerprint","input":{...a strain record's committed fields...}}
 //          out: as recordFingerprint, or refused for fields not in the strain profile's form
 //          (SPEC 11.9, draft); --without-strain-profile leaves those refusals out, and says so.
@@ -266,7 +266,7 @@ for (const v of vectors.keyBoundRefusals ?? []) {
   console.log(`  ${ok ? 'PASS' : 'FAIL'}  refuses: ${v.name}`);
 }
 
-// Animal records (SPEC 11.8, draft). Their fingerprints are computed exactly as any record's,
+// Animal records (SPEC 11.8, final). Their fingerprints are computed exactly as any record's,
 // so every implementation answers them with `recordFingerprint`: agreement there shows the
 // profile changed no rule. The profile's own form is checked with `animalFingerprint`, which
 // refuses fields not in the profile's form and otherwise answers as `recordFingerprint`. An
@@ -344,7 +344,7 @@ if (strainRefusalList.length) {
   }
 }
 
-// Document records (SPEC 11.11, draft). Their fingerprints are computed exactly as any record's,
+// Document records (SPEC 11.11, final). Their fingerprints are computed exactly as any record's,
 // so every implementation answers them with `recordFingerprint`: agreement there shows the
 // profile changed no rule. The profile's own form is checked with `documentFingerprint`, which
 // refuses fields not in the profile's form and otherwise answers as `recordFingerprint`. An

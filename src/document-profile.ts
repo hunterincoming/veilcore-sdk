@@ -1,4 +1,4 @@
-// Document records (SPEC 11.11, draft): a permit, a certificate of analysis, a contract, a
+// Document records (SPEC 11.11, final): a permit, a certificate of analysis, a contract, a
 // protocol, a transport document, sealed by the SHA-256, name and size of each of its files. The
 // file's bytes are never in the record. Ported from the VeilCore web application's
 // document-profile.ts; checked against conformance/document-v1.json, made without either
