@@ -547,9 +547,16 @@ def record_fingerprint(fields):
         raise ValueError("the committed fields are a JSON object")
     if "keyBinding" in fields and not _is_hex32(fields["keyBinding"]):
         raise ValueError("keyBinding must be 64 lowercase hex characters (spec 3.6.1)")
+    # A field set comes whole, and the content hash is then the 4.5 commitment over it.
+    with_set = "fieldSchema" in fields or "fieldSetRoot" in fields
+    if with_set and not (_is_hex32(fields.get("fieldSchema")) and _is_hex32(fields.get("fieldSetRoot"))):
+        raise ValueError("fieldSchema and fieldSetRoot come together, each 64 lowercase hex characters (spec 4.5)")
     content = hashlib.sha256(canonicalise(fields).encode("utf-8")).hexdigest()
+    if with_set:
+        content = _key_h("veilcore:v1:frecord", ("fieldSetRoot", fields["fieldSetRoot"]), ("jsonDigest", content))
     if "keyBinding" not in fields:
-        return {"algorithm": "sha256/canonical-json/v1", "contentHash": content, "fingerprint": content}
+        algorithm = "sha256/fields/v1" if with_set else "sha256/canonical-json/v1"
+        return {"algorithm": algorithm, "contentHash": content, "fingerprint": content}
     return {
         "algorithm": KEY_BOUND_ALGORITHM,
         "contentHash": content,
@@ -566,7 +573,7 @@ def key_matches_record(identity, fingerprint, key_salt, content_hash):
     return key_bound_fingerprint(key_binding_of(identity, key_salt), content_hash) == fingerprint
 
 
-# ---- animal records (spec 11.8, draft) ----------------------------------------------------
+# ---- animal records (spec 11.8, final) ----------------------------------------------------
 
 ANIMAL_PROFILE = "veilcore/profile/animal-individual/v1"
 _ANIMAL_REQUIRED = (
@@ -826,6 +833,133 @@ def strain_record_fingerprint(fields):
     return record_fingerprint(fields)
 
 
+# ---- document records (spec 11.11, final) -------------------------------------------------
+
+DOCUMENT_PROFILE = "veilcore/profile/document/v1"
+_DOCUMENT_TYPES = (
+    "permit", "certificate-of-analysis", "lab-report", "contract", "protocol", "transport",
+    "invoice", "other",
+)
+_DOCUMENT_REQUIRED = (
+    "about", "files", "holder", "issued", "issuer", "loggedAt", "nonce", "notes", "profile",
+    "reference", "title", "type",
+)
+_DOCUMENT_LINES = ("title", "issuer", "reference", "holder")
+
+
+def document_problems(fields):
+    """What is wrong with a document record's committed fields (spec 11.11); [] when nothing is."""
+    if not isinstance(fields, dict):
+        return ["the fields must be an object"]
+    f = fields
+    out = []
+    if f.get("profile") != DOCUMENT_PROFILE:
+        out.append(f"profile must be {DOCUMENT_PROFILE}")
+    out += [f"{k} is missing" for k in _DOCUMENT_REQUIRED if k not in f]
+    out += [f"{k} is not a field of this profile" for k in f if k not in _DOCUMENT_REQUIRED and k not in ("keyBinding", "fieldSchema", "fieldSetRoot")]
+    for k in _DOCUMENT_LINES:
+        if k in f:
+            p = _one_line_problem(k, f[k])
+            if p:
+                out.append(p)
+    if f.get("title") == "":
+        out.append("title must not be empty")
+    if f.get("holder") == "":
+        out.append("holder must not be empty")
+    if "type" in f and f["type"] not in _DOCUMENT_TYPES:
+        out.append("type must be one of " + ", ".join(_DOCUMENT_TYPES))
+    if "files" in f:
+        out += _document_file_problems(f["files"])
+    if "about" in f:
+        out += _document_about_problems(f["about"])
+    if "notes" in f and (not isinstance(f["notes"], str) or len(f["notes"]) > 20000):
+        out.append("notes must be text of at most 20000 characters")
+    if "issued" in f and f["issued"] != "" and not _calendar_date(f["issued"]):
+        out.append("issued must be empty or a date written YYYY-MM-DD")
+    if "loggedAt" in f and not _is_whole(f["loggedAt"]):
+        out.append("loggedAt must be a whole number of milliseconds, 0 or more")
+    nonce = f.get("nonce")
+    if "nonce" in f and not (
+        isinstance(nonce, str) and 64 <= len(nonce) <= 128 and len(nonce) % 2 == 0 and all(c in "0123456789abcdef" for c in nonce)
+    ):
+        out.append("nonce must be 32 to 64 bytes of lowercase hex")
+    if "keyBinding" in f and not _is_hex32(f["keyBinding"]):
+        out.append("keyBinding must be 64 lowercase hex characters")
+    # A field set (spec 4.5): its schema id and root come together, or neither is there.
+    if ("fieldSchema" in f) != ("fieldSetRoot" in f):
+        out.append("fieldSchema and fieldSetRoot come together, or neither")
+    for k in ("fieldSchema", "fieldSetRoot"):
+        if k in f and not _is_hex32(f[k]):
+            out.append(f"{k} must be 64 lowercase hex characters")
+    return out
+
+
+def _document_file_problems(files):
+    if not isinstance(files, list):
+        return ["files must be a list"]
+    if len(files) < 1:
+        return ["a document needs at least one file"]
+    if len(files) > 20:
+        return ["files may list at most 20"]
+    out = []
+    for i, x in enumerate(files):
+        at = f"file {i + 1}"
+        if not isinstance(x, dict):
+            out.append(f"{at} must be an object")
+            continue
+        out += [f"{at}: {k} is not a file field" for k in x if k not in ("name", "sha256", "size")]
+        if "name" not in x:
+            out.append(f"{at}: name is missing")
+        else:
+            p = _one_line_problem(f"{at}: name", x["name"])
+            if p:
+                out.append(p)
+            elif x["name"] == "":
+                out.append(f"{at}: name must not be empty")
+        if not _is_hex32(x.get("sha256")):
+            out.append(f"{at}: sha256 must be 64 lowercase hex characters")
+        if not _is_whole(x.get("size")):
+            out.append(f"{at}: size must be a whole number of bytes, 0 or more")
+    shas = [repr(x.get("sha256")) if isinstance(x, dict) else None for x in files]
+    if len(set(shas)) != len(shas):
+        out.append("each file is listed once (no two with the same SHA-256)")
+    return out
+
+
+def _document_about_problems(about):
+    if not isinstance(about, list):
+        return ["about must be a list"]
+    if len(about) > 20:
+        return ["about may name at most 20 records"]
+    out = []
+    for i, a in enumerate(about):
+        at = f"about {i + 1}"
+        if not isinstance(a, dict):
+            out.append(f"{at} must be an object")
+            continue
+        out += [f"{at}: {k} is not an about field" for k in a if k not in ("name", "recordId")]
+        if "name" not in a:
+            out.append(f"{at}: name is missing")
+        else:
+            p = _one_line_problem(f"{at}: name", a["name"])
+            if p:
+                out.append(p)
+        if "recordId" in a and not _record_id(a["recordId"]):
+            out.append(f"{at}: recordId is not a record id")
+        if "recordId" not in a and a.get("name") == "":
+            out.append(f"{at}: needs a name or a linked record")
+    return out
+
+
+def document_record_fingerprint(fields):
+    """A document record's fingerprint (spec 11.11): its form checked, then exactly
+    record_fingerprint. Raises for fields not in the profile's form."""
+    problems = document_problems(fields)
+    if problems:
+        raise ValueError("not a valid document record: " + "; ".join(problems))
+    return record_fingerprint(fields)
+
+
 def main():
     job = json.loads(sys.stdin.read())
     op = job["op"]
@@ -852,6 +986,8 @@ def main():
         print(json.dumps({"result": animal_record_fingerprint(job["input"])}))
     elif op == "strainFingerprint":
         print(json.dumps({"result": strain_record_fingerprint(job["input"])}))
+    elif op == "documentFingerprint":
+        print(json.dumps({"result": document_record_fingerprint(job["input"])}))
     elif op == "keyMatch":
         i = job["input"]
         print(json.dumps({"result": key_matches_record(i.get("identity"), i.get("fingerprint"), i.get("keySalt"), i.get("contentHash"))}))

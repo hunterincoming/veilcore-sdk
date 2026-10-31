@@ -20,6 +20,11 @@
 // keyBinding says nothing about the identity without keySalt, which the holder keeps and
 // never puts in the record. Vectors: conformance/vectors.json, sections keyBound*.
 //
+// A field set (SPEC 4.5) on such fields: when they carry fieldSchema and fieldSetRoot,
+// contentHash is the 4.5 commitment, H("veilcore:v1:frecord", fieldSetRoot, SHA-256 of the
+// canonical serialisation), so the claims contract's proofs about that commitment are about
+// this record; the fingerprint is built around it the same way.
+//
 // SPDX-License-Identifier: Apache-2.0
 
 import { canonicalise } from './canonical.js';
@@ -40,6 +45,9 @@ export const KEY_BINDING_TAGS = {
 
 /** The algorithm of a fingerprint over committed fields with no keyBinding (unchanged). */
 const OLDER_ALGORITHM = 'sha256/canonical-json/v1';
+/** The algorithm of a fingerprint over committed fields with a field set and no keyBinding (SPEC 4.5). */
+const FIELDS_ALGORITHM = 'sha256/fields/v1';
+const FIELD_RECORD_TAG = 'veilcore:v1:frecord';
 
 const HEX64 = /^[0-9a-f]{64}$/;
 const isHex64 = (v: unknown): v is string => typeof v === 'string' && HEX64.test(v);
@@ -86,9 +94,15 @@ export const bindingForSecret = async (
 };
 
 export type RecordFingerprint = {
-  /** `sha256/key-bound/v1` when the fields carry keyBinding, else `sha256/canonical-json/v1`. */
-  algorithm: typeof KEY_BOUND_ALGORITHM | typeof OLDER_ALGORITHM;
-  /** SHA-256 of the canonical serialisation of the fields (a link's `cd`). */
+  /**
+   * `sha256/key-bound/v1` when the fields carry keyBinding; otherwise `sha256/fields/v1` when
+   * they carry a field set, else `sha256/canonical-json/v1`.
+   */
+  algorithm: typeof KEY_BOUND_ALGORITHM | typeof OLDER_ALGORITHM | typeof FIELDS_ALGORITHM;
+  /**
+   * What the key binds (a link's `cd`): SHA-256 of the canonical serialisation of the fields,
+   * or, for fields with a field set, the SPEC 4.5 commitment over it.
+   */
   contentHash: string;
   /** The fingerprint: contentHash itself, or H(keyrecord, keyBinding, contentHash). */
   fingerprint: string;
@@ -103,12 +117,20 @@ export type RecordFingerprint = {
  */
 export const computeRecordFingerprint = async (fields: unknown): Promise<RecordFingerprint> => {
   if (typeof fields !== 'object' || fields === null || Array.isArray(fields)) throw new Error('the committed fields are a JSON object');
-  const kb = (fields as Record<string, unknown>).keyBinding;
+  const f = fields as Record<string, unknown>;
+  const kb = f.keyBinding;
   if (kb !== undefined && !isHex64(kb)) throw new Error('keyBinding must be 64 lowercase hex characters');
-  const contentHash = await sha256Hex(canonicalise(fields));
-  return kb === undefined
-    ? { algorithm: OLDER_ALGORITHM, contentHash, fingerprint: contentHash }
-    : { algorithm: KEY_BOUND_ALGORITHM, contentHash, fingerprint: await keyBoundFingerprint(kb, contentHash) };
+  // A field set comes whole: both fields or neither, each 64 lowercase hex characters (SPEC 4.5).
+  const withSet = f.fieldSchema !== undefined || f.fieldSetRoot !== undefined;
+  if (withSet && (!isHex64(f.fieldSchema) || !isHex64(f.fieldSetRoot)))
+    throw new Error('fieldSchema and fieldSetRoot come together, each 64 lowercase hex characters');
+  const jsonDigest = await sha256Hex(canonicalise(fields));
+  const contentHash = withSet
+    ? await H(FIELD_RECORD_TAG, bytes32(f.fieldSetRoot, 'fieldSetRoot'), bytes32(jsonDigest, 'jsonDigest'))
+    : jsonDigest;
+  if (kb !== undefined)
+    return { algorithm: KEY_BOUND_ALGORITHM, contentHash, fingerprint: await keyBoundFingerprint(kb, contentHash) };
+  return { algorithm: withSet ? FIELDS_ALGORITHM : OLDER_ALGORITHM, contentHash, fingerprint: contentHash };
 };
 
 /**
