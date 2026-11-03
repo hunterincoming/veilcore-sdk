@@ -722,7 +722,7 @@ def animal_record_fingerprint(fields):
     return record_fingerprint(fields)
 
 
-# ---- strain and line records (spec 11.9, draft) -------------------------------------------
+# ---- strain and line records (spec 11.9) -------------------------------------------------
 
 STRAIN_PROFILE = "veilcore/profile/strain/v1"
 _STRAIN_GROUPS = (

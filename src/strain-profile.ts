@@ -1,4 +1,4 @@
-// Strain and line records: the strain profile (SPEC 11.9, draft).
+// Strain and line records: the strain profile (SPEC 11.9, final since 3 November 2026).
 //
 // A record under `veilcore/profile/strain/v1` describes one microbial strain, cell line or
 // insect line. Its fingerprint is computed exactly as any record's (computeRecordFingerprint,
