@@ -62,7 +62,7 @@ in the diagram, and a record that names an RFC 3161 timestamp has it checked off
 - **181 conformance vectors**, including inputs an implementation must refuse: 121 for the
   record format, the report pairing (SPEC 3.7) and records that name their own key
   (SPEC 3.6.1), 30 for the animal profile (SPEC 11.8) and 30 for the strain and line
-  profile (SPEC 11.9, a draft).
+  profile (SPEC 11.9).
 - **Three implementations pass them:** TypeScript (this package), Python (`conformance/impl.py`),
   Rust ([veilcore-rs](https://github.com/hunterincoming/veilcore-rs), which computes the animal
   and strain records' fingerprints and leaves the two profiles' 50 refusals to this package). We wrote all
@@ -197,8 +197,8 @@ the profile refuses, which this package (`computeAnimalRecordFingerprint`,
 computes the fingerprints and doesn't check the profile; run it with
 `--without-animal-profile`.
 
-Thirty more do the same for the strain and line profile (SPEC 11.9, a draft: microbial
-strains, cell lines, insect lines): `computeStrainRecordFingerprint` and `strainProblems`
+Thirty more do the same for the strain and line profile (SPEC 11.9, final: microbial
+strains, fungi, cell lines, insect lines): `computeStrainRecordFingerprint` and `strainProblems`
 here, `strain_record_fingerprint` in Python, `--without-strain-profile` for Rust.
 Thirty-six more for the document profile (SPEC 11.11, final: a permit, a COA, a contract,
 sealed by each file's SHA-256, and a certificate's numbers as a field set): `computeDocumentRecordFingerprint` and `documentProblems`

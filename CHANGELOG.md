@@ -4,6 +4,8 @@ Versions before 0.16.0 are described in their commit messages and on npm.
 
 ## Unreleased
 
+- **Strain and line records (SPEC 11.9): version 1 is final (3 November 2026).** No field
+  changed; records made under the draft check exactly as before.
 - **Field sets on records that name their key (SPEC 3.6.1).** `computeRecordFingerprint` takes
   fields with `fieldSchema` and `fieldSetRoot`: the content hash is then the SPEC 4.5
   commitment, so a claims-contract proof about that commitment is about the record. Eight more
