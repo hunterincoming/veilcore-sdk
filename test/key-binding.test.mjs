@@ -15,13 +15,15 @@ import * as browser from '../dist/index.browser.js';
 const here = (p) => fileURLToPath(new URL(p, import.meta.url));
 const V = JSON.parse(readFileSync(here('../conformance/vectors.json'), 'utf8'));
 const PUBLISHED = JSON.parse(readFileSync(here('../conformance/key-bound-v1.json'), 'utf8'));
+/** What a refusal says: a malformed keyBinding, or a field set that isn't whole (SPEC 3.6.1, 4.5). */
+const REFUSED = /keyBinding must be 64 lowercase hex|fieldSchema and fieldSetRoot come together/;
 
 test('the shared set carries the published key-bound vectors unchanged, and all of them', () => {
   assert.deepEqual(V.keyBoundKeys, PUBLISHED.keys);
   assert.deepEqual(V.keyBoundRecords, PUBLISHED.records);
   assert.deepEqual(V.keyBoundChecks, PUBLISHED.checks);
   assert.deepEqual(V.keyBoundRefusals, PUBLISHED.refusals);
-  assert.deepEqual([V.keyBoundKeys.length, V.keyBoundRecords.length, V.keyBoundChecks.length, V.keyBoundRefusals.length], [2, 4, 9, 5]);
+  assert.deepEqual([V.keyBoundKeys.length, V.keyBoundRecords.length, V.keyBoundChecks.length, V.keyBoundRefusals.length], [2, 6, 11, 9]);
   // Positive and negative cases are both there: a set of only matches tests half of it.
   assert.ok(V.keyBoundChecks.some((c) => c.matches) && V.keyBoundChecks.some((c) => !c.matches));
   assert.ok(V.keyBoundChecks.some((c) => /swapped/.test(c.name) && !c.matches));
@@ -52,12 +54,12 @@ for (const [entry, impl] of [['node', node], ['browser', browser]]) {
     }
   });
 
-  test(`${entry}: every refusal: a malformed keyBinding is refused, not hashed`, async () => {
+  test(`${entry}: every refusal: a malformed keyBinding or a half field set is refused, not hashed`, async () => {
     for (const r of V.keyBoundRefusals) {
-      await assert.rejects(() => impl.computeRecordFingerprint(r.fields), /keyBinding must be 64 lowercase hex/, r.name);
+      await assert.rejects(() => impl.computeRecordFingerprint(r.fields), REFUSED, r.name);
       const v = await impl.verifyRecordFingerprint({ fields: r.fields, fingerprint: 'ab'.repeat(32) });
       assert.equal(v.valid, false, r.name);
-      assert.match(v.reason, /keyBinding must be 64 lowercase hex/, r.name);
+      assert.match(v.reason, REFUSED, r.name);
     }
   });
 }
@@ -157,6 +159,6 @@ test('python: every key-bound vector', { skip: !python && 'python3 not installed
   for (const r of V.keyBoundRefusals) {
     const out = py('recordFingerprint', r.fields);
     assert.equal(out.ok, undefined, r.name);
-    assert.match(out.refused, /keyBinding must be 64 lowercase hex/, r.name);
+    assert.match(out.refused, REFUSED, r.name);
   }
 });

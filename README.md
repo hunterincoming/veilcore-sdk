@@ -62,7 +62,7 @@ in the diagram, and a record that names an RFC 3161 timestamp has it checked off
 - **181 conformance vectors**, including inputs an implementation must refuse: 121 for the
   record format, the report pairing (SPEC 3.7) and records that name their own key
   (SPEC 3.6.1), 30 for the animal profile (SPEC 11.8) and 30 for the strain and line
-  profile (SPEC 11.9, a draft).
+  profile (SPEC 11.9).
 - **Three implementations pass them:** TypeScript (this package), Python (`conformance/impl.py`),
   Rust ([veilcore-rs](https://github.com/hunterincoming/veilcore-rs), which computes the animal
   and strain records' fingerprints and leaves the two profiles' 50 refusals to this package). We wrote all
@@ -190,16 +190,19 @@ package (TypeScript), a Python implementation in `conformance/impl.py`, and a Ru
 implementation at https://github.com/hunterincoming/veilcore-rs. All three have the same
 author. An implementation by an unrelated party is the test this format still needs.
 
-Thirty more vectors cover the animal profile (SPEC 11.8, a draft): five animal records,
+Thirty more vectors cover the animal profile (SPEC 11.8, final): five animal records,
 whose fingerprints all three compute exactly as any record's, and twenty-five sets of fields
 the profile refuses, which this package (`computeAnimalRecordFingerprint`,
 `animalIndividualProblems`) and the Python implementation check. The Rust implementation
 computes the fingerprints and doesn't check the profile; run it with
 `--without-animal-profile`.
 
-Thirty more do the same for the strain and line profile (SPEC 11.9, a draft: microbial
-strains, cell lines, insect lines): `computeStrainRecordFingerprint` and `strainProblems`
+Thirty more do the same for the strain and line profile (SPEC 11.9, final: microbial
+strains, fungi, cell lines, insect lines): `computeStrainRecordFingerprint` and `strainProblems`
 here, `strain_record_fingerprint` in Python, `--without-strain-profile` for Rust.
+Thirty-six more for the document profile (SPEC 11.11, final: a permit, a COA, a contract,
+sealed by each file's SHA-256, and a certificate's numbers as a field set): `computeDocumentRecordFingerprint` and `documentProblems`
+here, `document_record_fingerprint` in Python, `--without-document-profile` for others.
 
 ```
 npm test
@@ -299,5 +302,9 @@ Releases: see [RELEASING.md](RELEASING.md) for the build gate and npm provenance
 Published for comment. The specification is stable enough to implement against and
 specific correction is more useful than general agreement — section 13 says where review
 is most needed.
+
+**[How the format changes](GOVERNANCE.md)**: a record that verifies today keeps verifying;
+what counts as a breaking change and how one is decided; and what has to be true before
+the format is called 1.0.
 
 Apache-2.0
