@@ -4,6 +4,13 @@ Versions before 0.16.0 are described in their commit messages and on npm.
 
 ## Unreleased
 
+- **Deal records: the registry's order, and exact payments.** A record's messages are read in
+  the order of the registry's `seq` saved beside each one, never the senders' signed times,
+  which either side can set; `order` says which was used (an older record without `seq` falls
+  back to signed times). A `paid` counts only once the statement is accepted, and settles it
+  only when it is the full amount the statement leaves to pay (less the tax it declared), in
+  its currency. Anything less is a short payment: `short` says what is still owed, and that
+  stays in `open`, even if the short amount is confirmed received.
 - **Strain and line records (SPEC 11.9): version 1 is final (3 November 2026).** No field
   changed; records made under the draft check exactly as before.
 - **Field sets on records that name their key (SPEC 3.6.1).** `computeRecordFingerprint` takes
