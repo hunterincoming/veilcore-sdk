@@ -2,6 +2,16 @@
 
 Versions before 0.16.0 are described in their commit messages and on npm.
 
+## Unreleased
+
+- **Deal records: the registry's order, and exact payments.** A record's messages are read in
+  the order of the registry's `seq` saved beside each one, never the senders' signed times,
+  which either side can set; `order` says which was used (an older record without `seq` falls
+  back to signed times). A `paid` counts only once the statement is accepted, and settles it
+  only when it is the full amount the statement leaves to pay (less the tax it declared), in
+  its currency. Anything less is a short payment: `short` says what is still owed, and that
+  stays in `open`, even if the short amount is confirmed received.
+
 ## 0.18.1
 
 - **Deal records:** `handon` and `handon-ask` (handing a license on to a new holder, with the

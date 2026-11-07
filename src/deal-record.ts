@@ -5,7 +5,13 @@
 // What it is for: showing someone else (a buyer, a court, a lender) a royalty history the
 // payer signed, not a spreadsheet the payee typed. Each statement is signed by the
 // licensee; each acceptance and each "received" by the licensor; each "paid" by the
-// licensee. A line counts as settled only when both sides signed for the same money.
+// licensee. A line counts as settled only when both sides signed for the same money, and that
+// money is exactly what the accepted statement owes.
+//
+// Order: the registry's `seq`, which each saved message carries beside it; never the senders'
+// own signed times, which either side can set to anything. With seq, a reply or payment signed
+// with an earlier time can't jump ahead of one already there. A record saved before records kept
+// seq is read in signed-time order, and the result says so (`order`).
 //
 // What it cannot show: who holds the two keys. One person can make both and sign a whole
 // deal with themselves. The record proves the messages are unchanged and which key said
@@ -34,9 +40,16 @@ export type DealStatementLine = {
   /** The statement's signature: what replies, payments and confirmations name. */
   signature: string;
   reply?: 'accepted' | 'disputed';
+  /** Tax the statement declared withheld: what is to pay is amountOwed less this. */
+  taxWithheld?: string;
   paid?: DealPayment;
+  /** The payment was less than the accepted amount, or in another currency: what is still owed. */
+  short?: string;
   received?: { amount: string; currency: string };
-  /** The licensee signed that they paid, and the licensor signed that the same amount arrived. */
+  /**
+   * The statement was accepted, the licensee signed that they paid exactly what it owes, and the
+   * licensor signed that the same amount arrived.
+   */
   settled: boolean;
   notes: string[];
 };
@@ -47,6 +60,11 @@ export type DealRecordCheck = {
   messages: number;
   /** Messages whose signature verifies under the key of the side they name. */
   verified: number;
+  /**
+   * How the deal was ordered: 'registry' (every message carries the registry's seq) or
+   * 'signed-time' (an older record without it: the senders' own clocks, which either side sets).
+   */
+  order: 'registry' | 'signed-time';
   /** Messages that don't count, and why. */
   rejected: { index: number; type: string; reason: string }[];
   /** Signed and verified, but of a kind this version doesn't read. */
@@ -54,7 +72,7 @@ export type DealRecordCheck = {
   statements: DealStatementLine[];
   /** Per currency, what both sides signed as paid and received. */
   settled: Record<string, string>;
-  /** Per currency, accepted statements not yet settled. */
+  /** Per currency, what accepted statements still owe (the rest of a short payment included). */
   open: Record<string, string>;
   /** About the record as a whole (both sides one key, an unreadable file...). */
   problems: string[];
@@ -83,6 +101,10 @@ const fromUnits = (u: bigint): string => {
 export const sameAmount = (a: string, b: string): boolean => dec(a) && dec(b) && toUnits(a) === toUnits(b);
 const add = (sums: Map<string, bigint>, currency: string, amount: string) =>
   sums.set(currency, (sums.get(currency) ?? 0n) + toUnits(amount));
+const sub = (a: string, b: string): bigint => toUnits(a) - toUnits(b);
+/** What a statement leaves to pay: what it owes less the tax it declared withheld. */
+const toPay = (l: { amountOwed: string; taxWithheld?: string }): string =>
+  l.taxWithheld && sub(l.amountOwed, l.taxWithheld) >= 0n ? fromUnits(sub(l.amountOwed, l.taxWithheld)) : fromUnits(toUnits(l.amountOwed));
 const asRecord = (sums: Map<string, bigint>): Record<string, string> =>
   Object.fromEntries([...sums].sort(([a], [b]) => (a < b ? -1 : 1)).map(([c, u]) => [c, fromUnits(u)]));
 
@@ -115,6 +137,7 @@ const SENDER: Record<string, Side | 'either'> = {
 export const checkDealRecord = async (record: unknown): Promise<DealRecordCheck> => {
   const empty = (problem: string): DealRecordCheck => ({
     keys: { issuer: '', licensee: '' },
+    order: 'signed-time',
     messages: 0,
     verified: 0,
     rejected: [],
@@ -129,6 +152,7 @@ export const checkDealRecord = async (record: unknown): Promise<DealRecordCheck>
   if (!hex(keys.issuer, 64) || !hex(keys.licensee, 64)) return empty('the record does not name both keys');
   const out: DealRecordCheck = {
     keys: { issuer: keys.issuer, licensee: keys.licensee },
+    order: 'signed-time',
     messages: 0,
     verified: 0,
     rejected: [],
@@ -147,7 +171,7 @@ export const checkDealRecord = async (record: unknown): Promise<DealRecordCheck>
   out.messages = list.length;
 
   // 1. Signatures and senders.
-  const good: { index: number; m: Obj; sig: string }[] = [];
+  const good: { index: number; m: Obj; sig: string; seq?: number }[] = [];
   for (const [index, entry] of list.entries()) {
     const m = isObj(entry) ? entry.message : undefined;
     const sig = isObj(entry) ? entry.signature : undefined;
@@ -177,11 +201,18 @@ export const checkDealRecord = async (record: unknown): Promise<DealRecordCheck>
       reject(`a ${type} comes from the ${sender}, this one from the ${m.from}`);
       continue;
     }
-    good.push({ index, m, sig: sig as string });
+    const seq = isObj(entry) && Number.isSafeInteger(entry.seq) && (entry.seq as number) > 0 ? (entry.seq as number) : undefined;
+    good.push({ index, m, sig: sig as string, seq });
   }
 
-  // 2. Statements, then what answers them. Signed time orders the deal.
-  good.sort((a, b) => (a.m.at as number) - (b.m.at as number) || a.index - b.index);
+  // 2. Statements, then what answers them, in the registry's order when every message carries
+  // a distinct seq; otherwise by signed time (the sender's own clock), and the result says so.
+  const seqs = good.map((g) => g.seq);
+  const bySeq = good.length > 0 && seqs.every((x) => x !== undefined) && new Set(seqs).size === seqs.length;
+  out.order = bySeq ? 'registry' : 'signed-time';
+  good.sort((a, b) =>
+    bySeq ? a.seq! - b.seq! : (a.m.at as number) - (b.m.at as number) || a.index - b.index,
+  );
   const bySig = new Map<string, DealStatementLine>();
   for (const { index, m, sig } of good) {
     if (m.type !== 'statement') continue;
@@ -196,37 +227,52 @@ export const checkDealRecord = async (record: unknown): Promise<DealRecordCheck>
       amountOwed: m.amountOwed,
       currency: m.currency,
       signature: sig,
+      ...(dec(m.taxWithheld) ? { taxWithheld: m.taxWithheld } : {}),
       settled: false,
       notes: [],
     };
     bySig.set(sig, line);
     out.statements.push(line);
   }
-  for (const { index, m } of good) {
-    if (m.type !== 'reply' && m.type !== 'paid' && m.type !== 'received') continue;
-    const line = typeof m.statementSig === 'string' ? bySig.get(m.statementSig) : undefined;
-    if (!line) {
-      out.rejected.push({ index, type: m.type, reason: 'names no statement in this record' });
-      continue;
+  // Replies first, then payments, then confirmations, each in that order, as the web app reads
+  // them: the first reply stands; a payment counts only on an accepted statement; a
+  // confirmation only on a payment.
+  for (const pass of ['reply', 'paid', 'received'] as const)
+    for (const { index, m } of good) {
+      if (m.type !== pass) continue;
+      const line = typeof m.statementSig === 'string' ? bySig.get(m.statementSig) : undefined;
+      if (!line) {
+        out.rejected.push({ index, type: pass, reason: 'names no statement in this record' });
+        continue;
+      }
+      if (m.type === 'reply') {
+        if (m.decision !== 'accepted' && m.decision !== 'disputed') {
+          out.rejected.push({ index, type: 'reply', reason: 'malformed reply' });
+        } else if (line.reply) line.notes.push(`a later reply (${m.decision}) is ignored: the first one stands`);
+        else line.reply = m.decision;
+      } else if (m.type === 'paid') {
+        if (!dec(m.amount) || !text(m.currency, 10) || !text(m.method, 80) || !text(m.reference, 120) || !day(m.paidOn)) {
+          out.rejected.push({ index, type: 'paid', reason: 'malformed payment' });
+        } else if (line.reply !== 'accepted') line.notes.push('a "paid" for a statement not accepted is ignored');
+        else if (line.paid) line.notes.push('a second "paid" for this statement is ignored');
+        else {
+          line.paid = { amount: m.amount, currency: m.currency, method: m.method, reference: m.reference, paidOn: m.paidOn };
+          const owed = toPay(line);
+          if (m.currency !== line.currency) {
+            line.short = owed;
+            line.notes.push(`paid in ${m.currency}, but the statement is in ${line.currency}: ${owed} ${line.currency} still owed`);
+          } else if (sub(owed, m.amount) > 0n) {
+            line.short = fromUnits(sub(owed, m.amount));
+            line.notes.push(`short payment: paid ${m.amount} of ${owed} ${line.currency}, ${line.short} still owed`);
+          }
+        }
+      } else {
+        if (!dec(m.amount) || !text(m.currency, 10)) {
+          out.rejected.push({ index, type: 'received', reason: 'malformed confirmation' });
+        } else if (line.received) line.notes.push('a second "received" for this statement is ignored');
+        else line.received = { amount: m.amount, currency: m.currency };
+      }
     }
-    if (m.type === 'reply') {
-      if (m.decision !== 'accepted' && m.decision !== 'disputed') {
-        out.rejected.push({ index, type: 'reply', reason: 'malformed reply' });
-      } else if (line.reply) line.notes.push(`a later reply (${m.decision}) is ignored: the first one stands`);
-      else line.reply = m.decision;
-    } else if (m.type === 'paid') {
-      if (!dec(m.amount) || !text(m.currency, 10) || !text(m.method, 80) || !text(m.reference, 120) || !day(m.paidOn)) {
-        out.rejected.push({ index, type: 'paid', reason: 'malformed payment' });
-      } else if (line.paid) line.notes.push('a second "paid" for this statement is ignored');
-      else
-        line.paid = { amount: m.amount, currency: m.currency, method: m.method, reference: m.reference, paidOn: m.paidOn };
-    } else {
-      if (!dec(m.amount) || !text(m.currency, 10)) {
-        out.rejected.push({ index, type: 'received', reason: 'malformed confirmation' });
-      } else if (line.received) line.notes.push('a second "received" for this statement is ignored');
-      else line.received = { amount: m.amount, currency: m.currency };
-    }
-  }
 
   // 3. Settled: the same money signed for by both sides.
   const settled = new Map<string, bigint>();
@@ -238,14 +284,14 @@ export const checkDealRecord = async (record: unknown): Promise<DealRecordCheck>
         line.notes.push(
           `paid ${paid.amount} ${paid.currency} but confirmed ${received.amount} ${received.currency}: not counted`,
         );
+      } else if (line.short !== undefined) {
+        line.notes.push('the payment confirmed was short of what the statement owes: not settled');
       } else {
         line.settled = true;
         add(settled, received.currency, received.amount);
-        if (received.currency !== line.currency || !sameAmount(received.amount, line.amountOwed))
-          line.notes.push(`settled for ${received.amount} ${received.currency}; the statement said ${line.amountOwed} ${line.currency}`);
       }
     } else if (received && !paid) line.notes.push('confirmed received, but the licensee never signed a payment: not counted');
-    if (!line.settled && line.reply === 'accepted') add(open, line.currency, line.amountOwed);
+    if (!line.settled && line.reply === 'accepted') add(open, line.currency, line.short ?? toPay(line));
   }
   out.settled = asRecord(settled);
   out.open = asRecord(open);

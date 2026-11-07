@@ -181,3 +181,85 @@ test('hand-on messages count from the right side; an unknown kind is unread, not
   assert.deepEqual(c.rejected.map((x) => [x.type, /comes from the issuer/.test(x.reason)]), [['handon', true]]);
   assert.deepEqual(c.unread, [{ index: 4, type: 'something-newer' }]);
 });
+
+// A counterparty with a modified client (VeilCore panel review, M2): signed times are the
+// sender's own clock, so the deal is read in the registry's order (seq); and a payment settles
+// a statement only when it is exactly what the accepted statement owes.
+const withSeq = (r) => (r.messages.forEach((e, i) => (e.seq = i + 1)), r);
+
+test('in the registry\'s order: a dispute signed with an earlier time doesn\'t undo an acceptance', async () => {
+  const I = await party(), L = await party();
+  const s = statement('S-1', '1000.00', '2026-08-01');
+  const r = await recordOf(I, L, [[L, s]]);
+  const sig = r.messages[0].signature;
+  const more = await recordOf(I, L, [
+    [I, { type: 'reply', statementId: 'S-1', statementSig: sig, decision: 'accepted', from: 'issuer', at: at('2026-08-03') }],
+    [L, { type: 'paid', statementId: 'S-1', statementSig: sig, amount: '1000.00', currency: 'USD', method: 'bank', payTo: '', reference: 'r1', paidOn: '2026-08-04', from: 'licensee', at: at('2026-08-04') }],
+    [I, { type: 'received', statementId: 'S-1', statementSig: sig, amount: '1000.00', currency: 'USD', from: 'issuer', at: at('2026-08-05') }],
+    // Sent last, signed as if before the acceptance.
+    [I, { type: 'reply', statementId: 'S-1', statementSig: sig, decision: 'disputed', note: 'x', from: 'issuer', at: at('2026-08-02') }],
+  ]);
+  r.messages.push(...more.messages);
+  const c = await checkDealRecord(withSeq(r));
+  assert.equal(c.order, 'registry');
+  assert.equal(c.statements[0].reply, 'accepted');
+  assert.equal(c.statements[0].settled, true);
+  assert.deepEqual(c.settled, { USD: '1000' });
+  // Without seq (an older record) the signed times decide, and the result says so.
+  const old = copy(r);
+  old.messages.forEach((e) => delete e.seq);
+  const o = await checkDealRecord(old);
+  assert.equal(o.order, 'signed-time');
+  assert.equal(o.statements[0].reply, 'disputed');
+});
+
+test('a short payment is not settled, even when the short amount is confirmed; the rest stays open', async () => {
+  const I = await party(), L = await party();
+  const s = statement('S-1', '1000.00', '2026-08-01');
+  const r = await recordOf(I, L, [[L, s]]);
+  const sig = r.messages[0].signature;
+  const more = await recordOf(I, L, [
+    [I, { type: 'reply', statementId: 'S-1', statementSig: sig, decision: 'accepted', from: 'issuer', at: at('2026-08-02') }],
+    [L, { type: 'paid', statementId: 'S-1', statementSig: sig, amount: '1.00', currency: 'USD', method: 'bank', payTo: '', reference: 'r1', paidOn: '2026-08-03', from: 'licensee', at: at('2026-08-03') }],
+    [I, { type: 'received', statementId: 'S-1', statementSig: sig, amount: '1.00', currency: 'USD', from: 'issuer', at: at('2026-08-04') }],
+  ]);
+  r.messages.push(...more.messages);
+  const c = await checkDealRecord(withSeq(r));
+  assert.equal(c.statements[0].settled, false);
+  assert.equal(c.statements[0].short, '999');
+  assert.deepEqual(c.settled, {});
+  assert.deepEqual(c.open, { USD: '999' });
+  assert.match(c.statements[0].notes.join(' '), /short payment: paid 1\.00 of 1000 USD, 999 still owed/);
+});
+
+test('the right amount in another currency is short by all of it; tax is the statement\'s', async () => {
+  const I = await party(), L = await party();
+  const s = { ...statement('S-1', '1000.00', '2026-08-01'), taxWithheld: '100.00' };
+  const r = await recordOf(I, L, [[L, s]]);
+  const sig = r.messages[0].signature;
+  const pay = (amount, currency) => ({ type: 'paid', statementId: 'S-1', statementSig: sig, amount, currency, method: 'bank', payTo: '', reference: 'r1', paidOn: '2026-08-03', from: 'licensee', at: at('2026-08-03') });
+  const accept = { type: 'reply', statementId: 'S-1', statementSig: sig, decision: 'accepted', from: 'issuer', at: at('2026-08-02') };
+  const eur = await recordOf(I, L, [[I, accept], [L, pay('900.00', 'EUR')]]);
+  const c1 = await checkDealRecord(withSeq({ ...r, messages: [...r.messages, ...eur.messages] }));
+  assert.equal(c1.statements[0].short, '900');
+  const usd = await recordOf(I, L, [[I, accept], [L, pay('900.00', 'USD')], [I, { type: 'received', statementId: 'S-1', statementSig: sig, amount: '900', currency: 'USD', from: 'issuer', at: at('2026-08-04') }]]);
+  const c2 = await checkDealRecord(withSeq({ ...r, messages: [...r.messages, ...usd.messages] }));
+  assert.equal(c2.statements[0].settled, true);
+  assert.equal(c2.statements[0].short, undefined);
+});
+
+test('a "paid" for a statement never accepted doesn\'t count', async () => {
+  const I = await party(), L = await party();
+  const s = statement('S-1', '50', '2026-08-01');
+  const r = await recordOf(I, L, [[L, s]]);
+  const sig = r.messages[0].signature;
+  const more = await recordOf(I, L, [
+    [L, { type: 'paid', statementId: 'S-1', statementSig: sig, amount: '50', currency: 'USD', method: 'cash', payTo: '', reference: 'r', paidOn: '2026-08-02', from: 'licensee', at: at('2026-08-02') }],
+    [I, { type: 'received', statementId: 'S-1', statementSig: sig, amount: '50', currency: 'USD', from: 'issuer', at: at('2026-08-03') }],
+  ]);
+  r.messages.push(...more.messages);
+  const c = await checkDealRecord(withSeq(r));
+  assert.equal(c.statements[0].paid, undefined);
+  assert.equal(c.statements[0].settled, false);
+  assert.deepEqual(c.settled, {});
+});
