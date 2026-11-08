@@ -122,6 +122,92 @@ test('paid and received for different amounts is not settled', async () => {
   assert.match(c.statements[0].notes.join(' '), /not counted/);
 });
 
+test('the same statement signed twice (a resend, another id and time) counts once', async () => {
+  const I = await party(), L = await party();
+  const r = await recordOf(I, L, [
+    [L, statement('S-1', '50', '2026-08-01')],
+    // Another id and another time: a second signature that says the same thing.
+    [L, statement('S-2', '50', '2026-08-02')],
+  ]);
+  const [first, copy2] = r.messages.map((e) => e.signature);
+  const more = await recordOf(I, L, [
+    // An answer to the copy counts for the first.
+    [I, { type: 'reply', statementId: 'S-2', statementSig: copy2, decision: 'accepted', from: 'issuer', at: at('2026-08-03') }],
+  ]);
+  r.messages.push(...more.messages);
+  const c = await checkDealRecord(r);
+  assert.equal(c.verified, 3);
+  assert.deepEqual(c.rejected, []);
+  assert.equal(c.statements.length, 1);
+  assert.equal(c.statements[0].signature, first);
+  assert.equal(c.statements[0].reply, 'accepted');
+  assert.match(c.statements[0].notes.join(' '), /S-2 says the same as this one: counted once/);
+  assert.deepEqual(c.open, { USD: '50' });
+});
+
+test('the first reply stands across copies of one statement', async () => {
+  const I = await party(), L = await party();
+  const a = statement('S-1', '50', '2026-08-01');
+  const b = statement('S-2', '50', '2026-08-02');
+  const r = await recordOf(I, L, [[L, a], [L, b]]);
+  const [sa, sb] = r.messages.map((e) => e.signature);
+  const more = await recordOf(I, L, [
+    [I, { type: 'reply', statementId: 'S-1', statementSig: sa, decision: 'disputed', from: 'issuer', at: at('2026-08-03') }],
+    [I, { type: 'reply', statementId: 'S-2', statementSig: sb, decision: 'accepted', from: 'issuer', at: at('2026-08-04') }],
+  ]);
+  r.messages.push(...more.messages);
+  const c = await checkDealRecord(r);
+  assert.equal(c.statements.length, 1);
+  assert.equal(c.statements[0].reply, 'disputed');
+  assert.deepEqual(c.open, {});
+});
+
+test('one message saved twice counts once', async () => {
+  const I = await party(), L = await party();
+  const r = await recordOf(I, L, [[L, statement('S-1', '50', '2026-08-01')]]);
+  const sig = r.messages[0].signature;
+  r.messages.push(copy(r.messages[0]));
+  const more = await recordOf(I, L, [
+    [I, { type: 'reply', statementId: 'S-1', statementSig: sig, decision: 'accepted', from: 'issuer', at: at('2026-08-03') }],
+  ]);
+  r.messages.push(...more.messages);
+  const c = await checkDealRecord(r);
+  assert.equal(c.statements.length, 1);
+  assert.deepEqual(c.open, { USD: '50' });
+});
+
+test('two statements for one period that differ are both read', async () => {
+  const I = await party(), L = await party();
+  const c = await checkDealRecord(
+    await recordOf(I, L, [
+      [L, statement('S-1', '50', '2026-08-01')],
+      [L, statement('S-2', '60', '2026-08-02')],
+    ]),
+  );
+  assert.equal(c.statements.length, 2);
+});
+
+test('the copies fixture: two copies are one statement, one more field makes another', async () => {
+  const F = JSON.parse(await readFile(new URL('./fixtures/deal-record-copies.json', import.meta.url), 'utf8'));
+  const c = await checkDealRecord(F);
+  assert.equal(c.verified, F.messages.length);
+  assert.deepEqual(c.rejected, []);
+  assert.deepEqual(c.statements.map((s) => s.statementId), F.expect.statements);
+  assert.deepEqual(c.statements.map((s) => s.reply), F.expect.replies);
+  assert.deepEqual(c.open, F.expect.open);
+});
+
+test('a field the checker does not read still counts: the same figures plus it are another statement', async () => {
+  const I = await party(), L = await party();
+  const c = await checkDealRecord(
+    await recordOf(I, L, [
+      [L, statement('S-1', '50', '2026-08-01')],
+      [L, { ...statement('S-2', '50', '2026-08-02'), seq: 7 }],
+    ]),
+  );
+  assert.equal(c.statements.length, 2);
+});
+
 test('amounts compare as decimals, not as text', () => {
   assert.ok(sameAmount('10', '10.00'));
   assert.ok(sameAmount('0.1', '0.10'));

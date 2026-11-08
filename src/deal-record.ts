@@ -111,6 +111,10 @@ const asRecord = (sums: Map<string, bigint>): Record<string, string> =>
 /** The exact text a deal message's signature covers. */
 export const dealMessagePayload = (message: unknown): string => DEAL_MESSAGE_DOMAIN + canonicalise(message);
 
+/** What a statement says, apart from when it was signed and its id: the canonical form of the rest. */
+const statementContent = (m: Obj): string =>
+  canonicalise(Object.fromEntries(Object.entries(m).filter(([k]) => k !== 'at' && k !== 'statementId' && k !== 'from')));
+
 /** Who may send each kind of message. Others don't count. */
 const SENDER: Record<string, Side | 'either'> = {
   terms: 'issuer',
@@ -214,10 +218,21 @@ export const checkDealRecord = async (record: unknown): Promise<DealRecordCheck>
     bySeq ? a.seq! - b.seq! : (a.m.at as number) - (b.m.at as number) || a.index - b.index,
   );
   const bySig = new Map<string, DealStatementLine>();
+  // Two statements that say exactly the same thing (every field but the signed time and the
+  // statement's id; the period is one of them) are one statement, the first: a resend signed
+  // again, or a copy saved twice, never doubles what is owed. What names the copy counts for it.
+  const byContent = new Map<string, DealStatementLine>();
   for (const { index, m, sig } of good) {
     if (m.type !== 'statement') continue;
     if (!text(m.statementId, 100) || !day(m.periodFrom) || !day(m.periodTo) || !dec(m.amountOwed) || !text(m.currency, 10)) {
       out.rejected.push({ index, type: 'statement', reason: 'malformed statement' });
+      continue;
+    }
+    const content = statementContent(m);
+    const first = bySig.get(sig) ?? byContent.get(content);
+    if (first) {
+      bySig.set(sig, first);
+      first.notes.push(`statement ${m.statementId} says the same as this one: counted once`);
       continue;
     }
     const line: DealStatementLine = {
@@ -232,6 +247,7 @@ export const checkDealRecord = async (record: unknown): Promise<DealRecordCheck>
       notes: [],
     };
     bySig.set(sig, line);
+    byContent.set(content, line);
     out.statements.push(line);
   }
   // Replies first, then payments, then confirmations, each in that order, as the web app reads
