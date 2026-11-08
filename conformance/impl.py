@@ -1145,6 +1145,8 @@ def lab_binding(job):
         raise ValueError("about names the sample ID, and only it")
     if f["reference"] != s["accession"]:
         raise ValueError("reference is not the accession number")
+    if f["issuer"] != f["holder"]:
+        raise ValueError("issuer and holder are not the same laboratory name")
     if "fieldSchema" not in f:
         raise ValueError("no field set")
     form = s["result"]["form"] if s["kind"] == "numbers" else LAB_CALL_SCHEMAS[s["kind"]]

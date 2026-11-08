@@ -236,6 +236,7 @@ export const labBindingProblems = async (input: {
   if (about.length !== 1 || about[0].name !== s.sampleId || about[0].recordId !== undefined)
     out.push('about names the sample ID, and only it');
   if (f.reference !== s.accession) out.push('reference is the accession number');
+  if (f.issuer !== f.holder) out.push('issuer and holder are both the laboratory’s name, the same');
   if (typeof f.fieldSchema !== 'string') return [...out, 'a laboratory result carries a field set'];
   const form = s.kind === 'numbers' ? (s.result as O).form : LAB_CALL_SCHEMAS[s.kind as Exclude<LabResultKind, 'numbers'>];
   if (s.kind === 'numbers' && (Object.values(LAB_CALL_SCHEMAS) as unknown[]).includes(form))

@@ -194,6 +194,7 @@ const unbound = [
   ['the record names another sample in about', { ...pf, about: [{ name: 'S-9999' }] }, p0, v16('0')],
   ['the record names a second record in about', { ...pf, about: [{ name: 'S-0412' }, { name: 'other' }] }, p0, v16('0')],
   ['the record’s reference isn’t the accession number', { ...pf, reference: 'LAB-26-0000' }, p0, v16('0')],
+  ['the record’s issuer isn’t its holder (two lab names)', { ...pf, issuer: 'Another Lab' }, p0, v16('0')],
   ['under another kind’s form', recordFor(p0, 'veilcore/schema/genetic-match/v1'), p0, v16('0')],
   ['the call in the field set disagrees', pf, p0, v16('1')],
   ['a number the statement doesn’t have', pf, p0, v16('0', '3100')],
