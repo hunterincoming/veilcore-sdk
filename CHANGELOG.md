@@ -4,6 +4,12 @@ Versions before 0.16.0 are described in their commit messages and on npm.
 
 ## Unreleased
 
+- **Deal records: the same statement twice counts once.** Two statements that say exactly the
+  same thing (every field but `at` and `statementId`, so the same period and content) are one
+  statement, the first; a reply, payment or confirmation naming either counts for it, and the
+  line notes the copy. One message saved twice is read once too: before, it made two lines and
+  its amount was counted twice in `open`. A report sent again after a lost answer, signed with
+  a new time, no longer doubles what is owed (SPEC 11.10).
 - **Deal records: the registry's order, and exact payments.** A record's messages are read in
   the order of the registry's `seq` saved beside each one, never the senders' signed times,
   which either side can set; `order` says which was used (an older record without `seq` falls
