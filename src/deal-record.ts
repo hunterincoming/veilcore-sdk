@@ -21,6 +21,15 @@
 
 import { canonicalise } from './canonical.js';
 import { verifyEd25519 } from './signing.js';
+import {
+  CARDANO_TOKENS,
+  cardanoVerdict,
+  paymentReference,
+  toTokenUnits,
+  type CardanoToken,
+  type CardanoTx,
+  type CardanoVerdict,
+} from './onchain-settle.js';
 
 export const DEAL_RECORD_FORMAT = 'veilcore/deal-record/v1';
 /** Prefixed to the canonical JSON of each message before signing. */
@@ -29,7 +38,39 @@ export const DEAL_MESSAGE_DOMAIN = 'veilcore/deal-message/v1\n';
 type Side = 'issuer' | 'licensee';
 type Obj = Record<string, unknown>;
 
-export type DealPayment = { amount: string; currency: string; method: string; reference: string; paidOn: string };
+export type DealPayment = {
+  amount: string;
+  currency: string;
+  method: string;
+  reference: string;
+  paidOn: string;
+  /** The issuer's payout message it was paid to, by its signature. */
+  payoutSig?: string;
+};
+
+/**
+ * How a payment made on Cardano was checked there (SPEC 11.10, "Settled on chain"), when the
+ * statement's payment names a Cardano method and the payout it names.
+ */
+export type DealOnChain = {
+  rail: 'cardano';
+  tx: string;
+  token: string;
+  /** 'settled', or why not; 'not-checked' when the reader gave no Cardano lookup. */
+  result: 'settled' | Extract<CardanoVerdict, { ok: false }>['why'] | 'not-found' | 'not-checked';
+};
+
+export type DealRecordOptions = {
+  /**
+   * Answers for a Cardano transaction hash (from an indexer or a node); undefined when there is
+   * no such transaction. Without it, payments on Cardano are reported, not checked.
+   */
+  cardano?: (txHash: string) => Promise<CardanoTx | undefined>;
+  /** The tokens payments may be in; CARDANO_TOKENS (mainnet USDCx and USDM) by default. */
+  cardanoTokens?: readonly CardanoToken[];
+  /** Blocks deep before a payment counts: 10 by default. */
+  minConfirmations?: number;
+};
 
 export type DealStatementLine = {
   statementId: string;
@@ -46,9 +87,12 @@ export type DealStatementLine = {
   /** The payment was less than the accepted amount, or in another currency: what is still owed. */
   short?: string;
   received?: { amount: string; currency: string };
+  /** A payment on Cardano, and what the check found (SPEC 11.10, "Settled on chain"). */
+  onChain?: DealOnChain;
   /**
-   * The statement was accepted, the licensee signed that they paid exactly what it owes, and the
-   * licensor signed that the same amount arrived.
+   * The statement was accepted, the licensee signed that they paid exactly what it owes, and
+   * either the licensor signed that the same amount arrived, or the payment was found on Cardano
+   * paying at least that to the licensor's signed address with this statement's reference.
    */
   settled: boolean;
   notes: string[];
@@ -138,7 +182,7 @@ const SENDER: Record<string, Side | 'either'> = {
  * signed as settled. Never throws; a file that isn't a deal record comes back with a
  * problem and nothing verified.
  */
-export const checkDealRecord = async (record: unknown): Promise<DealRecordCheck> => {
+export const checkDealRecord = async (record: unknown, options: DealRecordOptions = {}): Promise<DealRecordCheck> => {
   const empty = (problem: string): DealRecordCheck => ({
     keys: { issuer: '', licensee: '' },
     order: 'signed-time',
@@ -272,7 +316,14 @@ export const checkDealRecord = async (record: unknown): Promise<DealRecordCheck>
         } else if (line.reply !== 'accepted') line.notes.push('a "paid" for a statement not accepted is ignored');
         else if (line.paid) line.notes.push('a second "paid" for this statement is ignored');
         else {
-          line.paid = { amount: m.amount, currency: m.currency, method: m.method, reference: m.reference, paidOn: m.paidOn };
+          line.paid = {
+            amount: m.amount,
+            currency: m.currency,
+            method: m.method,
+            reference: m.reference,
+            paidOn: m.paidOn,
+            ...(hex(m.payoutSig, 128) ? { payoutSig: m.payoutSig } : {}),
+          };
           const owed = toPay(line);
           if (m.currency !== line.currency) {
             line.short = owed;
@@ -290,12 +341,62 @@ export const checkDealRecord = async (record: unknown): Promise<DealRecordCheck>
       }
     }
 
-  // 3. Settled: the same money signed for by both sides.
+  // 3. Settled: the same money signed for by both sides, or found on Cardano.
+  const payouts = new Map<string, Obj>();
+  for (const { m, sig } of good) if (m.type === 'payout') payouts.set(sig, m);
+  const tokens = options.cardanoTokens ?? CARDANO_TOKENS;
   const settled = new Map<string, bigint>();
   const open = new Map<string, bigint>();
   for (const line of out.statements) {
     const { paid, received } = line;
-    if (paid && received) {
+    // Settled on chain: the payment names a Cardano token, the issuer's payout it names is in
+    // that token for the statement's currency at 1:1, and the transaction matches (cardanoVerdict).
+    const token = paid?.method.startsWith('cardano:')
+      ? tokens.find((t) => `cardano:${t.code}` === paid.method)
+      : undefined;
+    const payout = paid?.payoutSig ? payouts.get(paid.payoutSig) : undefined;
+    if (
+      paid &&
+      token &&
+      payout &&
+      line.short === undefined &&
+      payout.method === paid.method &&
+      payout.currency === line.currency &&
+      token.pays === line.currency &&
+      payout.rate === '1' &&
+      text(payout.account)
+    ) {
+      const want = toTokenUnits(toPay(line), token.decimals);
+      const txHash = paid.reference.trim().toLowerCase();
+      let result: DealOnChain['result'] = 'not-checked';
+      if (want !== undefined && /^[0-9a-f]{64}$/.test(txHash) && options.cardano) {
+        const tx = await options.cardano(txHash).catch(() => undefined);
+        if (!tx || tx.hash !== txHash) result = 'not-found';
+        else {
+          const v = cardanoVerdict(tx, {
+            payTo: payout.account,
+            unit: token.policyId + token.assetName,
+            want,
+            ref: await paymentReference(line.signature, payout.account),
+            minConfirmations: options.minConfirmations,
+          });
+          result = v.ok ? 'settled' : v.why;
+        }
+      }
+      line.onChain = { rail: 'cardano', tx: txHash, token: token.code, result };
+      if (result === 'settled') {
+        line.settled = true;
+        add(settled, line.currency, toPay(line));
+      } else
+        line.notes.push(
+          result === 'not-checked'
+            ? `paid on Cardano in ${token.code} (transaction ${txHash}): not checked here; give a Cardano lookup to check it`
+            : `paid on Cardano in ${token.code} (transaction ${txHash}): not settled (${result})`,
+        );
+    }
+    if (line.settled) {
+      // Settled on chain; a "received" too is fine, and counted once.
+    } else if (paid && received) {
       if (paid.currency !== received.currency || !sameAmount(paid.amount, received.amount)) {
         line.notes.push(
           `paid ${paid.amount} ${paid.currency} but confirmed ${received.amount} ${received.currency}: not counted`,

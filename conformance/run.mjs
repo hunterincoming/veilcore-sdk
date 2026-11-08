@@ -362,6 +362,50 @@ if (labCount) {
   }
 }
 
+// Settled on chain (SPEC 11.10): the payment reference, the rule a Cardano transaction must meet,
+// and whole deal records with the transactions a lookup answers for. In its own file
+// (onchain-settle-v1.json, from onchain-settle-vectors.mjs). Not part of the record format: an
+// implementation that doesn't offer deal records fails these, it doesn't skip them.
+const settle = JSON.parse(readFileSync(new URL('./onchain-settle-v1.json', import.meta.url), 'utf8'));
+const settleCount = settle.payRef.length + settle.verdicts.length + settle.dealRecords.length;
+console.log('\nSettled on chain');
+{
+  const need = ['paymentReference', 'cardanoVerdict', 'checkDealRecord'].filter((f) => typeof impl[f] !== 'function');
+  if (need.length) {
+    console.error(`  implementation does not export ${need.join(', ')}`);
+    fail += settleCount;
+    failures.push({ section: 'settle', name: `${need.join(', ')} not exposed by this implementation`, expected: 'functions', actual: 'nothing' });
+  } else {
+    for (const v of settle.payRef) {
+      let actual;
+      try { actual = await impl.paymentReference(v.statementSig, v.payTo); } catch (e) { actual = `threw: ${e.message}`; }
+      check('payRef', v.statementSig.slice(0, 8), v.ref, actual);
+      console.log(`  ${v.ref === actual ? 'PASS' : 'FAIL'}  reference for ${v.statementSig.slice(0, 8)}… to ${v.payTo.trim().slice(0, 12)}…`);
+    }
+    for (const v of settle.verdicts) {
+      let actual;
+      try { actual = JSON.stringify(impl.cardanoVerdict(v.tx, v.expect)); } catch (e) { actual = `threw: ${e.message}`; }
+      const expected = JSON.stringify(v.result);
+      check('verdicts', v.name, expected, actual);
+      console.log(`  ${expected === actual ? 'PASS' : 'FAIL'}  ${v.name}`);
+    }
+    for (const v of settle.dealRecords) {
+      let actual;
+      try {
+        const c = await impl.checkDealRecord(v.record, v.chain ? { cardano: async (h) => v.chain[h] } : {});
+        actual = JSON.stringify({
+          statements: c.statements.map((l) => ({ statementId: l.statementId, settled: l.settled, onChain: l.onChain?.result ?? null })),
+          settled: c.settled,
+          open: c.open,
+        });
+      } catch (e) { actual = `threw: ${e.message}`; }
+      const expected = JSON.stringify(v.result);
+      check('dealRecords', v.name, expected, actual);
+      console.log(`  ${expected === actual ? 'PASS' : 'FAIL'}  ${v.name}`);
+    }
+  }
+}
+
 console.log(`\n${pass} passed, ${fail} failed`);
 
 if (fail > 0) {
