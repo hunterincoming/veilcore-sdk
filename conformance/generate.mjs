@@ -447,6 +447,15 @@ out.strainRefusals = strain.refusals;
 const documentV = JSON.parse(readFileSync(new URL('./document-v1.json', import.meta.url), 'utf8'));
 out.documentRecords = documentV.records;
 out.documentRefusals = documentV.refusals;
+// Laboratory results v2 (SPEC 11.12): copied from lab-result-v2.json, computed by
+// lab-result-vectors.mjs from the specification with node:crypto and the canonicaliser only.
+const labV = JSON.parse(readFileSync(new URL('./lab-result-v2.json', import.meta.url), 'utf8'));
+out.labSchemas = labV.schemas;
+out.labStatements = labV.labStatements;
+out.labStatementRefusals = labV.labStatementRefusals;
+out.labBindings = labV.labBindings;
+out.markSeals = labV.markSeals;
+out.markRefusals = labV.markRefusals;
 
 // Built before the shrink check below, which otherwise saw an empty attestations section
 // and refused every run.
@@ -485,6 +494,7 @@ console.log(
   `${out.fieldSets.length} field-set, ${out.fieldRejections.length} field-rejection, ${out.commitmentRejections.length} commitment-rejection, ` +
   `${out.pairings.length} pairing, ${out.keyBoundKeys.length + out.keyBoundRecords.length + out.keyBoundChecks.length + out.keyBoundRefusals.length} key-bound, ` +
   `${out.animalRecords.length + out.animalRefusals.length} animal-record, ` +
-  `${out.strainRecords.length + out.strainRefusals.length} strain-record and ${out.documentRecords.length + out.documentRefusals.length} document-record vectors`
+  `${out.strainRecords.length + out.strainRefusals.length} strain-record, ${out.documentRecords.length + out.documentRefusals.length} document-record and ` +
+  `${out.labStatements.length + out.labStatementRefusals.length + out.labBindings.length + out.markSeals.length + out.markRefusals.length} lab-result vectors`
 );
 

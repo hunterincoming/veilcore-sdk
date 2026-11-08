@@ -23,6 +23,7 @@ export * from './key-binding.js';
 export * from './animal-profile.js';
 export * from './strain-profile.js';
 export * from './document-profile.js';
+export * from './lab-result.js';
 export * from './evidence.js';
 export * from './rfc3161.js';
 export * from './deal-record.js';

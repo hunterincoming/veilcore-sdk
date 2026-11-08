@@ -307,6 +307,61 @@ if (documentCount) {
   }
 }
 
+// Laboratory results v2 (SPEC 11.12): the statement's form and file entry, its binding into a
+// document record and its field set, and DNA mark seals. Not part of the record format: an
+// implementation that doesn't offer them fails these, it doesn't skip them.
+const labCount =
+  (vectors.labStatements?.length ?? 0) + (vectors.labStatementRefusals?.length ?? 0) + (vectors.labBindings?.length ?? 0) +
+  (vectors.markSeals?.length ?? 0) + (vectors.markRefusals?.length ?? 0);
+if (labCount) {
+  console.log('\nLaboratory results (v2)');
+  const need = ['labStatementFile', 'labBindingProblems', 'dnaMarkSeal'].filter((f) => typeof impl[f] !== 'function');
+  if (need.length) {
+    console.error(`  implementation does not export ${need.join(', ')}`);
+    fail += labCount;
+    failures.push({ section: 'lab', name: `${need.join(', ')} not exposed by this implementation`, expected: 'functions', actual: 'nothing' });
+  } else {
+    for (const v of vectors.labStatements ?? []) {
+      let actual;
+      try {
+        const f = await impl.labStatementFile(v.statement);
+        actual = JSON.stringify([impl.canonicalise(v.statement), f.name, f.sha256, f.size]);
+      } catch (e) { actual = `threw: ${e.message}`; }
+      const expected = JSON.stringify([v.canonical, 'lab-result.json', v.sha256, v.size]);
+      check('labStatements', v.name, expected, actual);
+      console.log(`  ${expected === actual ? 'PASS' : 'FAIL'}  ${v.name}`);
+    }
+    for (const v of vectors.labStatementRefusals ?? []) {
+      let actual = 'accepted';
+      try { await impl.labStatementFile(v.statement); } catch { actual = 'refused'; }
+      check('labStatementRefusals', v.name, 'refused', actual);
+      console.log(`  ${actual === 'refused' ? 'PASS' : 'FAIL'}  refuses: ${v.name}`);
+    }
+    for (const v of vectors.labBindings ?? []) {
+      let actual;
+      try {
+        const p = await impl.labBindingProblems({ fields: v.fields, statement: v.statement, values: v.values, schemas: vectors.labSchemas });
+        actual = p.length === 0 ? 'bound' : 'refused';
+      } catch (e) { actual = `threw: ${e.message}`; }
+      const expected = v.bound ? 'bound' : 'refused';
+      check('labBindings', v.name, expected, actual);
+      console.log(`  ${expected === actual ? 'PASS' : 'FAIL'}  ${v.bound ? 'binds' : 'refuses'}: ${v.name}`);
+    }
+    for (const v of vectors.markSeals ?? []) {
+      let actual;
+      try { actual = await impl.dnaMarkSeal(v.sequence, v.salt); } catch (e) { actual = `threw: ${e.message}`; }
+      check('markSeals', v.name, v.seal, actual);
+      console.log(`  ${v.seal === actual ? 'PASS' : 'FAIL'}  ${v.name}`);
+    }
+    for (const v of vectors.markRefusals ?? []) {
+      let actual = 'accepted';
+      try { await impl.dnaMarkSeal(v.sequence, v.salt); } catch { actual = 'refused'; }
+      check('markRefusals', v.name, 'refused', actual);
+      console.log(`  ${actual === 'refused' ? 'PASS' : 'FAIL'}  refuses: ${v.name}`);
+    }
+  }
+}
+
 console.log(`\n${pass} passed, ${fail} failed`);
 
 if (fail > 0) {
