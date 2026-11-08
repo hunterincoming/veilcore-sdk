@@ -187,6 +187,27 @@ test('two statements for one period that differ are both read', async () => {
   assert.equal(c.statements.length, 2);
 });
 
+test('the copies fixture: two copies are one statement, one more field makes another', async () => {
+  const F = JSON.parse(await readFile(new URL('./fixtures/deal-record-copies.json', import.meta.url), 'utf8'));
+  const c = await checkDealRecord(F);
+  assert.equal(c.verified, F.messages.length);
+  assert.deepEqual(c.rejected, []);
+  assert.deepEqual(c.statements.map((s) => s.statementId), F.expect.statements);
+  assert.deepEqual(c.statements.map((s) => s.reply), F.expect.replies);
+  assert.deepEqual(c.open, F.expect.open);
+});
+
+test('a field the checker does not read still counts: the same figures plus it are another statement', async () => {
+  const I = await party(), L = await party();
+  const c = await checkDealRecord(
+    await recordOf(I, L, [
+      [L, statement('S-1', '50', '2026-08-01')],
+      [L, { ...statement('S-2', '50', '2026-08-02'), seq: 7 }],
+    ]),
+  );
+  assert.equal(c.statements.length, 2);
+});
+
 test('amounts compare as decimals, not as text', () => {
   assert.ok(sameAmount('10', '10.00'));
   assert.ok(sameAmount('0.1', '0.10'));

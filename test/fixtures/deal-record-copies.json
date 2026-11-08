@@ -1,0 +1,124 @@
+{
+  "v": "veilcore/deal-record/v1",
+  "about": "SPEC 11.10, one statement once: S-2 says exactly what S-1 says (only its id and signed time differ), so it is S-1, and the reply naming S-2 accepts S-1. S-3 has the same figures and one more field, so it is a statement of its own. Expected: two statements, both accepted, 50 USD open.",
+  "license": {
+    "commitment": "c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3c3",
+    "issuerRecord": "d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4d4"
+  },
+  "keys": {
+    "issuer": "48075a597e721a156e2e0799de5cc0c5324dc6e7eaf1cdd46250868ec53215dd",
+    "licensee": "f78b1da9b3dfb3fa3a3e54c43e79389d2f04d6bccb62984f28bd6f91798a750d"
+  },
+  "messages": [
+    {
+      "message": {
+        "type": "statement",
+        "statementId": "S-1",
+        "periodFrom": "2026-07-01",
+        "periodTo": "2026-07-31",
+        "basis": "units",
+        "quantity": "10",
+        "currency": "USD",
+        "amountOwed": "25.00",
+        "lines": [
+          {
+            "kind": "royalty",
+            "quantity": "10",
+            "rate": "2.50",
+            "amount": "25.00"
+          }
+        ],
+        "from": "licensee",
+        "at": 1785585600000
+      },
+      "signature": "9d25606a600b697c6413643068d11943e1af8a290a2c09dd438e7fd128df50cf05906e9de1e7503923aac54c3f104b75f3de2908e9d41a3d680b8a27f2192205",
+      "seq": 1
+    },
+    {
+      "message": {
+        "type": "statement",
+        "statementId": "S-2",
+        "periodFrom": "2026-07-01",
+        "periodTo": "2026-07-31",
+        "basis": "units",
+        "quantity": "10",
+        "currency": "USD",
+        "amountOwed": "25.00",
+        "lines": [
+          {
+            "kind": "royalty",
+            "quantity": "10",
+            "rate": "2.50",
+            "amount": "25.00"
+          }
+        ],
+        "from": "licensee",
+        "at": 1785672000000
+      },
+      "signature": "bed3e3edbec32cfa24b20d3d8acbb7d762fd5c679d81070de4ef1584b6dc56fe6a4e84cacf04212c1dae165df98907321aa426a752361262bde9a7965622b00a",
+      "seq": 2
+    },
+    {
+      "message": {
+        "type": "statement",
+        "statementId": "S-3",
+        "periodFrom": "2026-07-01",
+        "periodTo": "2026-07-31",
+        "basis": "units",
+        "quantity": "10",
+        "currency": "USD",
+        "amountOwed": "25.00",
+        "lines": [
+          {
+            "kind": "royalty",
+            "quantity": "10",
+            "rate": "2.50",
+            "amount": "25.00"
+          }
+        ],
+        "from": "licensee",
+        "at": 1785758400000,
+        "mine": false
+      },
+      "signature": "997c22f9575bca9f1429064a4c0521a6718775cb38d1d2f5ae81e11129488bd08aa7396f367e49f2435b5a6fc438373a4d4fb2d8b76dc1bf66fc4882688abe0a",
+      "seq": 3
+    },
+    {
+      "message": {
+        "type": "reply",
+        "statementId": "S-2",
+        "statementSig": "bed3e3edbec32cfa24b20d3d8acbb7d762fd5c679d81070de4ef1584b6dc56fe6a4e84cacf04212c1dae165df98907321aa426a752361262bde9a7965622b00a",
+        "decision": "accepted",
+        "from": "issuer",
+        "at": 1785844800000
+      },
+      "signature": "cd1b9008170005dbca8b13f7b242a5d2380b6dfce0832304c46e506ddd8684a26569539a7a03c8625fae70f83228c9735bb05f5b7914b2745da1f3b6f15ed40b",
+      "seq": 4
+    },
+    {
+      "message": {
+        "type": "reply",
+        "statementId": "S-3",
+        "statementSig": "997c22f9575bca9f1429064a4c0521a6718775cb38d1d2f5ae81e11129488bd08aa7396f367e49f2435b5a6fc438373a4d4fb2d8b76dc1bf66fc4882688abe0a",
+        "decision": "accepted",
+        "from": "issuer",
+        "at": 1785931200000
+      },
+      "signature": "a9b98a3c54837aa95463bd87f4a81858fdb437f52cafcc1f12908c4c70b79310e95c51d452dece9d7fa0ef22b97c551f2d10249879f72bfa32c79ff0a3b27a02",
+      "seq": 5
+    }
+  ],
+  "expect": {
+    "statements": [
+      "S-1",
+      "S-3"
+    ],
+    "replies": [
+      "accepted",
+      "accepted"
+    ],
+    "open": {
+      "USD": "50"
+    }
+  }
+}

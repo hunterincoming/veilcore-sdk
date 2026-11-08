@@ -9,7 +9,9 @@ Versions before 0.16.0 are described in their commit messages and on npm.
   statement, the first; a reply, payment or confirmation naming either counts for it, and the
   line notes the copy. One message saved twice is read once too: before, it made two lines and
   its amount was counted twice in `open`. A report sent again after a lost answer, signed with
-  a new time, no longer doubles what is owed (SPEC 11.10).
+  a new time, no longer doubles what is owed (SPEC 11.10). "The same" is exact: the canonical
+  form without `from`, `at` and `statementId`; any other field counts, even one the checker
+  doesn't read. `test/fixtures/deal-record-copies.json` is the cross-check.
 - **Deal records: the registry's order, and exact payments.** A record's messages are read in
   the order of the registry's `seq` saved beside each one, never the senders' signed times,
   which either side can set; `order` says which was used (an older record without `seq` falls
