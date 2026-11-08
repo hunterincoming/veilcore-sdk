@@ -18,6 +18,8 @@ export const LAB_RESULT_FORMAT = 'veilcore/lab-result/v2';
 export const LAB_RESULT_FILE_NAME = 'lab-result.json';
 export const LAB_RESULT_KINDS = ['numbers', 'pathogen', 'match', 'lineage', 'dna-mark', 'retraction'] as const;
 export type LabResultKind = (typeof LAB_RESULT_KINDS)[number];
+/** The most QC and run details a statement carries. */
+export const LAB_QC_MAX = 12;
 export const LAB_REPLACE_REASONS = ['re-test', 'correction', 'retraction'] as const;
 
 /** The form each kind's field set is sealed under; a `numbers` result names its own. */
@@ -39,12 +41,16 @@ const sha256 = async (bytes: Uint8Array): Promise<Uint8Array> => {
 
 const HEX64 = /^[0-9a-f]{64}$/;
 const CONTROL = /\p{Cc}/u;
+/** Format characters (bidi controls, zero-width spaces): refused in one-line text, so two values that look the same are the same. */
+const FORMAT = /\p{Cf}/u;
+/** A label that could be the mark itself: ten or more of A, C, G, T in a row. */
+const SEQUENCE_RUN = /[ACGT]{10,}/i;
 const CT = /^(0|[1-9]\d?)(\.\d{1,2})?$/;
 const COUNT_MAX = 1_000_000_000;
 type O = Record<string, unknown>;
 const isObject = (v: unknown): v is O => typeof v === 'object' && v !== null && !Array.isArray(v);
 const line = (v: unknown, max = 200): boolean =>
-  typeof v === 'string' && v !== '' && Array.from(v).length <= max && !CONTROL.test(v) && v === v.trim();
+  typeof v === 'string' && v !== '' && Array.from(v).length <= max && !CONTROL.test(v) && !FORMAT.test(v) && v === v.trim();
 const date = (v: unknown): v is string => {
   if (typeof v !== 'string') return false;
   const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(v);
@@ -73,7 +79,8 @@ const resultProblems = (kind: string, subject: unknown, r: unknown): string[] =>
       if (r.ct !== undefined && !(typeof r.ct === 'string' && CT.test(r.ct))) out.push('ct is a decimal under 100, two places at most');
       break;
     case 'match':
-      if (!only(r, ['other', 'matches'], ['compared', 'differing'])) out.push('result has the wrong fields');
+      if (!only(r, ['other', 'matches'], ['otherSampleId', 'compared', 'differing'])) out.push('result has the wrong fields');
+      if (r.otherSampleId !== undefined && !line(r.otherSampleId)) out.push('otherSampleId is one line');
       if (!(typeof r.other === 'string' && HEX64.test(r.other)) || r.other === subject) out.push('other is another record’s proof code');
       if (typeof r.matches !== 'boolean') out.push('matches is true or false');
       if (r.compared !== undefined && !(count(r.compared) && r.compared >= 1)) out.push('compared is a whole number, 1 or more');
@@ -106,7 +113,8 @@ const resultProblems = (kind: string, subject: unknown, r: unknown): string[] =>
       if (!only(r, ['seal', 'found'], ['label'])) out.push('result has the wrong fields');
       if (!(typeof r.seal === 'string' && HEX64.test(r.seal))) out.push('seal is 64 lowercase hex characters');
       if (typeof r.found !== 'boolean') out.push('found is true or false');
-      if (r.label !== undefined && !line(r.label)) out.push('label is one line');
+      if (r.label !== undefined && (!line(r.label) || SEQUENCE_RUN.test(r.label as string)))
+        out.push('label is one line, and not a run of ten or more A, C, G, T');
       break;
   }
   return out;
@@ -133,11 +141,11 @@ export const labStatementProblems = (s: unknown): string[] => {
     if (
       !Array.isArray(q) ||
       q.length < 1 ||
-      q.length > 8 ||
+      q.length > LAB_QC_MAX ||
       !q.every((x) => isObject(x) && only(x, ['name', 'value']) && line(x.name, 60) && line(x.value, 60)) ||
       new Set(q.map((x) => (x as O).name)).size !== q.length
     )
-      out.push('qc is 1 to 8 names and values, names not repeated');
+      out.push(`qc is 1 to ${LAB_QC_MAX} names and values, names not repeated`);
   }
   if (typeof s.kind === 'string') out.push(...resultProblems(s.kind, s.subject, s.result));
   const rep = s.replaces;
@@ -224,6 +232,10 @@ export const labBindingProblems = async (input: {
   else if (entries[0].sha256 !== want.sha256 || entries[0].size !== want.size)
     out.push('the statement file’s SHA-256 or size is not the statement’s');
   if (f.issued !== s.tested) out.push('issued is the date tested');
+  const about = f.about as O[];
+  if (about.length !== 1 || about[0].name !== s.sampleId || about[0].recordId !== undefined)
+    out.push('about names the sample ID, and only it');
+  if (f.reference !== s.accession) out.push('reference is the accession number');
   if (typeof f.fieldSchema !== 'string') return [...out, 'a laboratory result carries a field set'];
   const form = s.kind === 'numbers' ? (s.result as O).form : LAB_CALL_SCHEMAS[s.kind as Exclude<LabResultKind, 'numbers'>];
   if (s.kind === 'numbers' && (Object.values(LAB_CALL_SCHEMAS) as unknown[]).includes(form))

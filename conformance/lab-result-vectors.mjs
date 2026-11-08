@@ -89,6 +89,19 @@ const cases = [
   ],
   ['a withdrawal of an earlier result', { ...common, kind: 'retraction', replaces: { result: B, reason: 'retraction' } }],
   ['a re-test that replaces an earlier result', { ...common, kind: 'pathogen', result: { target: 'HLVd', sampleType: 'leaf', detected: false }, replaces: { result: C, reason: 're-test' } }],
+  [
+    'a comparison naming the other sample too',
+    { ...common, kind: 'match', method: { id: 'SNP genotyping', version: '4' }, result: { other: B, otherSampleId: 'REF-0007', matches: false, compared: 90, differing: 31 } },
+  ],
+  [
+    'a pathogen test with twelve run and QC details, the most',
+    {
+      ...common,
+      kind: 'pathogen',
+      qc: Array.from({ length: 12 }, (_, i) => ({ name: `detail ${i + 1}`, value: String(i) })),
+      result: { target: 'HLVd', sampleType: 'TC plantlet', detected: false },
+    },
+  ],
   ['numbers under a published form', { ...common, kind: 'numbers', result: { form: 'veilcore/schema/seed-quality/v1' } }],
   [
     'text is NFC before it is hashed: a decomposed É hashes as the composed one',
@@ -109,6 +122,11 @@ const statementRefusals = [
   ['a subject in upper case', { ...pathogen, subject: A.toUpperCase() }],
   ['a sample ID with a space at the end', { ...pathogen, sampleId: 'S-0412 ' }],
   ['an empty accession number', { ...pathogen, accession: '' }],
+  ['a zero-width space in the sample ID', { ...pathogen, sampleId: 'S-04\u200b12' }],
+  ['a right-to-left override in the accession number', { ...pathogen, accession: 'LAB-\u202e1187' }],
+  ['thirteen QC details', { ...pathogen, qc: Array.from({ length: 13 }, (_, i) => ({ name: `d${i}`, value: '1' })) }],
+  ['a mark label that is a sequence', { ...pathogen, kind: 'dna-mark', result: { seal: 'd4'.repeat(32), found: true, label: 'mark acgtacgtac' } }],
+  ['an empty other sample ID', { ...pathogen, kind: 'match', result: { other: B, otherSampleId: '', matches: true } }],
   ['a method without its version', { ...pathogen, method: { id: 'RT-qPCR' } }],
   ['a panel with an empty version', { ...pathogen, panel: { id: 'P', version: '' } }],
   ['a date tested that isn’t a date', { ...pathogen, tested: '2026-02-30' }],
@@ -152,7 +170,7 @@ const recordFor = (s, form, extra = {}) => ({
   ...extra,
 });
 const v16 = (...xs) => Array.from({ length: 16 }, (_, i) => (xs[i] === undefined ? null : xs[i]));
-const [p0, p1, m, l2, l1, mk, rt, , nb] = cases.map(([, s]) => s);
+const [p0, p1, m, l2, l1, mk, rt, , mo, q12, nb] = cases.map(([, s]) => s);
 const bound = [
   ['pathogen, not detected', p0, 'veilcore/schema/pathogen/v1', v16('0')],
   ['pathogen, detected, Ct 31.5 is 3150', p1, 'veilcore/schema/pathogen/v1', v16('1', '3150')],
@@ -161,6 +179,8 @@ const bound = [
   ['a parentage check, one parent, nothing optional', l1, 'veilcore/schema/lineage-check/v1', v16('0')],
   ['a DNA mark', mk, 'veilcore/schema/dna-mark/v1', v16('1')],
   ['a withdrawal', rt, 'veilcore/schema/lab-retraction/v1', v16('1')],
+  ['a comparison naming the other sample, no match', mo, 'veilcore/schema/genetic-match/v1', v16('0', '90', '31')],
+  ['a pathogen test with twelve run and QC details', q12, 'veilcore/schema/pathogen/v1', v16('0')],
   ['numbers under their own form', nb, 'veilcore/schema/seed-quality/v1', v16('9650', '9800')],
 ].map(([name, statement, form, values]) => ({ name, fields: recordFor(statement, form), statement, values, bound: true }));
 const pf = recordFor(p0, 'veilcore/schema/pathogen/v1');
@@ -171,6 +191,9 @@ const unbound = [
   ['no statement file', { ...pf, files: [pf.files[0]] }, p0, v16('0')],
   ['not a lab report', { ...pf, type: 'certificate-of-analysis' }, p0, v16('0')],
   ['dated another day than tested', { ...pf, issued: '2026-11-06' }, p0, v16('0')],
+  ['the record names another sample in about', { ...pf, about: [{ name: 'S-9999' }] }, p0, v16('0')],
+  ['the record names a second record in about', { ...pf, about: [{ name: 'S-0412' }, { name: 'other' }] }, p0, v16('0')],
+  ['the record’s reference isn’t the accession number', { ...pf, reference: 'LAB-26-0000' }, p0, v16('0')],
   ['under another kind’s form', recordFor(p0, 'veilcore/schema/genetic-match/v1'), p0, v16('0')],
   ['the call in the field set disagrees', pf, p0, v16('1')],
   ['a number the statement doesn’t have', pf, p0, v16('0', '3100')],

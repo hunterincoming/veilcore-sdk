@@ -13,7 +13,7 @@ Versions before 0.16.0 are described in their commit messages and on npm.
   tests, a comparison with another record and a parentage check (both by proof code only, no
   genotype), a sealed DNA mark (shown only in a dispute), and a withdrawal. `labStatementProblems`,
   `labStatementFile`, `labBindingProblems`, `labCallValues` and `dnaMarkSeal`; the five call forms
-  in `profiles/fields/`; 63 vectors (`conformance/lab-result-v2.json`, computed by
+  in `profiles/fields/`, with the seed-quality form the web application publishes (the `numbers` vectors seal under it, so the vectors need its document); 75 vectors (`conformance/lab-result-v2.json`, computed by
   `lab-result-vectors.mjs` from the section with node:crypto and the canonicaliser only); Python
   too; `--without-lab-results` for implementations that don't offer them. Version 1 results are
   unchanged.

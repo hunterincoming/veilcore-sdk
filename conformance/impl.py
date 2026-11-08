@@ -976,7 +976,19 @@ LAB_CALL_SCHEMAS = {
 
 
 def _line(v, mx=200):
-    return isinstance(v, str) and v != "" and len(v) <= mx and _one_line_problem("x", v) is None and v == v.strip()
+    return (
+        isinstance(v, str) and v != "" and len(v) <= mx and _one_line_problem("x", v) is None and v == v.strip()
+        and not any(unicodedata.category(c) == "Cf" for c in v)
+    )
+
+
+def _sequence_run(v):
+    run = 0
+    for c in v.upper():
+        run = run + 1 if c in "ACGT" else 0
+        if run >= 10:
+            return True
+    return False
 
 
 def _count(v):
@@ -1027,7 +1039,7 @@ def lab_statement_problems(s):
         out.append("received")
     if "qc" in s:
         q = s["qc"]
-        if not (isinstance(q, list) and 1 <= len(q) <= 8 and all(isinstance(x, dict) and _only(x, ("name", "value")) and _line(x["name"], 60) and _line(x["value"], 60) for x in q) and len({x["name"] for x in q}) == len(q)):
+        if not (isinstance(q, list) and 1 <= len(q) <= 12 and all(isinstance(x, dict) and _only(x, ("name", "value")) and _line(x["name"], 60) and _line(x["value"], 60) for x in q) and len({x["name"] for x in q}) == len(q)):
             out.append("qc")
     r = s.get("result")
     if kind == "retraction":
@@ -1043,7 +1055,8 @@ def lab_statement_problems(s):
             if not (_only(r, ("target", "sampleType", "detected"), ("ct",)) and _line(r["target"]) and _line(r["sampleType"]) and isinstance(r["detected"], bool) and ("ct" not in r or _ct(r["ct"]))):
                 out.append("pathogen")
         elif kind == "match":
-            ok = _only(r, ("other", "matches"), ("compared", "differing")) and _is_hex32(r["other"]) and r["other"] != subject and isinstance(r["matches"], bool)
+            ok = _only(r, ("other", "matches"), ("otherSampleId", "compared", "differing")) and _is_hex32(r["other"]) and r["other"] != subject and isinstance(r["matches"], bool)
+            ok = ok and ("otherSampleId" not in r or _line(r["otherSampleId"]))
             ok = ok and ("compared" not in r or (_count(r["compared"]) and r["compared"] >= 1)) and ("differing" not in r or _count(r["differing"]))
             if ok and "compared" in r and "differing" in r and r["differing"] > r["compared"]:
                 ok = False
@@ -1062,7 +1075,7 @@ def lab_statement_problems(s):
             if not ok:
                 out.append("lineage")
         elif kind == "dna-mark":
-            if not (_only(r, ("seal", "found"), ("label",)) and _is_hex32(r["seal"]) and isinstance(r["found"], bool) and ("label" not in r or _line(r["label"]))):
+            if not (_only(r, ("seal", "found"), ("label",)) and _is_hex32(r["seal"]) and isinstance(r["found"], bool) and ("label" not in r or (_line(r["label"]) and not _sequence_run(r["label"])))):
                 out.append("dna-mark")
     rep = s.get("replaces")
     if "replaces" in s and not (isinstance(rep, dict) and _only(rep, ("result", "reason")) and _is_hex32(rep["result"]) and rep["reason"] in LAB_REASONS):
@@ -1128,6 +1141,10 @@ def lab_binding(job):
         raise ValueError("the statement file is not this statement's")
     if f["issued"] != s["tested"]:
         raise ValueError("issued is not the date tested")
+    if f["about"] != [{"name": s["sampleId"]}]:
+        raise ValueError("about names the sample ID, and only it")
+    if f["reference"] != s["accession"]:
+        raise ValueError("reference is not the accession number")
     if "fieldSchema" not in f:
         raise ValueError("no field set")
     form = s["result"]["form"] if s["kind"] == "numbers" else LAB_CALL_SCHEMAS[s["kind"]]
