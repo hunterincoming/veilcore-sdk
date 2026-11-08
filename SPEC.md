@@ -2,7 +2,7 @@
 
 **A specification for evidence of prior possession of plant and animal genetic material**
 
-Version 0.1 - August 2026, revised 3 November 2026 (section 3.6.1: a record that names its own key; sections 11.8, 11.9 and 11.11, final: animal, strain and document records; section 11.10, a draft: deal records; the record format version is unchanged)
+Version 0.1 - August 2026, revised 3 November 2026 (section 3.6.1: a record that names its own key; sections 11.8, 11.9 and 11.11, final: animal, strain and document records; section 11.10, a draft: deal records; section 11.12, a draft: laboratory results version 2; the record format version is unchanged)
 
 ---
 
@@ -597,7 +597,7 @@ A conformance profile covering party conduct is not defined here (section 12).
 
 An implementation is conformant if it reproduces the published test vectors exactly.
 
-Vectors cover canonicalisation - key ordering, omitted versus null, array order preservation, NFC normalisation, nested sorting, numeric and boolean forms - commitment computation across a range of record shapes, including the requirement that changing the anchor does not change the commitment, and inclusion proofs across batch sizes chosen so that an implementation which duplicates an odd node rather than promoting it will disagree. Field-set vectors (section 4.5) cover schema ids, slot values including the number 0 against an absent value, NFC text, salts, set roots and openings, with refusals for every validation rule and for field-set records missing their bindings. Together these are the 100 record-format vectors. One further vector (`pairings`) gives the binding of section 3.7 for fixed inputs; it is not part of the record format, and an implementation that does not offer ledger pairings may leave it out and say so. Twenty further vectors (`keyBoundKeys`, `keyBoundRecords`, `keyBoundChecks`, `keyBoundRefusals`) cover section 3.6.1: a key, its salt and its binding from a record secret, record fingerprints old and new, whether a key matches a record, and refusals of a malformed `keyBinding`. They are copied unchanged from `key-bound-v1.json`, published with the VeilCore web application and checked there and by the VeilCore registry, so the implementations are tested against values none of them computed. They are not part of the envelope format either; an implementation that does not read key-bound fingerprints may leave them out and say so. Thirty more (`animalRecords`, `animalRefusals`) cover the animal profile of section 11.8: five records whose fingerprints are computed exactly as any record's, and twenty-five sets of fields the profile refuses. They are copied unchanged from `animal-individual-v1.json`, published with the VeilCore web application. They test a profile, not the record format; an implementation that does not check the animal profile runs the records and leaves the refusals out (`--without-animal-profile`), and says so. Thirty more (`strainRecords`, `strainRefusals`) do the same for the strain profile of section 11.9, copied unchanged from `strain-v1.json` (`--without-strain-profile`).
+Vectors cover canonicalisation - key ordering, omitted versus null, array order preservation, NFC normalisation, nested sorting, numeric and boolean forms - commitment computation across a range of record shapes, including the requirement that changing the anchor does not change the commitment, and inclusion proofs across batch sizes chosen so that an implementation which duplicates an odd node rather than promoting it will disagree. Field-set vectors (section 4.5) cover schema ids, slot values including the number 0 against an absent value, NFC text, salts, set roots and openings, with refusals for every validation rule and for field-set records missing their bindings. Together these are the 100 record-format vectors. One further vector (`pairings`) gives the binding of section 3.7 for fixed inputs; it is not part of the record format, and an implementation that does not offer ledger pairings may leave it out and say so. Twenty further vectors (`keyBoundKeys`, `keyBoundRecords`, `keyBoundChecks`, `keyBoundRefusals`) cover section 3.6.1: a key, its salt and its binding from a record secret, record fingerprints old and new, whether a key matches a record, and refusals of a malformed `keyBinding`. They are copied unchanged from `key-bound-v1.json`, published with the VeilCore web application and checked there and by the VeilCore registry, so the implementations are tested against values none of them computed. They are not part of the envelope format either; an implementation that does not read key-bound fingerprints may leave them out and say so. Thirty more (`animalRecords`, `animalRefusals`) cover the animal profile of section 11.8: five records whose fingerprints are computed exactly as any record's, and twenty-five sets of fields the profile refuses. They are copied unchanged from `animal-individual-v1.json`, published with the VeilCore web application. They test a profile, not the record format; an implementation that does not check the animal profile runs the records and leaves the refusals out (`--without-animal-profile`), and says so. Thirty more (`strainRecords`, `strainRefusals`) do the same for the strain profile of section 11.9, copied unchanged from `strain-v1.json` (`--without-strain-profile`). Sixty-three more (`labStatements`, `labStatementRefusals`, `labBindings`, `markSeals`, `markRefusals`) cover laboratory results version 2 (section 11.12), copied from `lab-result-v2.json`; an implementation that does not offer them leaves them out (`--without-lab-results`) and says so.
 
 **Conformance is demonstrated, not asserted.** The vector set and a runner are published with the reference implementation. The runner communicates with an implementation over standard input and output, so implementations in any language can be tested.
 
@@ -854,6 +854,71 @@ A deal record is the signed messages of one license deal, as either side keeps t
 
 **Vectors.** `document-v1.json` gives records under this profile and fields that shall be refused. It is checked by the VeilCore web application, the VeilCore registry, and the TypeScript and Python implementations here. Like the other profiles' vectors, it is outside the 100 record-format vectors of section 10.
 
+
+## 11.12 - Laboratory results, version 2
+
+**A draft (7 November 2026).** This section defines how a laboratory signs a result bound to the record its sample came from: `veilcore/lab-result/v2`. It adds no envelope field and no commitment algorithm, and changes no profile: a version 2 result is a document record (section 11.11) under the document profile version 1, with a field set (section 4.5), signed by the laboratory over its record commitment exactly as section 4.5 says. The record format version is unchanged. Results made before this ("version 1": a document record of numbers a laboratory signed, naming the material only by name) keep checking exactly as they did.
+
+**Why a second version.** A version 1 result names what was tested only by a name the laboratory typed. The link from the numbers to a record lived outside what the laboratory signed, in a registry's attestation, so a reader holding only the signed record could not tell which sample, which method or which panel the numbers came from. A result that is argued about is argued about a stated method on a stated sample; a format that does not carry them leaves the argument nothing to be about.
+
+**The result statement.** A JSON object, serialised canonically (section 4.4), with exactly these fields and no others:
+
+| Field | What it holds |
+| --- | --- |
+| `format` | `veilcore/lab-result/v2` |
+| `kind` | One of `numbers`, `pathogen`, `match`, `lineage`, `dna-mark`, `retraction` |
+| `subject` | The proof code of the record the sample came from, 64 lowercase hex characters (section 3.6.1: its fingerprint) |
+| `sampleId` | The sample's identifier as the sender gave it. One line |
+| `accession` | The laboratory's own accession number for the sample. One line |
+| `method` | `{ id, version }`: the method or standard operating procedure, and its version. Each one line |
+| `panel` | Optional. `{ id, version }`: the marker panel, and its version |
+| `tested` | The date tested, `YYYY-MM-DD`, a real date |
+| `received` | Optional. The date received, a real date not after `tested` |
+| `qc` | Optional. 1 to 8 `{ name, value }`, each one line of at most 60 characters, names not repeated: quality-control figures as the laboratory reports them (call rate, controls, an internal control's Ct). An empty list shall be omitted, not written |
+| `result` | What was found, by kind (below). Absent for `retraction` and only for it |
+| `replaces` | Optional. `{ result, reason }`: the code of an earlier result of the same laboratory (below) and why it is replaced, one of `re-test`, `correction`, `retraction`. A `retraction` result shall carry it with the reason `retraction`, and no other kind shall give that reason |
+
+A one-line field is text of at most 200 characters unless stated, not empty, with no control character and no white space at either end. Text is NFC-normalised by the canonical serialisation, so one result written in two normal forms is one statement.
+
+**Results, by kind.** Every proof code is 64 lowercase hex characters. Counts are whole numbers from 0 to 10^9 written as JSON numbers; `compared` is at least 1.
+
+- `numbers`: `{ form }`, the id of a published field schema (section 4.5) other than the five below. The numbers are the field set's, under that form; the laboratory types them from its report.
+- `pathogen`: `{ target, sampleType, detected, ct? }`: what was tested for (a viroid such as HLVd, a virus, a bacterium) and the kind of sample, both one line; `detected` true or false; `ct`, the cycle threshold, as text: a decimal under 100 with at most two places (`31.5`).
+- `match`: `{ other, matches, compared?, differing? }`: the proof code of the record the sample was compared with, not the subject; whether the genotypes match; markers compared and differing, `differing` not more than `compared`.
+- `lineage`: `{ parents, consistent, compared?, conflicts? }`: the proof codes of one or two parents, each once and neither the subject; whether the sample is consistent with descent from them; markers compared; conflicts with each parent, in the order named, one per parent, none more than `compared`.
+- `dna-mark`: `{ seal, found, label? }`: a DNA mark, sealed (below); whether it was found in the sample; the laboratory's own name for the mark, one line, never its sequence.
+- `retraction`: no result.
+
+**No genetic data is in a statement.** A comparison names records by proof code; neither the genotypes compared nor the calls are carried, and a verifier learns which records a laboratory compared and what it concluded, never on what genotype.
+
+**Binding.** A version 2 result is a document record whose committed fields have `type` `lab-report`, `issued` equal to the statement's `tested`, a field set, and among `files` exactly one entry named `lab-result.json` whose `sha256` and `size` are those of the statement's canonical bytes. Other entries may name the laboratory's report file. The field set is under the kind's call form:
+
+| `kind` | Form | Slots |
+| --- | --- | --- |
+| `numbers` | the statement's `form` | as that form says |
+| `pathogen` | `veilcore/schema/pathogen/v1` | 0: 1 detected, 0 not; 1: `ct` times 100, when given |
+| `match` | `veilcore/schema/genetic-match/v1` | 0: 1 match, 0 not; 1: `compared`; 2: `differing` |
+| `lineage` | `veilcore/schema/lineage-check/v1` | 0: 1 consistent, 0 excluded; 1: `compared`; 2 and 3: conflicts with the first and second parent |
+| `dna-mark` | `veilcore/schema/dna-mark/v1` | 0: 1 found, 0 not |
+| `retraction` | `veilcore/schema/lab-retraction/v1` | 0: always 1 |
+
+For every kind but `numbers` the field set's values shall be exactly those the statement gives: a slot is present if and only if the statement has the value. The forms are published with this specification (`profiles/fields/`); their ids are computed as section 4.5 says.
+
+Because the statement's hash is a committed file entry, the laboratory's signature over the record commitment covers the statement; because the call is in the field set too, a holder can prove one value on a ledger (section 4.5: "not detected", "consistent", "0 differing") without showing the statement, and a verifier who is shown the statement checks that the two agree.
+
+**What a verifier shall check.** (1) The statement is in its form. (2) The record's committed fields are a document record in the profile's form and the statement binds to them as above. (3) The field set's values make its root, the record's commitment is computed as section 4.5 says, and the laboratory's signature over that commitment verifies (section 4.5, the `attested` claim). (4) `subject`, `other` and `parents` are proof codes of records the verifier dates by their own anchors; the result says nothing about when they were made. (5) Which key is which laboratory is the verifier's decision (section 7); a binding the laboratory publishes naming its key on the result is evidence of that, not proof, and withdrawing it withdraws the laboratory's name from the result.
+
+**Replacing.** A result's code is its record commitment (section 4.5), the value its laboratory signed. A later result names an earlier one in `replaces`. A verifier shall treat the earlier result as replaced (or, for the reason `retraction`, withdrawn) only when both are signed by the same key; a result naming one signed by another key changes nothing about it. Nothing in this format tells a verifier holding only the earlier result that a later one exists: a verifier should look for one where the laboratory publishes them, and shall report a result it holds as signed, not as current.
+
+**DNA marks.** A mark is a sequence a laboratory wrote into a line, or found in it, to recognise it later. Its sequence is the line's holder's and the laboratory's secret: it is sealed, never published, and shown only to settle a dispute.
+
+`seal = hex(SHA-256("veilcore:dnamark:v1" || 0x00 || salt || sequence))`
+
+where `salt` is 32 bytes from a cryptographically secure generator and `sequence` is the mark in ASCII: 10 to 100,000 of the letters `A`, `C`, `G` and `T`, upper case, nothing else. A sequence in any other form shall be refused rather than tidied. The salt keeps a seal from being matched against a list of known marks. Whoever holds the sequence and the salt (an "opening") can show that a result sealed that mark; anyone shown the opening recomputes the seal. A seal shows that the laboratory recorded a mark by the result's date; it does not show that the mark is unique, that the laboratory put it there, or that a line carrying it descends from this one.
+
+**What a version 2 result does not establish.** Everything in sections 9.3 and 11.11 holds. The format records what a laboratory signed, about which sample, by which method; it does not establish that the method was sound, that the sample came from the subject's material, that a match means identity or that consistency means descent, or that a result is the laboratory's latest. **The issuer of this format does not test DNA, does not mark it, and vouches for no result.**
+
+**Vectors.** `conformance/lab-result-v2.json` gives statements and their file entries (10), statements that shall be refused (25), statements bound and not bound to records (20), and mark seals and refusals (8): 63 in all, computed by `conformance/lab-result-vectors.mjs` from this section with `node:crypto` and the canonicaliser only. The TypeScript and Python implementations here and the VeilCore web application pass them. They are not part of the record format: an implementation that does not offer laboratory results leaves them out (`--without-lab-results`) and says so.
 
 ## 12 - What is not yet specified
 

@@ -32,6 +32,12 @@
 //   in:  {"op":"strainFingerprint","input":{...a strain record's committed fields...}}
 //          out: as recordFingerprint, or refused for fields not in the strain profile's form
 //          (SPEC 11.9, draft); --without-strain-profile leaves those refusals out, and says so.
+//   in:  {"op":"labStatement","input":{...a result statement...}}
+//          out: {"result":{"name":"lab-result.json","sha256":"<hex>","size":<n>}}, or refused (SPEC 11.12)
+//   in:  {"op":"labBinding","input":{"fields":{...},"statement":{...},"values":[...16],"schemas":{...}}}
+//          out: {"result":true}, or refused when the statement doesn't bind to the record
+//   in:  {"op":"dnaMarkSeal","input":{"sequence":"ACGT…","salt":"<hex>"}}   out: {"result":"<hex>"}, or refused
+//          The three are not the record format: --without-lab-results leaves them out, and says so.
 //
 // An implementation refuses an invalid record either by writing {"error":"..."} (or
 // {"rejected":true}) or by exiting non-zero. Both are idiomatic - a Python raise and a
@@ -380,6 +386,49 @@ if (documentRefusalList.length) {
       ok ? pass++ : failures.push({ name: v.name, expected: 'refused', actual: r.kind === 'ok' ? `accepted, returned ${JSON.stringify(r.value)}` : `${r.kind} — ${r.why}` });
       console.log(`  ${ok ? 'PASS' : 'FAIL'}  refuses: ${v.name}`);
     }
+  }
+}
+
+// Laboratory results v2 (SPEC 11.12). An implementation that doesn't offer them is asked once
+// with a valid statement; without an answer its refusals are never counted as passes. With
+// --without-lab-results they are left out and the result says so.
+console.log('\nLaboratory results (v2)');
+const withoutLab = process.argv.includes('--without-lab-results');
+const labProbe = vectors.labStatements?.[0];
+const lp = labProbe ? await ask('labStatement', labProbe.statement) : { kind: 'broken', why: 'no statement to ask with' };
+const labOffers = lp.kind === 'ok' && lp.value !== null && typeof lp.value === 'object' && lp.value.sha256 === labProbe.sha256;
+const labTotal =
+  (vectors.labStatements?.length ?? 0) + (vectors.labStatementRefusals?.length ?? 0) + (vectors.labBindings?.length ?? 0) +
+  (vectors.markSeals?.length ?? 0) + (vectors.markRefusals?.length ?? 0);
+if (!labOffers && withoutLab) {
+  console.log(`  NOT RUN  ${labTotal} lab-result vectors: this implementation does not offer them (--without-lab-results)`);
+} else if (!labOffers) {
+  failures.push({ name: 'lab results', expected: 'op labStatement answered', actual: outcome(lp) });
+  console.log(`  FAIL  ${labTotal} lab-result vectors: op labStatement is not answered (${outcome(lp)}). Use --without-lab-results to leave them out and say so.`);
+} else {
+  const yes = (name, ok, expected, actual) => {
+    ok ? pass++ : failures.push({ name, expected, actual });
+    console.log(`  ${ok ? 'PASS' : 'FAIL'}  ${name}`);
+  };
+  for (const v of vectors.labStatements ?? []) {
+    const r = await ask('labStatement', v.statement);
+    yes(v.name, r.kind === 'ok' && r.value?.sha256 === v.sha256 && r.value?.size === v.size && r.value?.name === 'lab-result.json', v.sha256, outcome(r));
+  }
+  for (const v of vectors.labStatementRefusals ?? []) {
+    const r = await ask('labStatement', v.statement);
+    yes(`refuses: ${v.name}`, r.kind === 'refused', 'refused', outcome(r));
+  }
+  for (const v of vectors.labBindings ?? []) {
+    const r = await ask('labBinding', { fields: v.fields, statement: v.statement, values: v.values, schemas: vectors.labSchemas });
+    yes(`${v.bound ? 'binds' : 'refuses'}: ${v.name}`, v.bound ? r.kind === 'ok' && r.value === true : r.kind === 'refused', v.bound ? 'true' : 'refused', outcome(r));
+  }
+  for (const v of vectors.markSeals ?? []) {
+    const r = await ask('dnaMarkSeal', { sequence: v.sequence, salt: v.salt });
+    yes(v.name, r.kind === 'ok' && r.value === v.seal, v.seal, outcome(r));
+  }
+  for (const v of vectors.markRefusals ?? []) {
+    const r = await ask('dnaMarkSeal', { sequence: v.sequence, salt: v.salt });
+    yes(`refuses: ${v.name}`, r.kind === 'refused', 'refused', outcome(r));
   }
 }
 

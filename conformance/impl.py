@@ -960,6 +960,196 @@ def document_record_fingerprint(fields):
     return record_fingerprint(fields)
 
 
+# ---- laboratory results, version 2 (spec 11.12) -------------------------------------------
+
+LAB_FORMAT = "veilcore/lab-result/v2"
+LAB_FILE = "lab-result.json"
+LAB_KINDS = ("numbers", "pathogen", "match", "lineage", "dna-mark", "retraction")
+LAB_REASONS = ("re-test", "correction", "retraction")
+LAB_CALL_SCHEMAS = {
+    "pathogen": "veilcore/schema/pathogen/v1",
+    "match": "veilcore/schema/genetic-match/v1",
+    "lineage": "veilcore/schema/lineage-check/v1",
+    "dna-mark": "veilcore/schema/dna-mark/v1",
+    "retraction": "veilcore/schema/lab-retraction/v1",
+}
+
+
+def _line(v, mx=200):
+    return isinstance(v, str) and v != "" and len(v) <= mx and _one_line_problem("x", v) is None and v == v.strip()
+
+
+def _count(v):
+    return isinstance(v, int) and not isinstance(v, bool) and 0 <= v <= 1_000_000_000
+
+
+def _only(o, req, opt=()):
+    return all(k in o for k in req) and all(k in req or k in opt for k in o)
+
+
+def _ref(v):
+    return isinstance(v, dict) and _only(v, ("id", "version")) and _line(v["id"]) and _line(v["version"])
+
+
+def _ct(v):
+    if not isinstance(v, str) or not v.isascii():
+        return False
+    w, _, f = v.partition(".")
+    if "." in v and not (1 <= len(f) <= 2 and f.isdigit()):
+        return False
+    return w.isdigit() and len(w) <= 2 and (w == "0" or w[0] != "0")
+
+
+def lab_statement_problems(s):
+    if not isinstance(s, dict):
+        return ["a statement is an object"]
+    out = []
+    if s.get("format") != LAB_FORMAT:
+        out.append("format")
+    if not _only(s, ("format", "kind", "subject", "sampleId", "accession", "method", "tested"), ("panel", "received", "qc", "result", "replaces")):
+        out.append("fields")
+    kind = s.get("kind")
+    if kind not in LAB_KINDS:
+        out.append("kind")
+    subject = s.get("subject")
+    if not _is_hex32(subject):
+        out.append("subject")
+    for k in ("sampleId", "accession"):
+        if not _line(s.get(k)):
+            out.append(k)
+    if not _ref(s.get("method")):
+        out.append("method")
+    if "panel" in s and not _ref(s["panel"]):
+        out.append("panel")
+    if not _calendar_date(s.get("tested")):
+        out.append("tested")
+    if "received" in s and not (_calendar_date(s["received"]) and _calendar_date(s.get("tested")) and s["received"] <= s["tested"]):
+        out.append("received")
+    if "qc" in s:
+        q = s["qc"]
+        if not (isinstance(q, list) and 1 <= len(q) <= 8 and all(isinstance(x, dict) and _only(x, ("name", "value")) and _line(x["name"], 60) and _line(x["value"], 60) for x in q) and len({x["name"] for x in q}) == len(q)):
+            out.append("qc")
+    r = s.get("result")
+    if kind == "retraction":
+        if "result" in s:
+            out.append("result")
+    elif kind in LAB_KINDS:
+        if not isinstance(r, dict):
+            out.append("result")
+        elif kind == "numbers":
+            if not (_only(r, ("form",)) and _line(r["form"])):
+                out.append("form")
+        elif kind == "pathogen":
+            if not (_only(r, ("target", "sampleType", "detected"), ("ct",)) and _line(r["target"]) and _line(r["sampleType"]) and isinstance(r["detected"], bool) and ("ct" not in r or _ct(r["ct"]))):
+                out.append("pathogen")
+        elif kind == "match":
+            ok = _only(r, ("other", "matches"), ("compared", "differing")) and _is_hex32(r["other"]) and r["other"] != subject and isinstance(r["matches"], bool)
+            ok = ok and ("compared" not in r or (_count(r["compared"]) and r["compared"] >= 1)) and ("differing" not in r or _count(r["differing"]))
+            if ok and "compared" in r and "differing" in r and r["differing"] > r["compared"]:
+                ok = False
+            if not ok:
+                out.append("match")
+        elif kind == "lineage":
+            p = r.get("parents")
+            ok = _only(r, ("parents", "consistent"), ("compared", "conflicts")) and isinstance(p, list) and 1 <= len(p) <= 2
+            ok = ok and all(_is_hex32(x) and x != subject for x in p) and len(set(p)) == len(p) and isinstance(r["consistent"], bool)
+            ok = ok and ("compared" not in r or (_count(r["compared"]) and r["compared"] >= 1))
+            if ok and "conflicts" in r:
+                c = r["conflicts"]
+                ok = isinstance(c, list) and len(c) == len(p) and all(_count(x) for x in c)
+                if ok and "compared" in r and any(x > r["compared"] for x in c):
+                    ok = False
+            if not ok:
+                out.append("lineage")
+        elif kind == "dna-mark":
+            if not (_only(r, ("seal", "found"), ("label",)) and _is_hex32(r["seal"]) and isinstance(r["found"], bool) and ("label" not in r or _line(r["label"]))):
+                out.append("dna-mark")
+    rep = s.get("replaces")
+    if "replaces" in s and not (isinstance(rep, dict) and _only(rep, ("result", "reason")) and _is_hex32(rep["result"]) and rep["reason"] in LAB_REASONS):
+        out.append("replaces")
+    reason = rep.get("reason") if isinstance(rep, dict) else None
+    if (kind == "retraction") != (reason == "retraction"):
+        out.append("retraction")
+    return out
+
+
+def lab_statement_file(s):
+    p = lab_statement_problems(s)
+    if p:
+        raise ValueError("not a valid statement: " + ", ".join(p))
+    b = canonicalise(s).encode("utf-8")
+    return {"name": LAB_FILE, "sha256": hashlib.sha256(b).hexdigest(), "size": len(b)}
+
+
+def _schema_id(schema):
+    mask, numeric = _schema_masks(schema)
+    digest = hashlib.sha256(canonicalise(schema).encode("utf-8")).digest()
+    return _h(_tag("veilcore:v1:fschema"), digest, _terms_bytes(mask, numeric, int(schema["k"]))).hex()
+
+
+def _call_values(s):
+    v = [None] * 16
+    r = s.get("result") or {}
+    b = lambda x: "1" if x else "0"
+    n = lambda k: None if k not in r else str(r[k])
+    kind = s["kind"]
+    if kind == "pathogen":
+        v[0] = b(r["detected"])
+        if "ct" in r:
+            w, _, f = r["ct"].partition(".")
+            v[1] = str(int(w) * 100 + int((f + "00")[:2]))
+    elif kind == "match":
+        v[0], v[1], v[2] = b(r["matches"]), n("compared"), n("differing")
+    elif kind == "lineage":
+        c = r.get("conflicts")
+        v[0], v[1] = b(r["consistent"]), n("compared")
+        if c is not None:
+            v[2] = str(c[0])
+            if len(c) > 1:
+                v[3] = str(c[1])
+    elif kind == "dna-mark":
+        v[0] = b(r["found"])
+    elif kind == "retraction":
+        v[0] = "1"
+    return v
+
+
+def lab_binding(job):
+    """True when a statement binds to a record (spec 11.12); raises when it doesn't."""
+    f, s, values, schemas = job["fields"], job["statement"], job["values"], job["schemas"]
+    want = lab_statement_file(s)
+    p = document_problems(f)
+    if p:
+        raise ValueError("not a document record: " + "; ".join(p))
+    if f["type"] != "lab-report":
+        raise ValueError("not a lab report")
+    entries = [x for x in f["files"] if x["name"] == LAB_FILE]
+    if len(entries) != 1 or entries[0]["sha256"] != want["sha256"] or entries[0]["size"] != want["size"]:
+        raise ValueError("the statement file is not this statement's")
+    if f["issued"] != s["tested"]:
+        raise ValueError("issued is not the date tested")
+    if "fieldSchema" not in f:
+        raise ValueError("no field set")
+    form = s["result"]["form"] if s["kind"] == "numbers" else LAB_CALL_SCHEMAS[s["kind"]]
+    if s["kind"] == "numbers" and form in LAB_CALL_SCHEMAS.values():
+        raise ValueError("a numbers result under a call form")
+    if form not in schemas or _schema_id(schemas[form]) != f["fieldSchema"]:
+        raise ValueError("fieldSchema is not the id of the kind's form")
+    if not isinstance(values, list) or len(values) != 16:
+        raise ValueError("values are sixteen")
+    if s["kind"] != "numbers" and _call_values(s) != values:
+        raise ValueError("the field set does not agree with the statement")
+    return True
+
+
+def dna_mark_seal(sequence, salt):
+    if not (isinstance(sequence, str) and 10 <= len(sequence) <= 100000 and all(c in "ACGT" for c in sequence)):
+        raise ValueError("a mark is 10 to 100000 of A, C, G and T")
+    if not _is_hex32(salt):
+        raise ValueError("the salt is 64 lowercase hex characters")
+    return hashlib.sha256(b"veilcore:dnamark:v1\x00" + bytes.fromhex(salt) + sequence.encode("ascii")).hexdigest()
+
+
 def main():
     job = json.loads(sys.stdin.read())
     op = job["op"]
@@ -988,6 +1178,13 @@ def main():
         print(json.dumps({"result": strain_record_fingerprint(job["input"])}))
     elif op == "documentFingerprint":
         print(json.dumps({"result": document_record_fingerprint(job["input"])}))
+    elif op == "labStatement":
+        print(json.dumps({"result": lab_statement_file(job["input"])}))
+    elif op == "labBinding":
+        print(json.dumps({"result": lab_binding(job["input"])}))
+    elif op == "dnaMarkSeal":
+        i = job["input"]
+        print(json.dumps({"result": dna_mark_seal(i["sequence"], i["salt"])}))
     elif op == "keyMatch":
         i = job["input"]
         print(json.dumps({"result": key_matches_record(i.get("identity"), i.get("fingerprint"), i.get("keySalt"), i.get("contentHash"))}))

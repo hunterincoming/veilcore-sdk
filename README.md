@@ -203,6 +203,9 @@ here, `strain_record_fingerprint` in Python, `--without-strain-profile` for Rust
 Thirty-six more for the document profile (SPEC 11.11, final: a permit, a COA, a contract,
 sealed by each file's SHA-256, and a certificate's numbers as a field set): `computeDocumentRecordFingerprint` and `documentProblems`
 here, `document_record_fingerprint` in Python, `--without-document-profile` for others.
+Sixty-three more for laboratory results version 2 (SPEC 11.12, draft: a result bound to the record
+its sample came from, with the method, the sample ID and the call; a DNA mark sealed): `labStatementFile`,
+`labBindingProblems` and `dnaMarkSeal` here, the same in Python, `--without-lab-results` for others.
 
 ```
 npm test

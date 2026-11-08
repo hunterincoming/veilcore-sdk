@@ -4,6 +4,19 @@ Versions before 0.16.0 are described in their commit messages and on npm.
 
 ## Unreleased
 
+- **Laboratory results, version 2 (SPEC 11.12, draft).** A laboratory signs a result bound to the
+  record its sample came from: a result statement (the record's proof code, the sample ID, the
+  laboratory's accession number, the method and panel with their versions, QC figures, the
+  dates, the call, and an optional earlier result it replaces, with a re-test, correction or
+  retraction reason) sealed into the signed document record as a file entry, with the call in a
+  field set so a holder can prove it on a ledger. Kinds: numbers under a form, pathogen or viroid
+  tests, a comparison with another record and a parentage check (both by proof code only, no
+  genotype), a sealed DNA mark (shown only in a dispute), and a withdrawal. `labStatementProblems`,
+  `labStatementFile`, `labBindingProblems`, `labCallValues` and `dnaMarkSeal`; the five call forms
+  in `profiles/fields/`; 63 vectors (`conformance/lab-result-v2.json`, computed by
+  `lab-result-vectors.mjs` from the section with node:crypto and the canonicaliser only); Python
+  too; `--without-lab-results` for implementations that don't offer them. Version 1 results are
+  unchanged.
 - **Deal records: the registry's order, and exact payments.** A record's messages are read in
   the order of the registry's `seq` saved beside each one, never the senders' signed times,
   which either side can set; `order` says which was used (an older record without `seq` falls
