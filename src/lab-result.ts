@@ -4,8 +4,9 @@
 // with node:crypto and this package's canonicaliser only.
 //
 // This module checks the statement's form, gives the file entry a record carries for it, checks
-// the binding of a statement to a record's committed fields and field-set values, and seals a DNA
-// mark. The laboratory's signature over the record commitment (SPEC 4.5) is checked as for any
+// the binding of a statement to a record's committed fields and field-set values, seals a DNA
+// mark, and computes the laboratory's name binding (salted, so a laboratory's key and a list of
+// proof codes no longer tell anyone which records it tested). The laboratory's signature over the record commitment (SPEC 4.5) is checked as for any
 // laboratory-signed record; it is not here.
 // SPDX-License-Identifier: Apache-2.0
 
@@ -40,6 +41,8 @@ const sha256 = async (bytes: Uint8Array): Promise<Uint8Array> => {
 };
 
 const HEX64 = /^[0-9a-f]{64}$/;
+/** A salt: 64 lowercase hex characters, not all one byte value (SPEC 11.12, `bindingSalt`). */
+const isSalt = (v: unknown): v is string => typeof v === 'string' && HEX64.test(v) && !/^(..)\1{31}$/.test(v);
 const CONTROL = /\p{Cc}/u;
 /** Format characters (bidi controls, zero-width spaces): refused in one-line text, so two values that look the same are the same. */
 const FORMAT = /\p{Cf}/u;
@@ -125,7 +128,7 @@ export const labStatementProblems = (s: unknown): string[] => {
   if (!isObject(s)) return ['a statement is an object'];
   const out: string[] = [];
   if (s.format !== LAB_RESULT_FORMAT) out.push(`format must be ${LAB_RESULT_FORMAT}`);
-  if (!only(s, ['format', 'kind', 'subject', 'sampleId', 'accession', 'method', 'tested'], ['panel', 'received', 'qc', 'result', 'replaces']))
+  if (!only(s, ['format', 'kind', 'subject', 'sampleId', 'accession', 'method', 'tested'], ['panel', 'received', 'qc', 'result', 'replaces', 'bindingSalt']))
     out.push('the statement has a missing field or one it shouldn’t');
   if (!(LAB_RESULT_KINDS as readonly unknown[]).includes(s.kind)) out.push('kind is not one of the kinds');
   if (!(typeof s.subject === 'string' && HEX64.test(s.subject))) out.push('subject is 64 lowercase hex characters');
@@ -147,6 +150,8 @@ export const labStatementProblems = (s: unknown): string[] => {
     )
       out.push(`qc is 1 to ${LAB_QC_MAX} names and values, names not repeated`);
   }
+  if (s.bindingSalt !== undefined && !isSalt(s.bindingSalt))
+    out.push('bindingSalt is 64 lowercase hex characters, not all one byte value');
   if (typeof s.kind === 'string') out.push(...resultProblems(s.kind, s.subject, s.result));
   const rep = s.replaces;
   if (rep !== undefined) {
@@ -264,5 +269,27 @@ export const dnaMarkSeal = async (sequence: string, saltHex: string): Promise<st
   all.set(MARK_TAG);
   all.set(salt, MARK_TAG.length);
   all.set(seq, MARK_TAG.length + 32);
+  return toHex(await sha256(all));
+};
+
+const NAME_TAG = new TextEncoder().encode('veilcore:lab-result-binding:v2:salted\0');
+
+/**
+ * The laboratory's name binding on a result (SPEC 11.12):
+ * SHA-256("veilcore:lab-result-binding:v2:salted" 0x00 || key || subject || bindingSalt), hex.
+ * `key` is the signing key as a result file carries it (x then y, 128 hex characters); `subject`
+ * and `bindingSalt` are the statement's. Without the salt nobody can recompute it, so a key and a
+ * list of proof codes don't say which record a laboratory tested.
+ */
+export const labNameBinding = async (key: string, subject: string, bindingSalt: string): Promise<string> => {
+  if (!/^[0-9a-f]{128}$/.test(key)) throw new Error('the key is 128 lowercase hex characters, x then y');
+  if (!HEX64.test(subject)) throw new Error('the subject is 64 lowercase hex characters');
+  if (!isSalt(bindingSalt)) throw new Error('the salt is 64 lowercase hex characters, not all one byte value');
+  const bytes = (h: string) => Uint8Array.from(h.match(/../g)!, (b) => parseInt(b, 16));
+  const all = new Uint8Array(NAME_TAG.length + 128);
+  all.set(NAME_TAG);
+  all.set(bytes(key), NAME_TAG.length);
+  all.set(bytes(subject), NAME_TAG.length + 64);
+  all.set(bytes(bindingSalt), NAME_TAG.length + 96);
   return toHex(await sha256(all));
 };

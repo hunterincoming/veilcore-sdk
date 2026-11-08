@@ -32,3 +32,39 @@ test('a binding is refused with a reason a person can read', async () => {
   assert.deepEqual(node.labStatementProblems(v.labStatements[0].statement), []);
   assert.ok(node.labStatementProblems({ ...v.labStatements[0].statement, subject: 'x' }).some((s) => s.includes('subject')));
 });
+
+test('both entry points give the vectors’ name bindings, and refuse the vectors’ refusals', async () => {
+  for (const impl of [node, browser]) {
+    for (const b of v.labNameBindings) assert.equal(await impl.labNameBinding(b.key, b.subject, b.salt), b.nameBinding, b.name);
+    for (const b of v.labNameBindingRefusals) await assert.rejects(impl.labNameBinding(b.key, b.subject, b.salt), b.name);
+  }
+  const salted = v.labStatements.find((s) => s.statement.bindingSalt);
+  assert.ok(salted, 'a statement with a binding salt');
+  assert.deepEqual(node.labStatementProblems(salted.statement), []);
+  assert.ok(node.labStatementProblems({ ...salted.statement, bindingSalt: '11'.repeat(32) }).some((s) => s.includes('bindingSalt')));
+});
+
+test('an outsider with a lab’s key and a list of proof codes can no longer tell which record it tested', async () => {
+  const { createHash, randomBytes } = await import('node:crypto');
+  const sha = (...parts) => createHash('sha256').update(Buffer.concat(parts.map((p) => Buffer.from(p)))).digest('hex');
+  const key = randomBytes(64).toString('hex');
+  // The proof codes an outsider might hold: every record it has seen a check link for.
+  const codes = Array.from({ length: 200 }, () => randomBytes(32).toString('hex'));
+  const tested = codes[137];
+  // The attack on the earlier, unsalted binding: hash each code with the key and compare.
+  const UNSALTED = Buffer.from('veilcore:lab-result-binding:v2\0');
+  const unsalted = (c) => sha(UNSALTED, Buffer.from(key, 'hex'), Buffer.from(c, 'hex'));
+  assert.equal(codes.filter((c) => unsalted(c) === unsalted(tested)).length, 1, 'the unsalted binding gave the record away');
+  // The binding the lab publishes now. The outsider has the key and the codes, and even the salt
+  // of another result of the same lab, disclosed to it on that result's check link.
+  const salt = randomBytes(32).toString('hex');
+  const published = await node.labNameBinding(key, tested, salt);
+  const otherSalt = randomBytes(32).toString('hex');
+  for (const c of codes) {
+    assert.notEqual(unsalted(c), published);
+    assert.notEqual(await node.labNameBinding(key, c, otherSalt), published);
+  }
+  // The checker the holder shows the result to has the salt in the statement, and confirms it.
+  assert.equal(await node.labNameBinding(key, tested, salt), published);
+  assert.notEqual(await node.labNameBinding(key, codes[0], salt), published);
+});
