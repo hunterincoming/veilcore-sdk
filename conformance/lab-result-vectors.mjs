@@ -107,6 +107,10 @@ const cases = [
     'text is NFC before it is hashed: a decomposed É hashes as the composed one',
     { ...common, kind: 'pathogen', sampleId: 'Échantillon-1', result: { target: 'HLVd', sampleType: 'feuille', detected: false } },
   ],
+  [
+    'a result with the salt of its name binding, as every result is now signed',
+    { ...common, kind: 'pathogen', result: { target: 'HLVd', sampleType: 'leaf', detected: false }, bindingSalt: '9e'.repeat(16) + '4c'.repeat(16) },
+  ],
 ];
 const statements = cases.map(([name, statement]) => {
   const bytes = enc(canonicalise(statement));
@@ -145,6 +149,10 @@ const statementRefusals = [
   ['a withdrawal that names nothing', (({ result, ...r }) => ({ ...r, kind: 'retraction' }))(pathogen)],
   ['a re-test given the reason retraction', { ...pathogen, replaces: { result: B, reason: 'retraction' } }],
   ['a reason the format doesn’t have', { ...pathogen, replaces: { result: B, reason: 'because' } }],
+  ['a binding salt in upper case', { ...pathogen, bindingSalt: '9E'.repeat(32) }],
+  ['a binding salt of 31 bytes', { ...pathogen, bindingSalt: '9e'.repeat(31) }],
+  ['a binding salt that is all one byte value', { ...pathogen, bindingSalt: '00'.repeat(32) }],
+  ['a binding salt written as a number', { ...pathogen, bindingSalt: 7 }],
 ].map(([name, statement]) => ({ name, statement }));
 
 // ---- bindings: the statement inside a document record's committed fields ----
@@ -219,6 +227,28 @@ const markRefusals = [
   ['a short salt', 'ACGTACGTAC', '00'.repeat(31)],
 ].map(([name, sequence, salt]) => ({ name, sequence, salt }));
 
+// ---- the laboratory's name binding (salted) ----
+// SHA-256("veilcore:lab-result-binding:v2:salted" 0x00 || key (64 bytes) || subject || salt).
+// The key is hashed as bytes; that it is a point on the curve is the signature's concern.
+const NAME = Buffer.concat([enc('veilcore:lab-result-binding:v2:salted'), Buffer.from([0])]);
+const nameBinding = (key, subject, salt) =>
+  hex(sha(Buffer.concat([NAME, Buffer.from(key, 'hex'), Buffer.from(subject, 'hex'), Buffer.from(salt, 'hex')])));
+const K1 = '1f'.repeat(32) + '2e'.repeat(32);
+const K2 = '3d'.repeat(32) + '4c'.repeat(32);
+const S1 = '9e'.repeat(16) + '4c'.repeat(16);
+const S2 = '4c'.repeat(16) + '9e'.repeat(16);
+const nameBindings = [
+  ['a key, a subject and a salt', K1, A, S1],
+  ['the same key and subject, another salt, another binding', K1, A, S2],
+  ['the same key and salt, another subject', K1, B, S1],
+  ['another key', K2, A, S1],
+].map(([name, key, subject, salt]) => ({ name, key, subject, salt, nameBinding: nameBinding(key, subject, salt) }));
+const nameBindingRefusals = [
+  ['a salt that is all one byte value', K1, A, '00'.repeat(32)],
+  ['a key of 127 hex characters', K1.slice(1), A, S1],
+  ['a subject in upper case', K1, A.toUpperCase(), S1],
+].map(([name, key, subject, salt]) => ({ name, key, subject, salt }));
+
 const out = {
   spec: 'SPEC 11.12, laboratory results version 2',
   schemas,
@@ -227,9 +257,12 @@ const out = {
   labBindings: [...bound, ...unbound],
   markSeals,
   markRefusals,
+  labNameBindings: nameBindings,
+  labNameBindingRefusals: nameBindingRefusals,
 };
 writeFileSync(new URL('./lab-result-v2.json', import.meta.url), JSON.stringify(out, null, 2) + '\n');
 console.log(
   `lab-result-v2.json: ${statements.length} statements, ${statementRefusals.length} statement refusals, ` +
-    `${bound.length + unbound.length} bindings, ${markSeals.length} seals, ${markRefusals.length} seal refusals`,
+    `${bound.length + unbound.length} bindings, ${markSeals.length} seals, ${markRefusals.length} seal refusals, ` +
+    `${nameBindings.length} name bindings, ${nameBindingRefusals.length} name binding refusals`,
 );

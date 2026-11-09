@@ -37,7 +37,9 @@
 //   in:  {"op":"labBinding","input":{"fields":{...},"statement":{...},"values":[...16],"schemas":{...}}}
 //          out: {"result":true}, or refused when the statement doesn't bind to the record
 //   in:  {"op":"dnaMarkSeal","input":{"sequence":"ACGT…","salt":"<hex>"}}   out: {"result":"<hex>"}, or refused
-//          The three are not the record format: --without-lab-results leaves them out, and says so.
+//   in:  {"op":"labNameBinding","input":{"key":"<128 hex>","subject":"<hex>","salt":"<hex>"}}
+//          out: {"result":"<hex>"}, the laboratory's salted name binding, or refused
+//          The four are not the record format: --without-lab-results leaves them out, and says so.
 //
 // An implementation refuses an invalid record either by writing {"error":"..."} (or
 // {"rejected":true}) or by exiting non-zero. Both are idiomatic - a Python raise and a
@@ -399,7 +401,8 @@ const lp = labProbe ? await ask('labStatement', labProbe.statement) : { kind: 'b
 const labOffers = lp.kind === 'ok' && lp.value !== null && typeof lp.value === 'object' && lp.value.sha256 === labProbe.sha256;
 const labTotal =
   (vectors.labStatements?.length ?? 0) + (vectors.labStatementRefusals?.length ?? 0) + (vectors.labBindings?.length ?? 0) +
-  (vectors.markSeals?.length ?? 0) + (vectors.markRefusals?.length ?? 0);
+  (vectors.markSeals?.length ?? 0) + (vectors.markRefusals?.length ?? 0) +
+  (vectors.labNameBindings?.length ?? 0) + (vectors.labNameBindingRefusals?.length ?? 0);
 if (!labOffers && withoutLab) {
   console.log(`  NOT RUN  ${labTotal} lab-result vectors: this implementation does not offer them (--without-lab-results)`);
 } else if (!labOffers) {
@@ -429,6 +432,14 @@ if (!labOffers && withoutLab) {
   for (const v of vectors.markRefusals ?? []) {
     const r = await ask('dnaMarkSeal', { sequence: v.sequence, salt: v.salt });
     yes(`refuses: ${v.name}`, r.kind === 'refused', 'refused', outcome(r));
+  }
+  for (const v of vectors.labNameBindings ?? []) {
+    const r = await ask('labNameBinding', { key: v.key, subject: v.subject, salt: v.salt });
+    yes(`name binding: ${v.name}`, r.kind === 'ok' && r.value === v.nameBinding, v.nameBinding, outcome(r));
+  }
+  for (const v of vectors.labNameBindingRefusals ?? []) {
+    const r = await ask('labNameBinding', { key: v.key, subject: v.subject, salt: v.salt });
+    yes(`refuses name binding: ${v.name}`, r.kind === 'refused', 'refused', outcome(r));
   }
 }
 

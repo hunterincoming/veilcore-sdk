@@ -1012,14 +1012,21 @@ def _ct(v):
     return w.isdigit() and len(w) <= 2 and (w == "0" or w[0] != "0")
 
 
+def _is_salt(v):
+    """A salt: 64 lowercase hex characters, not all one byte value (spec 11.12, bindingSalt)."""
+    return _is_hex32(v) and len(set(v[i:i + 2] for i in range(0, 64, 2))) > 1
+
+
 def lab_statement_problems(s):
     if not isinstance(s, dict):
         return ["a statement is an object"]
     out = []
     if s.get("format") != LAB_FORMAT:
         out.append("format")
-    if not _only(s, ("format", "kind", "subject", "sampleId", "accession", "method", "tested"), ("panel", "received", "qc", "result", "replaces")):
+    if not _only(s, ("format", "kind", "subject", "sampleId", "accession", "method", "tested"), ("panel", "received", "qc", "result", "replaces", "bindingSalt")):
         out.append("fields")
+    if "bindingSalt" in s and not _is_salt(s["bindingSalt"]):
+        out.append("bindingSalt")
     kind = s.get("kind")
     if kind not in LAB_KINDS:
         out.append("kind")
@@ -1169,6 +1176,17 @@ def dna_mark_seal(sequence, salt):
     return hashlib.sha256(b"veilcore:dnamark:v1\x00" + bytes.fromhex(salt) + sequence.encode("ascii")).hexdigest()
 
 
+def lab_name_binding(key, subject, salt):
+    """SHA-256("veilcore:lab-result-binding:v2:salted" 0x00 || key || subject || salt), hex (spec 11.12)."""
+    if not (isinstance(key, str) and len(key) == 128 and all(c in "0123456789abcdef" for c in key)):
+        raise ValueError("the key is 128 lowercase hex characters, x then y")
+    if not _is_hex32(subject):
+        raise ValueError("the subject is 64 lowercase hex characters")
+    if not _is_salt(salt):
+        raise ValueError("the salt is 64 lowercase hex characters, not all one byte value")
+    return hashlib.sha256(b"veilcore:lab-result-binding:v2:salted\x00" + bytes.fromhex(key) + bytes.fromhex(subject) + bytes.fromhex(salt)).hexdigest()
+
+
 def main():
     job = json.loads(sys.stdin.read())
     op = job["op"]
@@ -1204,6 +1222,9 @@ def main():
     elif op == "dnaMarkSeal":
         i = job["input"]
         print(json.dumps({"result": dna_mark_seal(i["sequence"], i["salt"])}))
+    elif op == "labNameBinding":
+        i = job["input"]
+        print(json.dumps({"result": lab_name_binding(i["key"], i["subject"], i["salt"])}))
     elif op == "keyMatch":
         i = job["input"]
         print(json.dumps({"result": key_matches_record(i.get("identity"), i.get("fingerprint"), i.get("keySalt"), i.get("contentHash"))}))
