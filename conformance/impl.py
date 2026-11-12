@@ -1058,7 +1058,10 @@ def _viability_ok(r, s):
         return False
     if not _amount(r["lod"], True) or not isinstance(r["detected"], bool):
         return False
-    if "count" in r and not (_amount(r["count"], False) and _zero(r["count"]["value"]) != r["detected"]):
+    # None recovered is below the limit of detection, never a count of 0: the count is left out.
+    if (r["detected"] is False) == ("count" in r):
+        return False
+    if "count" in r and not _amount(r["count"], True):
         return False
     k = r["controls"]
     return (
@@ -1228,6 +1231,16 @@ def lab_binding(job):
     return True
 
 
+def _replaces(later, later_code, earlier, earlier_code):
+    """Whether later replaces (or withdraws) earlier under spec 11.12, "Replacing". Keys are the caller's."""
+    rep = later.get("replaces")
+    return (
+        isinstance(rep, dict) and rep.get("result") == earlier_code and later_code != earlier_code
+        and later["subject"] == earlier["subject"] and later["tested"] >= earlier["tested"]
+        and (earlier.get("replaces") or {}).get("result") != later_code
+    )
+
+
 def lab_viability_pair(job):
     """True when an after-sample's viability result pairs with the before-sample it names (spec 11.12); raises when not."""
     a, b, code = job["after"], job["before"], job["beforeCode"]
@@ -1242,8 +1255,18 @@ def lab_viability_pair(job):
         raise ValueError("the after-sample does not name this result")
     if ar["batch"] != br["batch"] or ar["strain"] != br["strain"]:
         raise ValueError("another batch or strain record")
+    if ar["target"] != br["target"]:
+        raise ValueError("the two tests recover different things")
     if br["sampled"] > ar["sampled"]:
         raise ValueError("the before-sample was taken after the after-sample")
+    for h in job.get("held") or []:
+        st = h["statement"]
+        if lab_statement_problems(st):
+            continue
+        if _replaces(st, h["code"], b, code):
+            raise ValueError("the before-sample's result was replaced or withdrawn")
+        if "afterCode" in job and _replaces(st, h["code"], a, job["afterCode"]):
+            raise ValueError("the after-sample's result was replaced or withdrawn")
     return True
 
 

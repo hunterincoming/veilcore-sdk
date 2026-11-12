@@ -120,7 +120,9 @@ const viable = {
   kind: 'viability',
   sampleId: 'MEAL-0907-PRE',
   accession: 'LAB-26-2201',
-  method: { id: 'Spread plate on PDA, SOP-M7', version: '2' },
+  // The before- and after-sample are tested by one method, so the pair says the method recovered
+  // the strain from this material before the kill step (SPEC 11.12, "The pair").
+  method: { id: 'Membrane filtration onto PDA, SOP-M7', version: '2' },
   received: '2026-11-03',
   tested: '2026-11-10',
   qc: [{ name: 'Medium lot', value: 'PDA-2611' }],
@@ -130,9 +132,9 @@ const viable = {
     strain: D,
     sampled: '2026-11-02',
     target: 'The production strain',
-    portion: '10 g of meal, 1 in 10, 0.1 mL on each of 3 plates',
+    portion: '10 g of meal in 90 mL, then 1 mL of a 1 in 10 000 dilution filtered',
     cultures: [{ medium: 'PDA with chloramphenicol', time: '7 days', temperature: '25 °C' }],
-    lod: { value: '100', unit: 'CFU/g' },
+    lod: { value: '100000', unit: 'CFU/g' },
     detected: true,
     count: { value: '4300000', unit: 'CFU/g' },
     controls: { positive: 'Production strain, about 50 CFU', positiveGrew: true, negativeGrew: false },
@@ -144,21 +146,21 @@ const viableAfter = {
   ...viable,
   sampleId: 'MEAL-0907-POST',
   accession: 'LAB-26-2202',
-  method: { id: 'Enrichment then PDA, SOP-M9', version: '1' },
   result: {
     ...viable.result,
     stage: 'after',
     killStep: 'Steam, 95 °C core for 30 min, then dried at 70 °C',
     before: beforeCode,
     sampled: '2026-11-03',
-    portion: '25 g of meal in 225 mL broth',
+    portion: '25 g of meal in 225 mL, all of it filtered, half onto each medium',
     cultures: [
-      { medium: 'Potato dextrose broth', time: '7 days', temperature: '25 °C' },
       { medium: 'PDA with chloramphenicol', time: '7 days', temperature: '25 °C' },
+      { medium: 'DG18 agar', time: '7 days', temperature: '25 °C' },
     ],
     lod: { value: '1', unit: 'CFU per 25 g' },
     detected: false,
-    count: { value: '0', unit: 'CFU per 25 g' },
+    // None recovered: no count. The limit of detection says it (< 1 CFU per 25 g).
+    count: undefined,
   },
 };
 const viableLeast = (({ count, ...r }) => ({
@@ -170,8 +172,8 @@ const viableLeast = (({ count, ...r }) => ({
 const clean = (o) => JSON.parse(JSON.stringify(o));
 cases.push(
   ['viability: a before-sample, organisms recovered, with a count', viable],
-  ['viability: an after-sample naming its before-sample, none recovered in two media', viableAfter],
-  ['viability: an after-sample, the least it carries (no count, no before-sample, no negative control)', clean(viableLeast)],
+  ['viability: an after-sample naming its before-sample, none recovered in two media (no count)', clean(viableAfter)],
+  ['viability: an after-sample, the least it carries (no before-sample, no negative control)', clean(viableLeast)],
   ['viability: sent under the strain record itself', { ...viable, subject: D }],
 );
 const statements = cases.map(([name, statement]) => {
@@ -233,7 +235,15 @@ const statementRefusals = [
   ['viability: a limit of detection with no unit', { ...viable, result: { ...viable.result, lod: { value: '100', unit: '' } } }],
   ['viability: a count written as a number', { ...viable, result: { ...viable.result, count: { value: 4300000, unit: 'CFU/g' } } }],
   ['viability: none recovered with a count above 0', { ...viableAfter, result: { ...viableAfter.result, count: { value: '3', unit: 'CFU per 25 g' } } }],
+  ['viability: none recovered with a count of 0 (below the limit of detection is not 0)', { ...viableAfter, result: { ...viableAfter.result, count: { value: '0', unit: 'CFU per 25 g' } } }],
   ['viability: recovered with a count of 0', { ...viable, result: { ...viable.result, count: { value: '0', unit: 'CFU/g' } } }],
+  ['viability: recovered with no count', { ...viable, result: (({ count, ...r }) => r)(viable.result) }],
+  ['viability: a count with an exponent', { ...viable, result: { ...viable.result, count: { value: '4.3e6', unit: 'CFU/g' } } }],
+  ['viability: a negative count', { ...viable, result: { ...viable.result, count: { value: '-4300000', unit: 'CFU/g' } } }],
+  ['viability: a count with a plus sign', { ...viable, result: { ...viable.result, count: { value: '+4300000', unit: 'CFU/g' } } }],
+  ['viability: a count with a thousands comma', { ...viable, result: { ...viable.result, count: { value: '4,300,000', unit: 'CFU/g' } } }],
+  ['viability: a limit of detection with a decimal comma', { ...viable, result: { ...viable.result, lod: { value: '0,5', unit: 'CFU/g' } } }],
+  ['viability: a limit of detection with a space between thousands', { ...viable, result: { ...viable.result, lod: { value: '100 000', unit: 'CFU/g' } } }],
   ['viability: detected written as text', { ...viable, result: { ...viable.result, detected: 'no growth' } }],
   ['viability: a positive control that did not grow (an invalid run)', { ...viable, result: { ...viable.result, controls: { ...viable.result.controls, positiveGrew: false } } }],
   ['viability: a negative control that grew (an invalid run)', { ...viable, result: { ...viable.result, controls: { ...viable.result.controls, negativeGrew: true } } }],
@@ -344,11 +354,25 @@ const nameBindingRefusals = [
 
 // ---- viability pairs: an after-sample and the before-sample it names ----
 // `beforeCode` stands for the before result's code (its record commitment); the after names it.
-const pairOf = (name, after, before, paired) => ({ name, after, before, beforeCode, paired });
+// `afterCode` stands for the after result's own code. `held` is every other result the verifier
+// holds signed by the same key, each with its code: one that replaces or withdraws either breaks the pair.
+const afterCode = 'ab'.repeat(32);
+const pairOf = (name, after, before, paired, held = []) => ({ name, after, before, beforeCode, afterCode, held, paired });
+const withdrawal = (code, over = {}) => ({
+  ...common,
+  kind: 'retraction',
+  sampleId: 'MEAL-0907-W',
+  accession: 'LAB-26-2209',
+  tested: '2026-11-12',
+  replaces: { result: code, reason: 'retraction' },
+  bindingSalt: '7c'.repeat(16) + '3d'.repeat(16),
+  ...over,
+});
+const W = 'f7'.repeat(32); // a withdrawal's or re-test's own code
 const viableBefore = { ...viable }; // the before-sample above
 const viablePairs = [
   pairOf('an after-sample and the before-sample it names', viableAfter, viableBefore, true),
-  pairOf('the before-sample also showed none recovered: still a pair, read as it is', viableAfter, { ...viableBefore, result: { ...viableBefore.result, detected: false, count: { value: '0', unit: 'CFU/g' } } }, true),
+  pairOf('the before-sample also showed none recovered: still a pair, read as it is', viableAfter, { ...viableBefore, result: { ...viableBefore.result, detected: false, count: undefined } }, true),
   pairOf('the after-sample names another result', { ...viableAfter, result: { ...viableAfter.result, before: 'f6'.repeat(32) } }, viableBefore, false),
   pairOf('the after-sample names no before-sample', clean(viableLeast), viableBefore, false),
   pairOf('another batch', viableAfter, { ...viableBefore, result: { ...viableBefore.result, batch: 'MEAL-26-0908' } }, false),
@@ -356,6 +380,14 @@ const viablePairs = [
   pairOf('the before-sample was taken the same day as the after-sample', viableAfter, { ...viableBefore, result: { ...viableBefore.result, sampled: '2026-11-03' } }, true),
   pairOf('the "before" is itself an after-sample', viableAfter, { ...viableAfter, result: { ...viableAfter.result, before: undefined } }, false),
   pairOf('the "before" is a pathogen result', viableAfter, p0, false),
+  pairOf('the two tests recover different things (target)', viableAfter, { ...viableBefore, result: { ...viableBefore.result, target: 'Total aerobic count (bacteria only)' } }, false),
+  pairOf('the two tests used different methods: still a pair, and a verifier says the methods differ', viableAfter, { ...viableBefore, method: { id: 'Spread plate on PDA, SOP-M4', version: '1' } }, true),
+  pairOf('the before-sample’s result is withdrawn', viableAfter, viableBefore, false, [{ statement: withdrawal(beforeCode), code: W }]),
+  pairOf('the after-sample’s result is withdrawn', viableAfter, viableBefore, false, [{ statement: withdrawal(afterCode), code: W }]),
+  pairOf('the before-sample’s result is replaced by a re-test', viableAfter, viableBefore, false, [{ statement: { ...viableBefore, accession: 'LAB-26-2210', tested: '2026-11-11', replaces: { result: beforeCode, reason: 're-test' } }, code: W }]),
+  pairOf('a withdrawal of another result: still a pair', viableAfter, viableBefore, true, [{ statement: withdrawal('f6'.repeat(32)), code: W }]),
+  pairOf('a withdrawal for another record tested replaces nothing: still a pair', viableAfter, viableBefore, true, [{ statement: withdrawal(beforeCode, { subject: B }), code: W }]),
+  pairOf('a withdrawal dated before the result replaces nothing: still a pair', viableAfter, viableBefore, true, [{ statement: withdrawal(beforeCode, { tested: '2026-11-09' }), code: W }]),
 ].map((p) => clean(p));
 // Taken the same day is not after: the pair above stands. One taken a day later does not pair.
 viablePairs.push(

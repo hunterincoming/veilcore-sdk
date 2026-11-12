@@ -119,11 +119,9 @@ const viabilityProblems = (r: O): string[] => {
     out.push(`cultures are 1 to ${LAB_CULTURES_MAX} media, each with its time and temperature, none repeated`);
   if (!amount(r.lod, true)) out.push('lod is a decimal above 0 and its unit');
   if (typeof r.detected !== 'boolean') out.push('detected is true or false');
-  if (r.count !== undefined) {
-    if (!amount(r.count, false)) out.push('count is a decimal and its unit');
-    else if (typeof r.detected === 'boolean' && ZERO.test((r.count as O).value as string) === r.detected)
-      out.push('count is 0 when none were recovered, and more than 0 when some were');
-  }
+  // None recovered is below the limit of detection, never a count of 0: the count is left out.
+  if (r.detected === false && r.count !== undefined) out.push('count is left out when none were recovered');
+  if (r.detected === true && !amount(r.count, true)) out.push('count is given, above 0, when some were recovered');
   const k = r.controls;
   if (
     !isObject(k) ||
@@ -376,17 +374,39 @@ export const labNameBinding = async (key: string, subject: string, bindingSalt: 
 };
 
 /**
+ * Whether `later` replaces (or, for the reason `retraction`, withdraws) `earlier` under SPEC
+ * 11.12, "Replacing": it names it, for the same subject, not tested before it, and `earlier`
+ * doesn't name `later` back. That both are signed by the same key is the caller's to check.
+ */
+const replaces = (later: O, laterCode: string, earlier: O, earlierCode: string): boolean => {
+  const rep = later.replaces as O | undefined;
+  return (
+    isObject(rep) &&
+    rep.result === earlierCode &&
+    laterCode !== earlierCode &&
+    later.subject === earlier.subject &&
+    (later.tested as string) >= (earlier.tested as string) &&
+    (earlier.replaces as O | undefined)?.result !== laterCode
+  );
+};
+
+/**
  * What stops an after-sample's viability result from pairing with the before-sample result it
- * names (SPEC 11.12, "Viability"): [] when they pair. `beforeCode` is the before result's code
- * (its record commitment). That both are signed by the same key is the caller's to check, with
- * the signatures; this checks the statements.
+ * names (SPEC 11.12, "The pair"): [] when they pair. `beforeCode` and `afterCode` are the two
+ * results' codes (their record commitments). `held` is every other result the verifier holds
+ * signed by the same key, with its code: one that replaces or withdraws either result breaks the
+ * pair. That all are signed by the same key is the caller's to check, with the signatures; this
+ * checks the statements. Two results by different methods still pair: the caller says the methods
+ * differ (`method`).
  */
 export const labViabilityPairProblems = (input: {
   readonly after: unknown;
   readonly before: unknown;
   readonly beforeCode: string;
+  readonly afterCode?: string;
+  readonly held?: readonly { readonly statement: unknown; readonly code: string }[];
 }): string[] => {
-  const { after, before, beforeCode } = input;
+  const { after, before, beforeCode, afterCode, held = [] } = input;
   const out = [...labStatementProblems(after), ...labStatementProblems(before)];
   if (out.length) return out;
   const a = after as O;
@@ -398,6 +418,14 @@ export const labViabilityPairProblems = (input: {
   if (ar.before !== beforeCode) out.push('the after-sample does not name this result');
   if (ar.batch !== br.batch) out.push('the batch is not the same');
   if (ar.strain !== br.strain) out.push('the strain record is not the same');
+  if (ar.target !== br.target) out.push('the two tests recover different things (target)');
   if ((br.sampled as string) > (ar.sampled as string)) out.push('the before-sample was taken after the after-sample');
+  for (const h of held) {
+    if (!isObject(h.statement) || labStatementProblems(h.statement).length) continue;
+    const l = h.statement;
+    const how = isObject(l.replaces) && l.replaces.reason === 'retraction' ? 'withdrawn' : 'replaced';
+    if (replaces(l, h.code, b, beforeCode)) out.push(`the before-sample's result was ${how}`);
+    if (afterCode !== undefined && replaces(l, h.code, a, afterCode)) out.push(`the after-sample's result was ${how}`);
+  }
   return out;
 };

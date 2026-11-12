@@ -4,6 +4,18 @@ Versions before 0.16.0 are described in their commit messages and on npm.
 
 ## Unreleased
 
+- **Viability results, fixes from an independent check (SPEC 11.12, draft).** A pair no longer
+  stands when either result is replaced or withdrawn by a result the verifier holds
+  (`labViabilityPairProblems` takes `afterCode` and `held`); both tests must name the same
+  `target`, and a verifier says so when the methods differ, since only then does the pair speak to
+  the method. None recovered carries no `count` (a report gives "< LOD", never 0) and some
+  recovered requires one above 0. "1,000", "1.000,5" and "1 000" are named as refused, and a form
+  taking a number from a person refuses them too. The claim section says a claim on the call does
+  not show the stage. The standards are cited correctly: USP <71> invalidity is growth in the
+  negative control, a failed positive control is a failed growth promotion or method suitability
+  test; the before-sample count is ISO 11737-1 bioburden. Holders are told what several result
+  files show together. The example pair now uses one method; more vectors (withdrawn and replaced
+  pairs, target and method, count signs, exponents and separators). Python too.
 - **Laboratory results v2: a `viability` kind (SPEC 11.12, draft).** A laboratory signs a test for
   viable organisms in a sample taken before or after a kill step (a heat treatment, an
   inactivation, a sterilisation): the batch, the stage, the kill step's method and parameters, the

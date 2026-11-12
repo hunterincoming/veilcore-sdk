@@ -376,7 +376,7 @@ if (labCount) {
     for (const v of vectors.labViabilityPairs ?? []) {
       let actual;
       try {
-        actual = impl.labViabilityPairProblems({ after: v.after, before: v.before, beforeCode: v.beforeCode }).length === 0 ? 'paired' : 'not paired';
+        actual = impl.labViabilityPairProblems({ after: v.after, before: v.before, beforeCode: v.beforeCode, afterCode: v.afterCode, held: v.held ?? [] }).length === 0 ? 'paired' : 'not paired';
       } catch (e) { actual = `threw: ${e.message}`; }
       const expected = v.paired ? 'paired' : 'not paired';
       check('labViabilityPairs', v.name, expected, actual);
