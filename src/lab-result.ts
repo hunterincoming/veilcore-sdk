@@ -6,7 +6,10 @@
 // This module checks the statement's form, gives the file entry a record carries for it, checks
 // the binding of a statement to a record's committed fields and field-set values, seals a DNA
 // mark, and computes the laboratory's name binding (salted, so a laboratory's key and a list of
-// proof codes no longer tell anyone which records it tested). The laboratory's signature over the record commitment (SPEC 4.5) is checked as for any
+// proof codes no longer tell anyone which records it tested). A viability result (a sample taken
+// before or after a kill step) names its batch and, by proof code, the strain record the batch
+// was made from; labViabilityPairProblems checks an after-sample against the before-sample it
+// names. The laboratory's signature over the record commitment (SPEC 4.5) is checked as for any
 // laboratory-signed record; it is not here.
 // SPDX-License-Identifier: Apache-2.0
 
@@ -17,7 +20,7 @@ import { validateDocumentFields } from './document-profile.js';
 
 export const LAB_RESULT_FORMAT = 'veilcore/lab-result/v2';
 export const LAB_RESULT_FILE_NAME = 'lab-result.json';
-export const LAB_RESULT_KINDS = ['numbers', 'pathogen', 'match', 'lineage', 'dna-mark', 'retraction'] as const;
+export const LAB_RESULT_KINDS = ['numbers', 'pathogen', 'match', 'lineage', 'dna-mark', 'viability', 'retraction'] as const;
 export type LabResultKind = (typeof LAB_RESULT_KINDS)[number];
 /** The most QC and run details a statement carries. */
 export const LAB_QC_MAX = 12;
@@ -29,6 +32,7 @@ export const LAB_CALL_SCHEMAS: Readonly<Record<Exclude<LabResultKind, 'numbers'>
   match: 'veilcore/schema/genetic-match/v1',
   lineage: 'veilcore/schema/lineage-check/v1',
   'dna-mark': 'veilcore/schema/dna-mark/v1',
+  viability: 'veilcore/schema/viability/v1',
   retraction: 'veilcore/schema/lab-retraction/v1',
 };
 
@@ -50,6 +54,12 @@ const FORMAT = /\p{Cf}/u;
 const SEQUENCE_RUN = /[ACGT]{10,}/i;
 const CT = /^(0|[1-9]\d?)(\.\d{1,2})?$/;
 const COUNT_MAX = 1_000_000_000;
+/** A decimal as a report prints it: no sign, no exponent, at most 15 whole digits and 6 decimals. */
+const DECIMAL = /^(0|[1-9]\d{0,14})(\.\d{1,6})?$/;
+const ZERO = /^0(\.0+)?$/;
+/** The most media one viability result names (USP <71> uses two). */
+export const LAB_CULTURES_MAX = 4;
+export const VIABILITY_STAGES = ['before', 'after'] as const;
 type O = Record<string, unknown>;
 const isObject = (v: unknown): v is O => typeof v === 'object' && v !== null && !Array.isArray(v);
 const line = (v: unknown, max = 200): boolean =>
@@ -65,6 +75,66 @@ const count = (v: unknown): v is number => typeof v === 'number' && Number.isInt
 const only = (o: O, req: readonly string[], opt: readonly string[] = []) =>
   req.every((k) => k in o) && Object.keys(o).every((k) => req.includes(k) || opt.includes(k));
 const ref = (v: unknown) => isObject(v) && only(v, ['id', 'version']) && line(v.id) && line(v.version);
+const hex64 = (v: unknown): v is string => typeof v === 'string' && HEX64.test(v);
+/** `{ value, unit }`: a decimal and its unit (one line, 60 at most). */
+const amount = (v: unknown, positive: boolean) =>
+  isObject(v) &&
+  only(v, ['value', 'unit']) &&
+  typeof v.value === 'string' &&
+  DECIMAL.test(v.value) &&
+  (!positive || !ZERO.test(v.value)) &&
+  line(v.unit, 60);
+
+/** A viability result (SPEC 11.12): every field but the dates, which need the statement. */
+const viabilityProblems = (r: O): string[] => {
+  const out: string[] = [];
+  if (
+    !only(
+      r,
+      ['batch', 'stage', 'strain', 'sampled', 'target', 'portion', 'cultures', 'lod', 'detected', 'controls'],
+      ['killStep', 'before', 'count'],
+    )
+  )
+    out.push('result has the wrong fields');
+  if (!line(r.batch)) out.push('batch is one line');
+  if (!(VIABILITY_STAGES as readonly unknown[]).includes(r.stage)) out.push('stage is before or after');
+  if (r.stage === 'after' ? !line(r.killStep) : r.killStep !== undefined)
+    out.push('killStep is one line, given for an after-sample and only for it');
+  if (r.before !== undefined && (r.stage !== 'after' || !hex64(r.before)))
+    out.push('before is a result code, named only by an after-sample');
+  if (!hex64(r.strain)) out.push('strain is a record’s proof code');
+  if (!date(r.sampled)) out.push('sampled is a date');
+  if (!line(r.target)) out.push('target is one line');
+  if (!line(r.portion)) out.push('portion is one line');
+  const c = r.cultures;
+  if (
+    !Array.isArray(c) ||
+    c.length < 1 ||
+    c.length > LAB_CULTURES_MAX ||
+    !c.every(
+      (x) => isObject(x) && only(x, ['medium', 'time', 'temperature']) && line(x.medium) && line(x.time, 60) && line(x.temperature, 60),
+    ) ||
+    new Set(c.map((x) => canonicalise(x))).size !== c.length
+  )
+    out.push(`cultures are 1 to ${LAB_CULTURES_MAX} media, each with its time and temperature, none repeated`);
+  if (!amount(r.lod, true)) out.push('lod is a decimal above 0 and its unit');
+  if (typeof r.detected !== 'boolean') out.push('detected is true or false');
+  if (r.count !== undefined) {
+    if (!amount(r.count, false)) out.push('count is a decimal and its unit');
+    else if (typeof r.detected === 'boolean' && ZERO.test((r.count as O).value as string) === r.detected)
+      out.push('count is 0 when none were recovered, and more than 0 when some were');
+  }
+  const k = r.controls;
+  if (
+    !isObject(k) ||
+    !only(k, ['positive', 'positiveGrew'], ['negativeGrew']) ||
+    !line(k.positive) ||
+    k.positiveGrew !== true ||
+    (k.negativeGrew !== undefined && k.negativeGrew !== false)
+  )
+    out.push('controls name the positive control, which grew, and a negative control, if run, which did not');
+  return out;
+};
 
 const resultProblems = (kind: string, subject: unknown, r: unknown): string[] => {
   if (kind === 'retraction') return r === undefined ? [] : ['a withdrawal carries no result'];
@@ -112,6 +182,9 @@ const resultProblems = (kind: string, subject: unknown, r: unknown): string[] =>
       }
       break;
     }
+    case 'viability':
+      out.push(...viabilityProblems(r));
+      break;
     case 'dna-mark':
       if (!only(r, ['seal', 'found'], ['label'])) out.push('result has the wrong fields');
       if (!(typeof r.seal === 'string' && HEX64.test(r.seal))) out.push('seal is 64 lowercase hex characters');
@@ -153,6 +226,11 @@ export const labStatementProblems = (s: unknown): string[] => {
   if (s.bindingSalt !== undefined && !isSalt(s.bindingSalt))
     out.push('bindingSalt is 64 lowercase hex characters, not all one byte value');
   if (typeof s.kind === 'string') out.push(...resultProblems(s.kind, s.subject, s.result));
+  if (s.kind === 'viability' && isObject(s.result) && date(s.result.sampled) && date(s.tested)) {
+    const sampled = s.result.sampled;
+    if (sampled > s.tested || (date(s.received) && sampled > s.received))
+      out.push('sampled is not after received or tested');
+  }
   const rep = s.replaces;
   if (rep !== undefined) {
     if (
@@ -202,6 +280,9 @@ export const labCallValues = (s: O): (string | null)[] => {
     }
     case 'dna-mark':
       v[0] = b(r.found);
+      break;
+    case 'viability':
+      [v[0], v[1]] = [b(r.detected), r.stage === 'after' ? '1' : '0'];
       break;
     case 'retraction':
       v[0] = '1';
@@ -292,4 +373,31 @@ export const labNameBinding = async (key: string, subject: string, bindingSalt: 
   all.set(bytes(subject), NAME_TAG.length + 64);
   all.set(bytes(bindingSalt), NAME_TAG.length + 96);
   return toHex(await sha256(all));
+};
+
+/**
+ * What stops an after-sample's viability result from pairing with the before-sample result it
+ * names (SPEC 11.12, "Viability"): [] when they pair. `beforeCode` is the before result's code
+ * (its record commitment). That both are signed by the same key is the caller's to check, with
+ * the signatures; this checks the statements.
+ */
+export const labViabilityPairProblems = (input: {
+  readonly after: unknown;
+  readonly before: unknown;
+  readonly beforeCode: string;
+}): string[] => {
+  const { after, before, beforeCode } = input;
+  const out = [...labStatementProblems(after), ...labStatementProblems(before)];
+  if (out.length) return out;
+  const a = after as O;
+  const b = before as O;
+  if (a.kind !== 'viability' || b.kind !== 'viability') return ['both are viability results'];
+  const ar = a.result as O;
+  const br = b.result as O;
+  if (ar.stage !== 'after' || br.stage !== 'before') out.push('one is an after-sample and the other a before-sample');
+  if (ar.before !== beforeCode) out.push('the after-sample does not name this result');
+  if (ar.batch !== br.batch) out.push('the batch is not the same');
+  if (ar.strain !== br.strain) out.push('the strain record is not the same');
+  if ((br.sampled as string) > (ar.sampled as string)) out.push('the before-sample was taken after the after-sample');
+  return out;
 };

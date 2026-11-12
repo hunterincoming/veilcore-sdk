@@ -313,10 +313,11 @@ if (documentCount) {
 const labCount =
   (vectors.labStatements?.length ?? 0) + (vectors.labStatementRefusals?.length ?? 0) + (vectors.labBindings?.length ?? 0) +
   (vectors.markSeals?.length ?? 0) + (vectors.markRefusals?.length ?? 0) +
-  (vectors.labNameBindings?.length ?? 0) + (vectors.labNameBindingRefusals?.length ?? 0);
+  (vectors.labNameBindings?.length ?? 0) + (vectors.labNameBindingRefusals?.length ?? 0) +
+  (vectors.labViabilityPairs?.length ?? 0);
 if (labCount) {
   console.log('\nLaboratory results (v2)');
-  const need = ['labStatementFile', 'labBindingProblems', 'dnaMarkSeal', 'labNameBinding'].filter((f) => typeof impl[f] !== 'function');
+  const need = ['labStatementFile', 'labBindingProblems', 'dnaMarkSeal', 'labNameBinding', 'labViabilityPairProblems'].filter((f) => typeof impl[f] !== 'function');
   if (need.length) {
     console.error(`  implementation does not export ${need.join(', ')}`);
     fail += labCount;
@@ -371,6 +372,15 @@ if (labCount) {
       try { await impl.labNameBinding(v.key, v.subject, v.salt); } catch { actual = 'refused'; }
       check('labNameBindingRefusals', v.name, 'refused', actual);
       console.log(`  ${actual === 'refused' ? 'PASS' : 'FAIL'}  refuses name binding: ${v.name}`);
+    }
+    for (const v of vectors.labViabilityPairs ?? []) {
+      let actual;
+      try {
+        actual = impl.labViabilityPairProblems({ after: v.after, before: v.before, beforeCode: v.beforeCode }).length === 0 ? 'paired' : 'not paired';
+      } catch (e) { actual = `threw: ${e.message}`; }
+      const expected = v.paired ? 'paired' : 'not paired';
+      check('labViabilityPairs', v.name, expected, actual);
+      console.log(`  ${expected === actual ? 'PASS' : 'FAIL'}  viability ${v.paired ? 'pair' : 'not a pair'}: ${v.name}`);
     }
   }
 }

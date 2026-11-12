@@ -964,13 +964,14 @@ def document_record_fingerprint(fields):
 
 LAB_FORMAT = "veilcore/lab-result/v2"
 LAB_FILE = "lab-result.json"
-LAB_KINDS = ("numbers", "pathogen", "match", "lineage", "dna-mark", "retraction")
+LAB_KINDS = ("numbers", "pathogen", "match", "lineage", "dna-mark", "viability", "retraction")
 LAB_REASONS = ("re-test", "correction", "retraction")
 LAB_CALL_SCHEMAS = {
     "pathogen": "veilcore/schema/pathogen/v1",
     "match": "veilcore/schema/genetic-match/v1",
     "lineage": "veilcore/schema/lineage-check/v1",
     "dna-mark": "veilcore/schema/dna-mark/v1",
+    "viability": "veilcore/schema/viability/v1",
     "retraction": "veilcore/schema/lab-retraction/v1",
 }
 
@@ -1010,6 +1011,60 @@ def _ct(v):
     if "." in v and not (1 <= len(f) <= 2 and f.isdigit()):
         return False
     return w.isdigit() and len(w) <= 2 and (w == "0" or w[0] != "0")
+
+
+def _decimal(v, positive):
+    """A decimal as a report prints it: no sign, no exponent, 15 whole digits and 6 decimals at most."""
+    if not isinstance(v, str) or not v.isascii():
+        return False
+    w, dot, f = v.partition(".")
+    if dot and not (1 <= len(f) <= 6 and f.isdigit()):
+        return False
+    if not (w.isdigit() and 1 <= len(w) <= 15 and (w == "0" or w[0] != "0")):
+        return False
+    return not positive or not _zero(v)
+
+
+def _zero(v):
+    w, _, f = v.partition(".")
+    return w == "0" and set(f) <= {"0"}
+
+
+def _amount(v, positive):
+    return isinstance(v, dict) and _only(v, ("value", "unit")) and _decimal(v["value"], positive) and _line(v["unit"], 60)
+
+
+def _viability_ok(r, s):
+    """A viability result (spec 11.12): a sample taken before or after a kill step."""
+    if not _only(r, ("batch", "stage", "strain", "sampled", "target", "portion", "cultures", "lod", "detected", "controls"), ("killStep", "before", "count")):
+        return False
+    stage = r["stage"]
+    if stage not in ("before", "after") or not _line(r["batch"]) or not _is_hex32(r["strain"]):
+        return False
+    if (stage == "after") != ("killStep" in r) or ("killStep" in r and not _line(r["killStep"])):
+        return False
+    if "before" in r and not (stage == "after" and _is_hex32(r["before"])):
+        return False
+    if not (_line(r["target"]) and _line(r["portion"]) and _calendar_date(r["sampled"])):
+        return False
+    if _calendar_date(s.get("tested")) and r["sampled"] > s["tested"]:
+        return False
+    if "received" in s and _calendar_date(s["received"]) and r["sampled"] > s["received"]:
+        return False
+    c = r["cultures"]
+    if not (isinstance(c, list) and 1 <= len(c) <= 4 and all(isinstance(x, dict) and _only(x, ("medium", "time", "temperature")) and _line(x["medium"]) and _line(x["time"], 60) and _line(x["temperature"], 60) for x in c)):
+        return False
+    if len({canonicalise(x) for x in c}) != len(c):
+        return False
+    if not _amount(r["lod"], True) or not isinstance(r["detected"], bool):
+        return False
+    if "count" in r and not (_amount(r["count"], False) and _zero(r["count"]["value"]) != r["detected"]):
+        return False
+    k = r["controls"]
+    return (
+        isinstance(k, dict) and _only(k, ("positive", "positiveGrew"), ("negativeGrew",)) and _line(k["positive"])
+        and k["positiveGrew"] is True and ("negativeGrew" not in k or k["negativeGrew"] is False)
+    )
 
 
 def _is_salt(v):
@@ -1081,6 +1136,9 @@ def lab_statement_problems(s):
                     ok = False
             if not ok:
                 out.append("lineage")
+        elif kind == "viability":
+            if not _viability_ok(r, s):
+                out.append("viability")
         elif kind == "dna-mark":
             if not (_only(r, ("seal", "found"), ("label",)) and _is_hex32(r["seal"]) and isinstance(r["found"], bool) and ("label" not in r or (_line(r["label"]) and not _sequence_run(r["label"])))):
                 out.append("dna-mark")
@@ -1129,6 +1187,8 @@ def _call_values(s):
                 v[3] = str(c[1])
     elif kind == "dna-mark":
         v[0] = b(r["found"])
+    elif kind == "viability":
+        v[0], v[1] = b(r["detected"]), "1" if r["stage"] == "after" else "0"
     elif kind == "retraction":
         v[0] = "1"
     return v
@@ -1165,6 +1225,25 @@ def lab_binding(job):
         raise ValueError("values are sixteen")
     if s["kind"] != "numbers" and _call_values(s) != values:
         raise ValueError("the field set does not agree with the statement")
+    return True
+
+
+def lab_viability_pair(job):
+    """True when an after-sample's viability result pairs with the before-sample it names (spec 11.12); raises when not."""
+    a, b, code = job["after"], job["before"], job["beforeCode"]
+    lab_statement_file(a)
+    lab_statement_file(b)
+    if a["kind"] != "viability" or b["kind"] != "viability":
+        raise ValueError("both are viability results")
+    ar, br = a["result"], b["result"]
+    if ar["stage"] != "after" or br["stage"] != "before":
+        raise ValueError("one is an after-sample and the other a before-sample")
+    if ar.get("before") != code:
+        raise ValueError("the after-sample does not name this result")
+    if ar["batch"] != br["batch"] or ar["strain"] != br["strain"]:
+        raise ValueError("another batch or strain record")
+    if br["sampled"] > ar["sampled"]:
+        raise ValueError("the before-sample was taken after the after-sample")
     return True
 
 
@@ -1222,6 +1301,8 @@ def main():
     elif op == "dnaMarkSeal":
         i = job["input"]
         print(json.dumps({"result": dna_mark_seal(i["sequence"], i["salt"])}))
+    elif op == "labViabilityPair":
+        print(json.dumps({"result": lab_viability_pair(job["input"])}))
     elif op == "labNameBinding":
         i = job["input"]
         print(json.dumps({"result": lab_name_binding(i["key"], i["subject"], i["salt"])}))

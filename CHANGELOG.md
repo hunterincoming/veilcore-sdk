@@ -4,6 +4,17 @@ Versions before 0.16.0 are described in their commit messages and on npm.
 
 ## Unreleased
 
+- **Laboratory results v2: a `viability` kind (SPEC 11.12, draft).** A laboratory signs a test for
+  viable organisms in a sample taken before or after a kill step (a heat treatment, an
+  inactivation, a sterilisation): the batch, the stage, the kill step's method and parameters, the
+  portion tested, each medium with its incubation time and temperature, the limit of detection,
+  whether anything was recovered and how much, and the controls. A run whose positive control did
+  not grow, or whose negative control grew, can't be signed. The batch ties to the strain record it
+  was made from by proof code only (`strain`), and an after-sample may name the result for its
+  before-sample (`before`), which a verifier reads as a pair only under the rules of the section.
+  The call and the stage are a new call form, `veilcore/schema/viability/v1`. The section says what
+  it does not establish: none recovered is not dead or sterile. `labViabilityPairProblems`; 45 more
+  vectors (133 in all); Python too; a new conformance op, `labViabilityPair`.
 - **Laboratory results v2: the laboratory's name binding is salted (SPEC 11.12, draft).** The
   binding a laboratory publishes to name itself on a result was SHA-256 over a tag, its key and
   the tested record's proof code. The key is in every result file and the result's code is the
