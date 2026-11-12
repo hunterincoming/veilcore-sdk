@@ -175,6 +175,7 @@ cases.push(
   ['viability: an after-sample naming its before-sample, none recovered in two media (no count)', clean(viableAfter)],
   ['viability: an after-sample, the least it carries (no before-sample, no negative control)', clean(viableLeast)],
   ['viability: sent under the strain record itself', { ...viable, subject: D }],
+  ['viability: recovered by enrichment, no count reported (presence/absence)', { ...viable, result: (({ count, ...r }) => ({ ...r, portion: '25 g of meal in 225 mL broth', lod: { value: '1', unit: 'CFU per 25 g' } }))(viable.result) }],
 );
 const statements = cases.map(([name, statement]) => {
   const bytes = enc(canonicalise(statement));
@@ -237,7 +238,6 @@ const statementRefusals = [
   ['viability: none recovered with a count above 0', { ...viableAfter, result: { ...viableAfter.result, count: { value: '3', unit: 'CFU per 25 g' } } }],
   ['viability: none recovered with a count of 0 (below the limit of detection is not 0)', { ...viableAfter, result: { ...viableAfter.result, count: { value: '0', unit: 'CFU per 25 g' } } }],
   ['viability: recovered with a count of 0', { ...viable, result: { ...viable.result, count: { value: '0', unit: 'CFU/g' } } }],
-  ['viability: recovered with no count', { ...viable, result: (({ count, ...r }) => r)(viable.result) }],
   ['viability: a count with an exponent', { ...viable, result: { ...viable.result, count: { value: '4.3e6', unit: 'CFU/g' } } }],
   ['viability: a negative count', { ...viable, result: { ...viable.result, count: { value: '-4300000', unit: 'CFU/g' } } }],
   ['viability: a count with a plus sign', { ...viable, result: { ...viable.result, count: { value: '+4300000', unit: 'CFU/g' } } }],

@@ -121,7 +121,9 @@ const viabilityProblems = (r: O): string[] => {
   if (typeof r.detected !== 'boolean') out.push('detected is true or false');
   // None recovered is below the limit of detection, never a count of 0: the count is left out.
   if (r.detected === false && r.count !== undefined) out.push('count is left out when none were recovered');
-  if (r.detected === true && !amount(r.count, true)) out.push('count is given, above 0, when some were recovered');
+  // Some recovered: a count is optional (enrichment and presence/absence tests give none), above 0 when given.
+  if (r.detected === true && r.count !== undefined && !amount(r.count, true))
+    out.push('count, when given, is a decimal above 0 and its unit');
   const k = r.controls;
   if (
     !isObject(k) ||

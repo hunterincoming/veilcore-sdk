@@ -1059,7 +1059,8 @@ def _viability_ok(r, s):
     if not _amount(r["lod"], True) or not isinstance(r["detected"], bool):
         return False
     # None recovered is below the limit of detection, never a count of 0: the count is left out.
-    if (r["detected"] is False) == ("count" in r):
+    # Some recovered: the count is optional (enrichment gives none), above 0 when given.
+    if r["detected"] is False and "count" in r:
         return False
     if "count" in r and not _amount(r["count"], True):
         return False

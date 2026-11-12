@@ -9,7 +9,7 @@ Versions before 0.16.0 are described in their commit messages and on npm.
   (`labViabilityPairProblems` takes `afterCode` and `held`); both tests must name the same
   `target`, and a verifier says so when the methods differ, since only then does the pair speak to
   the method. None recovered carries no `count` (a report gives "< LOD", never 0) and some
-  recovered requires one above 0. "1,000", "1.000,5" and "1 000" are named as refused, and a form
+  recovered may carry one (enrichment and presence/absence tests give none), above 0 when given. "1,000", "1.000,5" and "1 000" are named as refused, and a form
   taking a number from a person refuses them too. The claim section says a claim on the call does
   not show the stage. The standards are cited correctly: USP <71> invalidity is growth in the
   negative control, a failed positive control is a failed growth promotion or method suitability
