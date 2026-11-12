@@ -14,6 +14,18 @@ Versions before 0.16.0 are described in their commit messages and on npm.
   `paymentReference`, `cardanoVerdict`, `toTokenUnits`, `CARDANO_TOKENS`; 19 vectors in
   `conformance/onchain-settle-v1.json` (from `onchain-settle-vectors.mjs`), run by
   `conformance/run.mjs`. Nothing changes for records without such payments.
+- **Laboratory results v2: the laboratory's name binding is salted (SPEC 11.12, draft).** The
+  binding a laboratory publishes to name itself on a result was SHA-256 over a tag, its key and
+  the tested record's proof code. The key is in every result file and the result's code is the
+  binding's own subject, so anyone with a list of proof codes could hash each one and see which
+  record a laboratory tested, and a registry could do it for all of them. The binding now also
+  covers `bindingSalt`, 32 random bytes per result carried in the statement (so the laboratory's
+  signature covers it and it travels with the result), and has its own tag. A holder shows the
+  salt with the result or beside a claim; without it the binding tests nothing. Bindings of the
+  earlier form are not read. Statements without the salt (signed under the earlier text of this
+  draft) still check as signed, without a laboratory's name. `labNameBinding`; 12 more
+  vectors (88 in all: a salted statement, four salt refusals, four name bindings, three
+  refusals); Python too.
 - **Laboratory results, version 2 (SPEC 11.12, draft).** A laboratory signs a result bound to the
   record its sample came from: a result statement (the record's proof code, the sample ID, the
   laboratory's accession number, the method and panel with their versions, QC figures, the
