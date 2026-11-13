@@ -4,6 +4,16 @@ Versions before 0.16.0 are described in their commit messages and on npm.
 
 ## Unreleased
 
+- **Deal records: settled on chain (SPEC 11.10, draft).** A statement paid in a dollar stablecoin
+  on Cardano (USDCx or USDM, at 1:1 under the issuer's signed payout, `rate: "1"`) is settled
+  without `received` when the reader finds the payment: valid, 10 blocks deep, its CIP-20 message
+  carrying exactly one `vc1:` reference and it is this statement's (SHA-256 over the statement's
+  signature and the payout address), and at least what the statement leaves to pay (owed less
+  declared tax) to that address. `checkDealRecord(record, { cardano })` takes the reader's own
+  lookup (no network code here); without one, such payments are reported as not checked.
+  `paymentReference`, `cardanoVerdict`, `toTokenUnits`, `CARDANO_TOKENS`; 19 vectors in
+  `conformance/onchain-settle-v1.json` (from `onchain-settle-vectors.mjs`), run by
+  `conformance/run.mjs`. Nothing changes for records without such payments.
 - **Viability results: "1.000" refused, and a result that replaces its own pair (SPEC 11.12,
   draft).** A `lod` or `count` whose whole part is not 0, followed by a point and exactly 3
   digits ("1.000", "12.500", "1234.567", "1000.000"), is refused: German, French and Spanish write
