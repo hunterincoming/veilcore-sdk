@@ -1030,8 +1030,18 @@ def _zero(v):
     return w == "0" and set(f) <= {"0"}
 
 
+def _ambiguous(v):
+    """One to three whole digits, a point, exactly three digits ("1.000", "12.500"): in German, French and
+    Spanish the point is a thousands separator, so these read as a thousand or more there."""
+    w, dot, f = v.partition(".")
+    return bool(dot) and 1 <= len(w) <= 3 and w[0] != "0" and len(f) == 3
+
+
 def _amount(v, positive):
-    return isinstance(v, dict) and _only(v, ("value", "unit")) and _decimal(v["value"], positive) and _line(v["unit"], 60)
+    return (
+        isinstance(v, dict) and _only(v, ("value", "unit")) and _decimal(v["value"], positive)
+        and not _ambiguous(v["value"]) and _line(v["unit"], 60)
+    )
 
 
 def _viability_ok(r, s):
@@ -1260,6 +1270,11 @@ def lab_viability_pair(job):
         raise ValueError("the two tests recover different things")
     if br["sampled"] > ar["sampled"]:
         raise ValueError("the before-sample was taken after the after-sample")
+    # The two results are held too: one that replaces or withdraws the other breaks the pair.
+    if _replaces(a, job.get("afterCode", ""), b, code):
+        raise ValueError("the after-sample's result replaces the before-sample's")
+    if "afterCode" in job and _replaces(b, code, a, job["afterCode"]):
+        raise ValueError("the before-sample's result replaces the after-sample's")
     for h in job.get("held") or []:
         st = h["statement"]
         if lab_statement_problems(st):

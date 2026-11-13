@@ -57,6 +57,12 @@ const COUNT_MAX = 1_000_000_000;
 /** A decimal as a report prints it: no sign, no exponent, at most 15 whole digits and 6 decimals. */
 const DECIMAL = /^(0|[1-9]\d{0,14})(\.\d{1,6})?$/;
 const ZERO = /^0(\.0+)?$/;
+/**
+ * A point then exactly three digits after one to three whole digits ("1.000", "12.500"): German,
+ * French and Spanish write the point as a thousands separator, so these read as a thousand or more
+ * there. A viability amount (limit of detection, count) refuses them; "1000", "1.5" and "0.125" stand.
+ */
+const AMBIGUOUS = /^[1-9]\d{0,2}\.\d{3}$/;
 /** The most media one viability result names (USP <71> uses two). */
 export const LAB_CULTURES_MAX = 4;
 export const VIABILITY_STAGES = ['before', 'after'] as const;
@@ -76,12 +82,13 @@ const only = (o: O, req: readonly string[], opt: readonly string[] = []) =>
   req.every((k) => k in o) && Object.keys(o).every((k) => req.includes(k) || opt.includes(k));
 const ref = (v: unknown) => isObject(v) && only(v, ['id', 'version']) && line(v.id) && line(v.version);
 const hex64 = (v: unknown): v is string => typeof v === 'string' && HEX64.test(v);
-/** `{ value, unit }`: a decimal and its unit (one line, 60 at most). */
+/** `{ value, unit }`: a decimal, not one a reader could take for a thousand (AMBIGUOUS), and its unit (one line, 60 at most). */
 const amount = (v: unknown, positive: boolean) =>
   isObject(v) &&
   only(v, ['value', 'unit']) &&
   typeof v.value === 'string' &&
   DECIMAL.test(v.value) &&
+  !AMBIGUOUS.test(v.value) &&
   (!positive || !ZERO.test(v.value)) &&
   line(v.unit, 60);
 
@@ -397,7 +404,7 @@ const replaces = (later: O, laterCode: string, earlier: O, earlierCode: string):
  * names (SPEC 11.12, "The pair"): [] when they pair. `beforeCode` and `afterCode` are the two
  * results' codes (their record commitments). `held` is every other result the verifier holds
  * signed by the same key, with its code: one that replaces or withdraws either result breaks the
- * pair. That all are signed by the same key is the caller's to check, with the signatures; this
+ * pair, and so does either of the two replacing the other. That all are signed by the same key is the caller's to check, with the signatures; this
  * checks the statements. Two results by different methods still pair: the caller says the methods
  * differ (`method`).
  */
@@ -422,6 +429,11 @@ export const labViabilityPairProblems = (input: {
   if (ar.strain !== br.strain) out.push('the strain record is not the same');
   if (ar.target !== br.target) out.push('the two tests recover different things (target)');
   if ((br.sampled as string) > (ar.sampled as string)) out.push('the before-sample was taken after the after-sample');
+  // The two results are held too: one that replaces or withdraws the other breaks the pair. Without
+  // `afterCode` the after-sample still can't replace a before-sample that names it back, but a
+  // before-sample can't be seen to replace the after-sample.
+  if (replaces(a, afterCode ?? '', b, beforeCode)) out.push("the after-sample's result replaces the before-sample's");
+  if (afterCode !== undefined && replaces(b, beforeCode, a, afterCode)) out.push("the before-sample's result replaces the after-sample's");
   for (const h of held) {
     if (!isObject(h.statement) || labStatementProblems(h.statement).length) continue;
     const l = h.statement;

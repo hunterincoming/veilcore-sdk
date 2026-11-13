@@ -4,6 +4,14 @@ Versions before 0.16.0 are described in their commit messages and on npm.
 
 ## Unreleased
 
+- **Viability results: "1.000" refused, and a result that replaces its own pair (SPEC 11.12,
+  draft).** A `lod` or `count` of 1 to 3 digits, a point and exactly 3 digits ("1.000",
+  "12.500") is refused: German, French and Spanish write the point between thousands, so a reader
+  there takes "1.000 CFU/g" for a thousand. "1", "1000", "1.5" and "0.125" stand. A pair also
+  no longer stands when the after-sample's result itself replaces the before-sample's, or the
+  other way round, as the section already said ("a result the verifier holds" includes the two).
+  The section no longer says the before-sample "also" recovered none when the after-sample
+  recovered something. 7 more vectors (156 in all); Python too.
 - **Viability results, fixes from an independent check (SPEC 11.12, draft).** A pair no longer
   stands when either result is replaced or withdrawn by a result the verifier holds
   (`labViabilityPairProblems` takes `afterCode` and `held`); both tests must name the same

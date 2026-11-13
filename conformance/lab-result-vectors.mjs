@@ -176,6 +176,10 @@ cases.push(
   ['viability: an after-sample, the least it carries (no before-sample, no negative control)', clean(viableLeast)],
   ['viability: sent under the strain record itself', { ...viable, subject: D }],
   ['viability: recovered by enrichment, no count reported (presence/absence)', { ...viable, result: (({ count, ...r }) => ({ ...r, portion: '25 g of meal in 225 mL broth', lod: { value: '1', unit: 'CFU per 25 g' } }))(viable.result) }],
+  // A point then three digits reads as a thousand in de/fr/es only after one to three whole
+  // digits ("1.000"); these are plain and stand.
+  ['viability: a limit of detection of 1.5 and a count of 1000, plain decimals', { ...viable, result: { ...viable.result, lod: { value: '1.5', unit: 'CFU/g' }, count: { value: '1000', unit: 'CFU/g' } } }],
+  ['viability: a limit of detection of 0.125 (a leading 0 is never a thousands group)', { ...viable, result: { ...viable.result, lod: { value: '0.125', unit: 'CFU/g' } } }],
 );
 const statements = cases.map(([name, statement]) => {
   const bytes = enc(canonicalise(statement));
@@ -243,6 +247,9 @@ const statementRefusals = [
   ['viability: a count with a plus sign', { ...viable, result: { ...viable.result, count: { value: '+4300000', unit: 'CFU/g' } } }],
   ['viability: a count with a thousands comma', { ...viable, result: { ...viable.result, count: { value: '4,300,000', unit: 'CFU/g' } } }],
   ['viability: a limit of detection with a decimal comma', { ...viable, result: { ...viable.result, lod: { value: '0,5', unit: 'CFU/g' } } }],
+  ['viability: a limit of detection of 1.000 (read as a thousand in German, French and Spanish)', { ...viable, result: { ...viable.result, lod: { value: '1.000', unit: 'CFU/g' } } }],
+  ['viability: a count of 12.500 (read as twelve thousand five hundred in German, French and Spanish)', { ...viable, result: { ...viable.result, count: { value: '12.500', unit: 'CFU/g' } } }],
+  ['viability: a count of 4.300 (read as four thousand three hundred in German, French and Spanish)', { ...viable, result: { ...viable.result, count: { value: '4.300', unit: 'CFU/g' } } }],
   ['viability: a limit of detection with a space between thousands', { ...viable, result: { ...viable.result, lod: { value: '100 000', unit: 'CFU/g' } } }],
   ['viability: detected written as text', { ...viable, result: { ...viable.result, detected: 'no growth' } }],
   ['viability: a positive control that did not grow (an invalid run)', { ...viable, result: { ...viable.result, controls: { ...viable.result.controls, positiveGrew: false } } }],
@@ -385,6 +392,8 @@ const viablePairs = [
   pairOf('the before-sample’s result is withdrawn', viableAfter, viableBefore, false, [{ statement: withdrawal(beforeCode), code: W }]),
   pairOf('the after-sample’s result is withdrawn', viableAfter, viableBefore, false, [{ statement: withdrawal(afterCode), code: W }]),
   pairOf('the before-sample’s result is replaced by a re-test', viableAfter, viableBefore, false, [{ statement: { ...viableBefore, accession: 'LAB-26-2210', tested: '2026-11-11', replaces: { result: beforeCode, reason: 're-test' } }, code: W }]),
+  pairOf('the after-sample’s result itself replaces the before-sample’s', { ...viableAfter, replaces: { result: beforeCode, reason: 're-test' } }, viableBefore, false),
+  pairOf('the before-sample’s result itself replaces the after-sample’s', viableAfter, { ...viableBefore, tested: '2026-11-11', replaces: { result: afterCode, reason: 're-test' } }, false),
   pairOf('a withdrawal of another result: still a pair', viableAfter, viableBefore, true, [{ statement: withdrawal('f6'.repeat(32)), code: W }]),
   pairOf('a withdrawal for another record tested replaces nothing: still a pair', viableAfter, viableBefore, true, [{ statement: withdrawal(beforeCode, { subject: B }), code: W }]),
   pairOf('a withdrawal dated before the result replaces nothing: still a pair', viableAfter, viableBefore, true, [{ statement: withdrawal(beforeCode, { tested: '2026-11-09' }), code: W }]),
