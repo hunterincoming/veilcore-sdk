@@ -39,7 +39,12 @@
 //   in:  {"op":"dnaMarkSeal","input":{"sequence":"ACGT…","salt":"<hex>"}}   out: {"result":"<hex>"}, or refused
 //   in:  {"op":"labNameBinding","input":{"key":"<128 hex>","subject":"<hex>","salt":"<hex>"}}
 //          out: {"result":"<hex>"}, the laboratory's salted name binding, or refused
-//          The four are not the record format: --without-lab-results leaves them out, and says so.
+//   in:  {"op":"labViabilityPair","input":{"after":{...},"before":{...},"beforeCode":"<hex>",
+//          "afterCode":"<hex>","held":[{"statement":{...},"code":"<hex>"},...]}}
+//          out: {"result":true} when an after-sample's viability result pairs with the
+//          before-sample it names, or refused (SPEC 11.12, "The pair"): a result in "held"
+//          (same key, the caller's check) that replaces or withdraws either one breaks it
+//          The five are not the record format: --without-lab-results leaves them out, and says so.
 //
 // An implementation refuses an invalid record either by writing {"error":"..."} (or
 // {"rejected":true}) or by exiting non-zero. Both are idiomatic - a Python raise and a
@@ -402,7 +407,8 @@ const labOffers = lp.kind === 'ok' && lp.value !== null && typeof lp.value === '
 const labTotal =
   (vectors.labStatements?.length ?? 0) + (vectors.labStatementRefusals?.length ?? 0) + (vectors.labBindings?.length ?? 0) +
   (vectors.markSeals?.length ?? 0) + (vectors.markRefusals?.length ?? 0) +
-  (vectors.labNameBindings?.length ?? 0) + (vectors.labNameBindingRefusals?.length ?? 0);
+  (vectors.labNameBindings?.length ?? 0) + (vectors.labNameBindingRefusals?.length ?? 0) +
+  (vectors.labViabilityPairs?.length ?? 0);
 if (!labOffers && withoutLab) {
   console.log(`  NOT RUN  ${labTotal} lab-result vectors: this implementation does not offer them (--without-lab-results)`);
 } else if (!labOffers) {
@@ -440,6 +446,10 @@ if (!labOffers && withoutLab) {
   for (const v of vectors.labNameBindingRefusals ?? []) {
     const r = await ask('labNameBinding', { key: v.key, subject: v.subject, salt: v.salt });
     yes(`refuses name binding: ${v.name}`, r.kind === 'refused', 'refused', outcome(r));
+  }
+  for (const v of vectors.labViabilityPairs ?? []) {
+    const r = await ask('labViabilityPair', { after: v.after, before: v.before, beforeCode: v.beforeCode, afterCode: v.afterCode, held: v.held ?? [] });
+    yes(`viability ${v.paired ? 'pair' : 'not a pair'}: ${v.name}`, v.paired ? r.kind === 'ok' && r.value === true : r.kind === 'refused', v.paired ? 'true' : 'refused', outcome(r));
   }
 }
 
