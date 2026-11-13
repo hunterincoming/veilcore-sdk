@@ -58,11 +58,13 @@ const COUNT_MAX = 1_000_000_000;
 const DECIMAL = /^(0|[1-9]\d{0,14})(\.\d{1,6})?$/;
 const ZERO = /^0(\.0+)?$/;
 /**
- * A point then exactly three digits after one to three whole digits ("1.000", "12.500"): German,
- * French and Spanish write the point as a thousands separator, so these read as a thousand or more
- * there. A viability amount (limit of detection, count) refuses them; "1000", "1.5" and "0.125" stand.
+ * A whole part that is not 0, a point, then exactly three digits ("1.000", "12.500", "1234.567",
+ * "1000.000"): German, French and Spanish write the point between thousands, so a reader there can
+ * take these for a number a thousand times bigger. A viability amount (limit of detection, count)
+ * refuses them; "1000", "1.5", "1.0000" and "0.125" stand ("0.125" because a thousands group never
+ * starts with 0, and a misreading could only make a number look bigger, never smaller).
  */
-const AMBIGUOUS = /^[1-9]\d{0,2}\.\d{3}$/;
+const AMBIGUOUS = /^[1-9]\d*\.\d{3}$/;
 /** The most media one viability result names (USP <71> uses two). */
 export const LAB_CULTURES_MAX = 4;
 export const VIABILITY_STAGES = ['before', 'after'] as const;

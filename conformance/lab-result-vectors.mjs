@@ -176,8 +176,8 @@ cases.push(
   ['viability: an after-sample, the least it carries (no before-sample, no negative control)', clean(viableLeast)],
   ['viability: sent under the strain record itself', { ...viable, subject: D }],
   ['viability: recovered by enrichment, no count reported (presence/absence)', { ...viable, result: (({ count, ...r }) => ({ ...r, portion: '25 g of meal in 225 mL broth', lod: { value: '1', unit: 'CFU per 25 g' } }))(viable.result) }],
-  // A point then three digits reads as a thousand in de/fr/es only after one to three whole
-  // digits ("1.000"); these are plain and stand.
+  // A point then exactly three digits reads a thousand times bigger in de/fr/es after any whole
+  // part but 0 ("1.000", "1234.567"); these are plain and stand.
   ['viability: a limit of detection of 1.5 and a count of 1000, plain decimals', { ...viable, result: { ...viable.result, lod: { value: '1.5', unit: 'CFU/g' }, count: { value: '1000', unit: 'CFU/g' } } }],
   ['viability: a limit of detection of 0.125 (a leading 0 is never a thousands group)', { ...viable, result: { ...viable.result, lod: { value: '0.125', unit: 'CFU/g' } } }],
 );
@@ -250,6 +250,8 @@ const statementRefusals = [
   ['viability: a limit of detection of 1.000 (read as a thousand in German, French and Spanish)', { ...viable, result: { ...viable.result, lod: { value: '1.000', unit: 'CFU/g' } } }],
   ['viability: a count of 12.500 (read as twelve thousand five hundred in German, French and Spanish)', { ...viable, result: { ...viable.result, count: { value: '12.500', unit: 'CFU/g' } } }],
   ['viability: a count of 4.300 (read as four thousand three hundred in German, French and Spanish)', { ...viable, result: { ...viable.result, count: { value: '4.300', unit: 'CFU/g' } } }],
+  ['viability: a limit of detection of 1234.567 (a German, French or Spanish reader may take it for 1234567)', { ...viable, result: { ...viable.result, lod: { value: '1234.567', unit: 'CFU/g' } } }],
+  ['viability: a count of 1000.000 (read as a million in German, French and Spanish)', { ...viable, result: { ...viable.result, count: { value: '1000.000', unit: 'CFU/g' } } }],
   ['viability: a limit of detection with a space between thousands', { ...viable, result: { ...viable.result, lod: { value: '100 000', unit: 'CFU/g' } } }],
   ['viability: detected written as text', { ...viable, result: { ...viable.result, detected: 'no growth' } }],
   ['viability: a positive control that did not grow (an invalid run)', { ...viable, result: { ...viable.result, controls: { ...viable.result.controls, positiveGrew: false } } }],

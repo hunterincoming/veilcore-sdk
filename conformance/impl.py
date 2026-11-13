@@ -1031,10 +1031,11 @@ def _zero(v):
 
 
 def _ambiguous(v):
-    """One to three whole digits, a point, exactly three digits ("1.000", "12.500"): in German, French and
-    Spanish the point is a thousands separator, so these read as a thousand or more there."""
+    """A whole part that is not 0, a point, exactly three digits ("1.000", "12.500", "1234.567"): in German,
+    French and Spanish the point is a thousands separator, so these can read a thousand times bigger there.
+    "0.125" stands: a thousands group never starts with 0."""
     w, dot, f = v.partition(".")
-    return bool(dot) and 1 <= len(w) <= 3 and w[0] != "0" and len(f) == 3
+    return bool(dot) and len(w) >= 1 and w[0] != "0" and len(f) == 3
 
 
 def _amount(v, positive):
