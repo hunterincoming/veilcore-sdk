@@ -4,6 +4,39 @@ Versions before 0.16.0 are described in their commit messages and on npm.
 
 ## Unreleased
 
+- **Viability results: "1.000" refused, and a result that replaces its own pair (SPEC 11.12,
+  draft).** A `lod` or `count` whose whole part is not 0, followed by a point and exactly 3
+  digits ("1.000", "12.500", "1234.567", "1000.000"), is refused: German, French and Spanish write
+  the point between thousands, so a reader there takes "1.000 CFU/g" for a thousand and
+  "1000.000 CFU/g" for a million. "1", "1000", "1.5" and "0.125" stand ("0.125" because a
+  thousands group never starts with 0, and a misreading could only make it look bigger). A pair also
+  no longer stands when the after-sample's result itself replaces the before-sample's, or the
+  other way round, as the section already said ("a result the verifier holds" includes the two).
+  The section no longer says the before-sample "also" recovered none when the after-sample
+  recovered something. 9 more vectors (158 in all); Python too.
+- **Viability results, fixes from an independent check (SPEC 11.12, draft).** A pair no longer
+  stands when either result is replaced or withdrawn by a result the verifier holds
+  (`labViabilityPairProblems` takes `afterCode` and `held`); both tests must name the same
+  `target`, and a verifier says so when the methods differ, since only then does the pair speak to
+  the method. None recovered carries no `count` (a report gives "< LOD", never 0) and some
+  recovered may carry one (enrichment and presence/absence tests give none), above 0 when given. "1,000", "1.000,5" and "1 000" are named as refused, and a form
+  taking a number from a person refuses them too. The claim section says a claim on the call does
+  not show the stage. The standards are cited correctly: USP <71> invalidity is growth in the
+  negative control, a failed positive control is a failed growth promotion or method suitability
+  test; the before-sample count is ISO 11737-1 bioburden. Holders are told what several result
+  files show together. The example pair now uses one method; more vectors (withdrawn and replaced
+  pairs, target and method, count signs, exponents and separators). Python too.
+- **Laboratory results v2: a `viability` kind (SPEC 11.12, draft).** A laboratory signs a test for
+  viable organisms in a sample taken before or after a kill step (a heat treatment, an
+  inactivation, a sterilisation): the batch, the stage, the kill step's method and parameters, the
+  portion tested, each medium with its incubation time and temperature, the limit of detection,
+  whether anything was recovered and how much, and the controls. A run whose positive control did
+  not grow, or whose negative control grew, can't be signed. The batch ties to the strain record it
+  was made from by proof code only (`strain`), and an after-sample may name the result for its
+  before-sample (`before`), which a verifier reads as a pair only under the rules of the section.
+  The call and the stage are a new call form, `veilcore/schema/viability/v1`. The section says what
+  it does not establish: none recovered is not dead or sterile. `labViabilityPairProblems`; 45 more
+  vectors (133 in all); Python too; a new conformance op, `labViabilityPair`.
 - **Laboratory results v2: the laboratory's name binding is salted (SPEC 11.12, draft).** The
   binding a laboratory publishes to name itself on a result was SHA-256 over a tag, its key and
   the tested record's proof code. The key is in every result file and the result's code is the

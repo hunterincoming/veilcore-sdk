@@ -38,7 +38,7 @@ const schemaId = (schema) => {
 };
 const read = (p) => JSON.parse(readFileSync(new URL(p, import.meta.url), 'utf8'));
 const schemas = {};
-for (const f of ['pathogen', 'genetic-match', 'lineage-check', 'dna-mark', 'lab-retraction']) {
+for (const f of ['pathogen', 'genetic-match', 'lineage-check', 'dna-mark', 'viability', 'lab-retraction']) {
   const s = read(`../profiles/fields/${f}-v1.json`);
   schemas[s.id] = s;
 }
@@ -112,6 +112,75 @@ const cases = [
     { ...common, kind: 'pathogen', result: { target: 'HLVd', sampleType: 'leaf', detected: false }, bindingSalt: '9e'.repeat(16) + '4c'.repeat(16) },
   ],
 ];
+
+// ---- viability: a sample taken before or after a kill step (SPEC 11.12, "Viability") ----
+const D = 'd4'.repeat(32); // the strain record the batch was made from
+const viable = {
+  ...common,
+  kind: 'viability',
+  sampleId: 'MEAL-0907-PRE',
+  accession: 'LAB-26-2201',
+  // The before- and after-sample are tested by one method, so the pair says the method recovered
+  // the strain from this material before the kill step (SPEC 11.12, "The pair").
+  method: { id: 'Membrane filtration onto PDA, SOP-M7', version: '2' },
+  received: '2026-11-03',
+  tested: '2026-11-10',
+  qc: [{ name: 'Medium lot', value: 'PDA-2611' }],
+  result: {
+    batch: 'MEAL-26-0907',
+    stage: 'before',
+    strain: D,
+    sampled: '2026-11-02',
+    target: 'The production strain',
+    portion: '10 g of meal in 90 mL, then 1 mL of a 1 in 10 000 dilution filtered',
+    cultures: [{ medium: 'PDA with chloramphenicol', time: '7 days', temperature: '25 °C' }],
+    lod: { value: '100000', unit: 'CFU/g' },
+    detected: true,
+    count: { value: '4300000', unit: 'CFU/g' },
+    controls: { positive: 'Production strain, about 50 CFU', positiveGrew: true, negativeGrew: false },
+  },
+  bindingSalt: '6b'.repeat(16) + '2a'.repeat(16),
+};
+const beforeCode = 'e5'.repeat(32); // the before result's code, as the after result names it
+const viableAfter = {
+  ...viable,
+  sampleId: 'MEAL-0907-POST',
+  accession: 'LAB-26-2202',
+  result: {
+    ...viable.result,
+    stage: 'after',
+    killStep: 'Steam, 95 °C core for 30 min, then dried at 70 °C',
+    before: beforeCode,
+    sampled: '2026-11-03',
+    portion: '25 g of meal in 225 mL, all of it filtered, half onto each medium',
+    cultures: [
+      { medium: 'PDA with chloramphenicol', time: '7 days', temperature: '25 °C' },
+      { medium: 'DG18 agar', time: '7 days', temperature: '25 °C' },
+    ],
+    lod: { value: '1', unit: 'CFU per 25 g' },
+    detected: false,
+    // None recovered: no count. The limit of detection says it (< 1 CFU per 25 g).
+    count: undefined,
+  },
+};
+const viableLeast = (({ count, ...r }) => ({
+  ...viableAfter,
+  qc: undefined,
+  received: undefined,
+  result: { ...r, before: undefined, controls: { positive: 'A. brasiliensis ATCC 16404', positiveGrew: true } },
+}))(viableAfter.result);
+const clean = (o) => JSON.parse(JSON.stringify(o));
+cases.push(
+  ['viability: a before-sample, organisms recovered, with a count', viable],
+  ['viability: an after-sample naming its before-sample, none recovered in two media (no count)', clean(viableAfter)],
+  ['viability: an after-sample, the least it carries (no before-sample, no negative control)', clean(viableLeast)],
+  ['viability: sent under the strain record itself', { ...viable, subject: D }],
+  ['viability: recovered by enrichment, no count reported (presence/absence)', { ...viable, result: (({ count, ...r }) => ({ ...r, portion: '25 g of meal in 225 mL broth', lod: { value: '1', unit: 'CFU per 25 g' } }))(viable.result) }],
+  // A point then exactly three digits reads a thousand times bigger in de/fr/es after any whole
+  // part but 0 ("1.000", "1234.567"); these are plain and stand.
+  ['viability: a limit of detection of 1.5 and a count of 1000, plain decimals', { ...viable, result: { ...viable.result, lod: { value: '1.5', unit: 'CFU/g' }, count: { value: '1000', unit: 'CFU/g' } } }],
+  ['viability: a limit of detection of 0.125 (a leading 0 is never a thousands group)', { ...viable, result: { ...viable.result, lod: { value: '0.125', unit: 'CFU/g' } } }],
+);
 const statements = cases.map(([name, statement]) => {
   const bytes = enc(canonicalise(statement));
   return { name, statement, canonical: bytes.toString('utf8'), sha256: hex(sha(bytes)), size: bytes.length };
@@ -153,6 +222,42 @@ const statementRefusals = [
   ['a binding salt of 31 bytes', { ...pathogen, bindingSalt: '9e'.repeat(31) }],
   ['a binding salt that is all one byte value', { ...pathogen, bindingSalt: '00'.repeat(32) }],
   ['a binding salt written as a number', { ...pathogen, bindingSalt: 7 }],
+  ['viability: a stage the format doesn’t have', { ...viable, result: { ...viable.result, stage: 'during' } }],
+  ['viability: an after-sample with no kill step', { ...viableAfter, result: (({ killStep, ...r }) => r)(viableAfter.result) }],
+  ['viability: a before-sample with a kill step', { ...viable, result: { ...viable.result, killStep: 'Steam' } }],
+  ['viability: a before-sample naming a before-sample', { ...viable, result: { ...viable.result, before: beforeCode } }],
+  ['viability: no strain record', { ...viable, result: (({ strain, ...r }) => r)(viable.result) }],
+  ['viability: a strain named by name, not by proof code', { ...viable, result: { ...viable.result, strain: 'Aspergillus oryzae RIB40' } }],
+  ['viability: no batch', { ...viable, result: { ...viable.result, batch: '' } }],
+  ['viability: sampled after the date tested', { ...viable, result: { ...viable.result, sampled: '2026-11-11' } }],
+  ['viability: sampled after the date received', { ...viable, result: { ...viable.result, sampled: '2026-11-04' } }],
+  ['viability: no medium', { ...viable, result: { ...viable.result, cultures: [] } }],
+  ['viability: five media', { ...viable, result: { ...viable.result, cultures: Array.from({ length: 5 }, (_, i) => ({ medium: `M${i}`, time: '7 days', temperature: '25 °C' })) } }],
+  ['viability: the same medium twice', { ...viable, result: { ...viable.result, cultures: [viable.result.cultures[0], viable.result.cultures[0]] } }],
+  ['viability: a medium with no temperature', { ...viable, result: { ...viable.result, cultures: [{ medium: 'PDA', time: '7 days' }] } }],
+  ['viability: a limit of detection of 0', { ...viable, result: { ...viable.result, lod: { value: '0', unit: 'CFU/g' } } }],
+  ['viability: a limit of detection with an exponent', { ...viable, result: { ...viable.result, lod: { value: '1e2', unit: 'CFU/g' } } }],
+  ['viability: a limit of detection with no unit', { ...viable, result: { ...viable.result, lod: { value: '100', unit: '' } } }],
+  ['viability: a count written as a number', { ...viable, result: { ...viable.result, count: { value: 4300000, unit: 'CFU/g' } } }],
+  ['viability: none recovered with a count above 0', { ...viableAfter, result: { ...viableAfter.result, count: { value: '3', unit: 'CFU per 25 g' } } }],
+  ['viability: none recovered with a count of 0 (below the limit of detection is not 0)', { ...viableAfter, result: { ...viableAfter.result, count: { value: '0', unit: 'CFU per 25 g' } } }],
+  ['viability: recovered with a count of 0', { ...viable, result: { ...viable.result, count: { value: '0', unit: 'CFU/g' } } }],
+  ['viability: a count with an exponent', { ...viable, result: { ...viable.result, count: { value: '4.3e6', unit: 'CFU/g' } } }],
+  ['viability: a negative count', { ...viable, result: { ...viable.result, count: { value: '-4300000', unit: 'CFU/g' } } }],
+  ['viability: a count with a plus sign', { ...viable, result: { ...viable.result, count: { value: '+4300000', unit: 'CFU/g' } } }],
+  ['viability: a count with a thousands comma', { ...viable, result: { ...viable.result, count: { value: '4,300,000', unit: 'CFU/g' } } }],
+  ['viability: a limit of detection with a decimal comma', { ...viable, result: { ...viable.result, lod: { value: '0,5', unit: 'CFU/g' } } }],
+  ['viability: a limit of detection of 1.000 (read as a thousand in German, French and Spanish)', { ...viable, result: { ...viable.result, lod: { value: '1.000', unit: 'CFU/g' } } }],
+  ['viability: a count of 12.500 (read as twelve thousand five hundred in German, French and Spanish)', { ...viable, result: { ...viable.result, count: { value: '12.500', unit: 'CFU/g' } } }],
+  ['viability: a count of 4.300 (read as four thousand three hundred in German, French and Spanish)', { ...viable, result: { ...viable.result, count: { value: '4.300', unit: 'CFU/g' } } }],
+  ['viability: a limit of detection of 1234.567 (a German, French or Spanish reader may take it for 1234567)', { ...viable, result: { ...viable.result, lod: { value: '1234.567', unit: 'CFU/g' } } }],
+  ['viability: a count of 1000.000 (read as a million in German, French and Spanish)', { ...viable, result: { ...viable.result, count: { value: '1000.000', unit: 'CFU/g' } } }],
+  ['viability: a limit of detection with a space between thousands', { ...viable, result: { ...viable.result, lod: { value: '100 000', unit: 'CFU/g' } } }],
+  ['viability: detected written as text', { ...viable, result: { ...viable.result, detected: 'no growth' } }],
+  ['viability: a positive control that did not grow (an invalid run)', { ...viable, result: { ...viable.result, controls: { ...viable.result.controls, positiveGrew: false } } }],
+  ['viability: a negative control that grew (an invalid run)', { ...viable, result: { ...viable.result, controls: { ...viable.result.controls, negativeGrew: true } } }],
+  ['viability: no positive control', { ...viable, result: { ...viable.result, controls: { positiveGrew: true } } }],
+  ['viability: a field the result doesn’t have', { ...viable, result: { ...viable.result, sterile: true } }],
 ].map(([name, statement]) => ({ name, statement }));
 
 // ---- bindings: the statement inside a document record's committed fields ----
@@ -178,7 +283,7 @@ const recordFor = (s, form, extra = {}) => ({
   ...extra,
 });
 const v16 = (...xs) => Array.from({ length: 16 }, (_, i) => (xs[i] === undefined ? null : xs[i]));
-const [p0, p1, m, l2, l1, mk, rt, , mo, q12, nb] = cases.map(([, s]) => s);
+const [p0, p1, m, l2, l1, mk, rt, , mo, q12, nb, , , vb, va, vl] = cases.map(([, s]) => s);
 const bound = [
   ['pathogen, not detected', p0, 'veilcore/schema/pathogen/v1', v16('0')],
   ['pathogen, detected, Ct 31.5 is 3150', p1, 'veilcore/schema/pathogen/v1', v16('1', '3150')],
@@ -190,6 +295,9 @@ const bound = [
   ['a comparison naming the other sample, no match', mo, 'veilcore/schema/genetic-match/v1', v16('0', '90', '31')],
   ['a pathogen test with twelve run and QC details', q12, 'veilcore/schema/pathogen/v1', v16('0')],
   ['numbers under their own form', nb, 'veilcore/schema/seed-quality/v1', v16('9650', '9800')],
+  ['viability: a before-sample, recovered', vb, 'veilcore/schema/viability/v1', v16('1', '0')],
+  ['viability: an after-sample, none recovered', va, 'veilcore/schema/viability/v1', v16('0', '1')],
+  ['viability: an after-sample, the least it carries', vl, 'veilcore/schema/viability/v1', v16('0', '1')],
 ].map(([name, statement, form, values]) => ({ name, fields: recordFor(statement, form), statement, values, bound: true }));
 const pf = recordFor(p0, 'veilcore/schema/pathogen/v1');
 const unbound = [
@@ -209,6 +317,10 @@ const unbound = [
   ['no field set', (({ fieldSchema, fieldSetRoot, ...r }) => r)(pf), p0, v16('0')],
   ['numbers under a call form', recordFor({ ...nb, result: { form: 'veilcore/schema/pathogen/v1' } }, 'veilcore/schema/pathogen/v1'), { ...nb, result: { form: 'veilcore/schema/pathogen/v1' } }, v16('1')],
   ['a statement in a record not of the document profile', { ...pf, profile: 'veilcore/profile/plant-variety/v1' }, p0, v16('0')],
+  ['viability: the field set says before, the statement after', recordFor(va, 'veilcore/schema/viability/v1'), va, v16('0', '0')],
+  ['viability: the field set says none recovered, the statement some', recordFor(vb, 'veilcore/schema/viability/v1'), vb, v16('0', '0')],
+  ['viability: the field set leaves out the stage', recordFor(va, 'veilcore/schema/viability/v1'), va, v16('0')],
+  ['viability: under the pathogen form', recordFor(va, 'veilcore/schema/pathogen/v1'), va, v16('0', '1')],
 ].map(([name, fields, statement, values]) => ({ name, fields, statement, values, bound: false }));
 
 // ---- DNA mark seals ----
@@ -249,6 +361,50 @@ const nameBindingRefusals = [
   ['a subject in upper case', K1, A.toUpperCase(), S1],
 ].map(([name, key, subject, salt]) => ({ name, key, subject, salt }));
 
+// ---- viability pairs: an after-sample and the before-sample it names ----
+// `beforeCode` stands for the before result's code (its record commitment); the after names it.
+// `afterCode` stands for the after result's own code. `held` is every other result the verifier
+// holds signed by the same key, each with its code: one that replaces or withdraws either breaks the pair.
+const afterCode = 'ab'.repeat(32);
+const pairOf = (name, after, before, paired, held = []) => ({ name, after, before, beforeCode, afterCode, held, paired });
+const withdrawal = (code, over = {}) => ({
+  ...common,
+  kind: 'retraction',
+  sampleId: 'MEAL-0907-W',
+  accession: 'LAB-26-2209',
+  tested: '2026-11-12',
+  replaces: { result: code, reason: 'retraction' },
+  bindingSalt: '7c'.repeat(16) + '3d'.repeat(16),
+  ...over,
+});
+const W = 'f7'.repeat(32); // a withdrawal's or re-test's own code
+const viableBefore = { ...viable }; // the before-sample above
+const viablePairs = [
+  pairOf('an after-sample and the before-sample it names', viableAfter, viableBefore, true),
+  pairOf('the before-sample also showed none recovered: still a pair, read as it is', viableAfter, { ...viableBefore, result: { ...viableBefore.result, detected: false, count: undefined } }, true),
+  pairOf('the after-sample names another result', { ...viableAfter, result: { ...viableAfter.result, before: 'f6'.repeat(32) } }, viableBefore, false),
+  pairOf('the after-sample names no before-sample', clean(viableLeast), viableBefore, false),
+  pairOf('another batch', viableAfter, { ...viableBefore, result: { ...viableBefore.result, batch: 'MEAL-26-0908' } }, false),
+  pairOf('another strain record', viableAfter, { ...viableBefore, result: { ...viableBefore.result, strain: C } }, false),
+  pairOf('the before-sample was taken the same day as the after-sample', viableAfter, { ...viableBefore, result: { ...viableBefore.result, sampled: '2026-11-03' } }, true),
+  pairOf('the "before" is itself an after-sample', viableAfter, { ...viableAfter, result: { ...viableAfter.result, before: undefined } }, false),
+  pairOf('the "before" is a pathogen result', viableAfter, p0, false),
+  pairOf('the two tests recover different things (target)', viableAfter, { ...viableBefore, result: { ...viableBefore.result, target: 'Total aerobic count (bacteria only)' } }, false),
+  pairOf('the two tests used different methods: still a pair, and a verifier says the methods differ', viableAfter, { ...viableBefore, method: { id: 'Spread plate on PDA, SOP-M4', version: '1' } }, true),
+  pairOf('the before-sample’s result is withdrawn', viableAfter, viableBefore, false, [{ statement: withdrawal(beforeCode), code: W }]),
+  pairOf('the after-sample’s result is withdrawn', viableAfter, viableBefore, false, [{ statement: withdrawal(afterCode), code: W }]),
+  pairOf('the before-sample’s result is replaced by a re-test', viableAfter, viableBefore, false, [{ statement: { ...viableBefore, accession: 'LAB-26-2210', tested: '2026-11-11', replaces: { result: beforeCode, reason: 're-test' } }, code: W }]),
+  pairOf('the after-sample’s result itself replaces the before-sample’s', { ...viableAfter, replaces: { result: beforeCode, reason: 're-test' } }, viableBefore, false),
+  pairOf('the before-sample’s result itself replaces the after-sample’s', viableAfter, { ...viableBefore, tested: '2026-11-11', replaces: { result: afterCode, reason: 're-test' } }, false),
+  pairOf('a withdrawal of another result: still a pair', viableAfter, viableBefore, true, [{ statement: withdrawal('f6'.repeat(32)), code: W }]),
+  pairOf('a withdrawal for another record tested replaces nothing: still a pair', viableAfter, viableBefore, true, [{ statement: withdrawal(beforeCode, { subject: B }), code: W }]),
+  pairOf('a withdrawal dated before the result replaces nothing: still a pair', viableAfter, viableBefore, true, [{ statement: withdrawal(beforeCode, { tested: '2026-11-09' }), code: W }]),
+].map((p) => clean(p));
+// Taken the same day is not after: the pair above stands. One taken a day later does not pair.
+viablePairs.push(
+  clean(pairOf('the before-sample was taken a day after the after-sample', viableAfter, { ...viableBefore, received: '2026-11-04', result: { ...viableBefore.result, sampled: '2026-11-04' } }, false)),
+);
+
 const out = {
   spec: 'SPEC 11.12, laboratory results version 2',
   schemas,
@@ -259,10 +415,12 @@ const out = {
   markRefusals,
   labNameBindings: nameBindings,
   labNameBindingRefusals: nameBindingRefusals,
+  labViabilityPairs: viablePairs,
 };
 writeFileSync(new URL('./lab-result-v2.json', import.meta.url), JSON.stringify(out, null, 2) + '\n');
 console.log(
   `lab-result-v2.json: ${statements.length} statements, ${statementRefusals.length} statement refusals, ` +
     `${bound.length + unbound.length} bindings, ${markSeals.length} seals, ${markRefusals.length} seal refusals, ` +
-    `${nameBindings.length} name bindings, ${nameBindingRefusals.length} name binding refusals`,
+    `${nameBindings.length} name bindings, ${nameBindingRefusals.length} name binding refusals, ` +
+    `${viablePairs.length} viability pairs`,
 );

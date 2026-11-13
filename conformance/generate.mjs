@@ -458,6 +458,7 @@ out.markSeals = labV.markSeals;
 out.markRefusals = labV.markRefusals;
 out.labNameBindings = labV.labNameBindings;
 out.labNameBindingRefusals = labV.labNameBindingRefusals;
+out.labViabilityPairs = labV.labViabilityPairs;
 
 // Built before the shrink check below, which otherwise saw an empty attestations section
 // and refused every run.
@@ -497,6 +498,6 @@ console.log(
   `${out.pairings.length} pairing, ${out.keyBoundKeys.length + out.keyBoundRecords.length + out.keyBoundChecks.length + out.keyBoundRefusals.length} key-bound, ` +
   `${out.animalRecords.length + out.animalRefusals.length} animal-record, ` +
   `${out.strainRecords.length + out.strainRefusals.length} strain-record, ${out.documentRecords.length + out.documentRefusals.length} document-record and ` +
-  `${out.labStatements.length + out.labStatementRefusals.length + out.labBindings.length + out.markSeals.length + out.markRefusals.length + out.labNameBindings.length + out.labNameBindingRefusals.length} lab-result vectors`
+  `${out.labStatements.length + out.labStatementRefusals.length + out.labBindings.length + out.markSeals.length + out.markRefusals.length + out.labNameBindings.length + out.labNameBindingRefusals.length + out.labViabilityPairs.length} lab-result vectors`
 );
 

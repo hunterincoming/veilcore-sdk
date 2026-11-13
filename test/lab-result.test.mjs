@@ -68,3 +68,23 @@ test('an outsider with a lab’s key and a list of proof codes can no longer tel
   assert.equal(await node.labNameBinding(key, tested, salt), published);
   assert.notEqual(await node.labNameBinding(key, codes[0], salt), published);
 });
+
+test('a viability result: its call and stage are the field set, its pairs read as the vectors say', async () => {
+  for (const impl of [node, browser]) {
+    assert.equal(impl.LAB_CALL_SCHEMAS.viability, 'veilcore/schema/viability/v1');
+    for (const p of v.labViabilityPairs)
+      assert.equal(impl.labViabilityPairProblems(p).length === 0, p.paired, p.name);
+  }
+  const after = v.labStatements.find((s) => s.statement.kind === 'viability' && s.statement.result.stage === 'after');
+  const before = v.labStatements.find((s) => s.statement.kind === 'viability' && s.statement.result.stage === 'before');
+  assert.deepEqual(node.labCallValues(after.statement).slice(0, 3), ['0', '1', null]);
+  assert.deepEqual(node.labCallValues(before.statement).slice(0, 3), ['1', '0', null]);
+  // The strain is named by proof code only: nothing of the strain record is in the statement.
+  assert.match(after.statement.result.strain, /^[0-9a-f]{64}$/);
+  // An invalid run is never signed: a positive control that did not grow is refused, by name.
+  const bad = { ...after.statement, result: { ...after.statement.result, controls: { positive: 'x', positiveGrew: false } } };
+  assert.ok(node.labStatementProblems(bad).some((s) => s.includes('positive control')));
+  // A before-sample can't name a before-sample, and an after-sample must say its kill step.
+  const noKill = { ...after.statement, result: { ...after.statement.result, killStep: undefined } };
+  assert.ok(node.labStatementProblems(JSON.parse(JSON.stringify(noKill))).some((s) => s.includes('killStep')));
+});
