@@ -186,6 +186,40 @@ const statements = cases.map(([name, statement]) => {
   return { name, statement, canonical: bytes.toString('utf8'), sha256: hex(sha(bytes)), size: bytes.length };
 });
 
+// ---- counts are read by value, not by how they are written (SPEC 11.12, "Results, by kind") ----
+// These carry `statementText`, the statement exactly as written, and no `statement`: parsed and
+// written out again, 12.0 would become 12 and the case would test nothing. A runner sends the text
+// as it is. Each is a comparison whose `compared` (C) and `differing` (D) are written as below.
+const countText = (c, d = '0') =>
+  JSON.stringify({ ...common, kind: 'match', method: { id: 'SNP genotyping', version: '4' }, result: { other: B, matches: true, compared: '@C', differing: '@D' } })
+    .replace('"@C"', c)
+    .replace('"@D"', d);
+const countCases = [
+  ['a count written 12', countText('12')],
+  ['a count written 12.0 is the count 12 (the same file as 12)', countText('12.0')],
+  ['a count written 1e1 is the count 10', countText('1e1')],
+  ['a count written 1.2E1 is the count 12 (the same file as 12)', countText('1.2E1')],
+  ['a count written -0 is the count 0', countText('12', '-0')],
+  ['a count written 1.0000000000000001 is the count 1 (a JSON number is read as a double, section 4.4)', countText('1.0000000000000001')],
+  ['a count of 1000000000, the most', countText('1000000000')],
+  ['a count of 1e9, the most', countText('1e9')],
+];
+for (const [name, statementText] of countCases) {
+  const bytes = enc(canonicalise(JSON.parse(statementText)));
+  statements.push({ name, statementText, canonical: bytes.toString('utf8'), sha256: hex(sha(bytes)), size: bytes.length });
+}
+const countRefusals = [
+  ['a count written 12.5', countText('12.5')],
+  ['a count written 1.25e1 (12.5)', countText('1.25e1')],
+  ['a count of 1000000001, above 10^9', countText('1000000001')],
+  ['a count of 9007199254740993, beyond 2^53', countText('9007199254740993')],
+  ['a count of 123456789012345678901234567890', countText('123456789012345678901234567890')],
+  ['a count of 1e400, beyond any double', countText('1e400')],
+  ['a negative count', countText('12', '-1')],
+  ['a count written as text', countText('"12"')],
+  ['a count written as true', countText('true')],
+];
+
 const pathogen = cases[0][1];
 const statementRefusals = [
   ['an older format', { ...pathogen, format: 'veilcore/lab-result/v1' }],
@@ -258,7 +292,12 @@ const statementRefusals = [
   ['viability: a negative control that grew (an invalid run)', { ...viable, result: { ...viable.result, controls: { ...viable.result.controls, negativeGrew: true } } }],
   ['viability: no positive control', { ...viable, result: { ...viable.result, controls: { positiveGrew: true } } }],
   ['viability: a field the result doesn’t have', { ...viable, result: { ...viable.result, sterile: true } }],
+  // White space at either end is what ECMAScript's String.prototype.trim() removes (SPEC 11.8).
+  ['a sample ID ending in a no-break space (U+00A0)', { ...pathogen, sampleId: 'S-0412 ' }],
+  ['a sample ID starting with an ideographic space (U+3000)', { ...pathogen, sampleId: '　S-0412' }],
+  ['a sample ID ending in a line separator (U+2028)', { ...pathogen, sampleId: 'S-0412 ' }],
 ].map(([name, statement]) => ({ name, statement }));
+for (const [name, statementText] of countRefusals) statementRefusals.push({ name, statementText });
 
 // ---- bindings: the statement inside a document record's committed fields ----
 const fileOf = (s) => {
@@ -299,6 +338,16 @@ const bound = [
   ['viability: an after-sample, none recovered', va, 'veilcore/schema/viability/v1', v16('0', '1')],
   ['viability: an after-sample, the least it carries', vl, 'veilcore/schema/viability/v1', v16('0', '1')],
 ].map(([name, statement, form, values]) => ({ name, fields: recordFor(statement, form), statement, values, bound: true }));
+// Counts written in another form bind as the count they are (`statementText`, sent as written).
+const lineageText = JSON.stringify({ ...l2, result: { ...l2.result, compared: '@C', conflicts: '@K' } }).replace('"@C"', '8.8e1').replace('"@K"', '[0.0,1e0]');
+for (const [name, statementText, form, values, isBound] of [
+  ['a comparison whose counts are written 12.0 and -0', countText('12.0', '-0'), 'veilcore/schema/genetic-match/v1', v16('1', '12', '0'), true],
+  ['a comparison whose count is written 1e1', countText('1e1'), 'veilcore/schema/genetic-match/v1', v16('1', '10', '0'), true],
+  ['a parentage check whose counts are written 8.8e1, 0.0 and 1e0', lineageText, 'veilcore/schema/lineage-check/v1', v16('1', '88', '0', '1'), true],
+  ['a field set holding 12.0 where the statement’s count is 12 (a slot holds the count, not how it was written)', countText('12.0'), 'veilcore/schema/genetic-match/v1', v16('1', '12.0', '0'), false],
+]) {
+  bound.push({ name, fields: recordFor(JSON.parse(statementText), form), statementText, values, bound: isBound });
+}
 const pf = recordFor(p0, 'veilcore/schema/pathogen/v1');
 const unbound = [
   ['the statement changed after sealing', pf, { ...p0, sampleId: 'S-9999' }, v16('0')],
@@ -316,6 +365,9 @@ const unbound = [
   ['a number the statement doesn’t have', pf, p0, v16('0', '3100')],
   ['no field set', (({ fieldSchema, fieldSetRoot, ...r }) => r)(pf), p0, v16('0')],
   ['numbers under a call form', recordFor({ ...nb, result: { form: 'veilcore/schema/pathogen/v1' } }, 'veilcore/schema/pathogen/v1'), { ...nb, result: { form: 'veilcore/schema/pathogen/v1' } }, v16('1')],
+  // All six call forms are closed to numbers, the viability form (the sixth, added last) included.
+  ['numbers under the viability call form', recordFor({ ...nb, result: { form: 'veilcore/schema/viability/v1' } }, 'veilcore/schema/viability/v1'), { ...nb, result: { form: 'veilcore/schema/viability/v1' } }, v16('0', '1')],
+  ['numbers under the retraction call form', recordFor({ ...nb, result: { form: 'veilcore/schema/lab-retraction/v1' } }, 'veilcore/schema/lab-retraction/v1'), { ...nb, result: { form: 'veilcore/schema/lab-retraction/v1' } }, v16('1')],
   ['a statement in a record not of the document profile', { ...pf, profile: 'veilcore/profile/plant-variety/v1' }, p0, v16('0')],
   ['viability: the field set says before, the statement after', recordFor(va, 'veilcore/schema/viability/v1'), va, v16('0', '0')],
   ['viability: the field set says none recovered, the statement some', recordFor(vb, 'veilcore/schema/viability/v1'), vb, v16('0', '0')],

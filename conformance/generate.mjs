@@ -320,6 +320,7 @@ const out = {
   strainRefusals: [],
   documentRecords: [],
   documentRefusals: [],
+  profileForms: [],
 };
 
 for (const c of canonicalCases) {
@@ -447,6 +448,9 @@ out.strainRefusals = strain.refusals;
 const documentV = JSON.parse(readFileSync(new URL('./document-v1.json', import.meta.url), 'utf8'));
 out.documentRecords = documentV.records;
 out.documentRefusals = documentV.refusals;
+// Record ids and white space in the profiles (SPEC 11.8, used by 11.9 and 11.11): copied from
+// profile-forms-v1.json, made by profile-forms-vectors.mjs from the profile files above.
+out.profileForms = JSON.parse(readFileSync(new URL('./profile-forms-v1.json', import.meta.url), 'utf8')).profileForms;
 // Laboratory results v2 (SPEC 11.12): copied from lab-result-v2.json, computed by
 // lab-result-vectors.mjs from the specification with node:crypto and the canonicaliser only.
 const labV = JSON.parse(readFileSync(new URL('./lab-result-v2.json', import.meta.url), 'utf8'));
@@ -497,7 +501,8 @@ console.log(
   `${out.fieldSets.length} field-set, ${out.fieldRejections.length} field-rejection, ${out.commitmentRejections.length} commitment-rejection, ` +
   `${out.pairings.length} pairing, ${out.keyBoundKeys.length + out.keyBoundRecords.length + out.keyBoundChecks.length + out.keyBoundRefusals.length} key-bound, ` +
   `${out.animalRecords.length + out.animalRefusals.length} animal-record, ` +
-  `${out.strainRecords.length + out.strainRefusals.length} strain-record, ${out.documentRecords.length + out.documentRefusals.length} document-record and ` +
+  `${out.strainRecords.length + out.strainRefusals.length} strain-record, ${out.documentRecords.length + out.documentRefusals.length} document-record, ` +
+  `${out.profileForms.length} profile-form and ` +
   `${out.labStatements.length + out.labStatementRefusals.length + out.labBindings.length + out.markSeals.length + out.markRefusals.length + out.labNameBindings.length + out.labNameBindingRefusals.length + out.labViabilityPairs.length} lab-result vectors`
 );
 

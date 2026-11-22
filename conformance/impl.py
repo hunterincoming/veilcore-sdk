@@ -993,7 +993,10 @@ def _sequence_run(v):
 
 
 def _count(v):
-    return isinstance(v, int) and not isinstance(v, bool) and 0 <= v <= 1_000_000_000
+    # Read by value, as section 4.4 reads every number (SPEC 11.12): 12.0 and 1e1 are whole
+    # numbers, 12.5 is not. JavaScript's JSON.parse cannot tell 12.0 from 12, so no rule that
+    # depends on how a count is written could be followed there.
+    return _is_int(v) and 0 <= v <= 1_000_000_000
 
 
 def _only(o, req, opt=()):
@@ -1184,7 +1187,8 @@ def _call_values(s):
     v = [None] * 16
     r = s.get("result") or {}
     b = lambda x: "1" if x else "0"
-    n = lambda k: None if k not in r else str(r[k])
+    # A count is a whole number by value (12.0 is 12, -0 is 0), and its slot holds it in digits.
+    n = lambda k: None if k not in r else str(int(r[k]))
     kind = s["kind"]
     if kind == "pathogen":
         v[0] = b(r["detected"])
@@ -1197,9 +1201,9 @@ def _call_values(s):
         c = r.get("conflicts")
         v[0], v[1] = b(r["consistent"]), n("compared")
         if c is not None:
-            v[2] = str(c[0])
+            v[2] = str(int(c[0]))
             if len(c) > 1:
-                v[3] = str(c[1])
+                v[3] = str(int(c[1]))
     elif kind == "dna-mark":
         v[0] = b(r["found"])
     elif kind == "viability":
