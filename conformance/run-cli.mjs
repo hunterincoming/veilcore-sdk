@@ -396,6 +396,32 @@ if (documentRefusalList.length) {
   }
 }
 
+// Record ids and white space in the profiles (SPEC 11.8, used by 11.9 and 11.11), asked of each
+// profile's own op. A case for the animal or strain profile is left out, and counted as not run,
+// under the same flag that leaves out that profile's refusals; so is one for the document profile
+// under --without-document-profile.
+console.log('\nRecord ids and white space in the profiles');
+{
+  const skip = { animal: withoutAnimal, strain: withoutStrain, document: withoutDocument };
+  const op = { animal: 'animalFingerprint', strain: 'strainFingerprint', document: 'documentFingerprint' };
+  const notRun = {};
+  for (const v of vectors.profileForms ?? []) {
+    if (skip[v.profile]) {
+      notRun[v.profile] = (notRun[v.profile] ?? 0) + 1;
+      continue;
+    }
+    const r = await ask(op[v.profile], v.fields);
+    const ok = v.refused
+      ? r.kind === 'refused'
+      : r.kind === 'ok' && r.value !== null && typeof r.value === 'object' && same([r.value.algorithm, r.value.contentHash, r.value.fingerprint], [v.algorithm, v.contentHash, v.fingerprint]);
+    ok ? pass++ : failures.push({ name: v.name, expected: v.refused ? 'refused' : v.fingerprint, actual: outcome(r) });
+    console.log(`  ${ok ? 'PASS' : 'FAIL'}  ${v.refused ? 'refuses' : 'stands'}: ${v.name}`);
+  }
+  for (const [p, n] of Object.entries(notRun)) {
+    console.log(`  NOT RUN  ${n} ${p}-profile cases: this implementation does not check the profile (--without-${p}-profile)`);
+  }
+}
+
 // Laboratory results v2 (SPEC 11.12). An implementation that doesn't offer them is asked once
 // with a valid statement; without an answer its refusals are never counted as passes. With
 // --without-lab-results they are left out and the result says so.
@@ -419,16 +445,19 @@ if (!labOffers && withoutLab) {
     ok ? pass++ : failures.push({ name, expected, actual });
     console.log(`  ${ok ? 'PASS' : 'FAIL'}  ${name}`);
   };
+  // `statementText`, where given, is sent exactly as written (12.0 stays 12.0).
   for (const v of vectors.labStatements ?? []) {
-    const r = await ask('labStatement', v.statement);
+    const r = await ask('labStatement', v.statement, v.statementText);
     yes(v.name, r.kind === 'ok' && r.value?.sha256 === v.sha256 && r.value?.size === v.size && r.value?.name === 'lab-result.json', v.sha256, outcome(r));
   }
   for (const v of vectors.labStatementRefusals ?? []) {
-    const r = await ask('labStatement', v.statement);
+    const r = await ask('labStatement', v.statement, v.statementText);
     yes(`refuses: ${v.name}`, r.kind === 'refused', 'refused', outcome(r));
   }
   for (const v of vectors.labBindings ?? []) {
-    const r = await ask('labBinding', { fields: v.fields, statement: v.statement, values: v.values, schemas: vectors.labSchemas });
+    const job = { fields: v.fields, statement: v.statement, values: v.values, schemas: vectors.labSchemas };
+    const r = await ask('labBinding', job, v.statementText === undefined ? undefined
+      : `{"fields":${JSON.stringify(v.fields)},"statement":${v.statementText},"values":${JSON.stringify(v.values)},"schemas":${JSON.stringify(vectors.labSchemas)}}`);
     yes(`${v.bound ? 'binds' : 'refuses'}: ${v.name}`, v.bound ? r.kind === 'ok' && r.value === true : r.kind === 'refused', v.bound ? 'true' : 'refused', outcome(r));
   }
   for (const v of vectors.markSeals ?? []) {

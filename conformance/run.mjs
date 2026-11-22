@@ -307,6 +307,28 @@ if (documentCount) {
   }
 }
 
+// Record ids and white space in the profiles (SPEC 11.8, used by 11.9 and 11.11). Each case is
+// checked by its profile's own fingerprint function: a case that stands gives the generic
+// fingerprint, one that is refused throws.
+if (vectors.profileForms?.length) {
+  console.log('\nRecord ids and white space in the profiles');
+  const fn = { animal: 'computeAnimalRecordFingerprint', strain: 'computeStrainRecordFingerprint', document: 'computeDocumentRecordFingerprint' };
+  for (const v of vectors.profileForms) {
+    const f = impl[fn[v.profile]];
+    let actual;
+    if (typeof f !== 'function') actual = `${fn[v.profile]} not exposed`;
+    else {
+      try {
+        const r = await f(v.fields);
+        actual = JSON.stringify([impl.canonicalise(v.fields), r.algorithm, r.contentHash, r.fingerprint]);
+      } catch { actual = 'refused'; }
+    }
+    const expected = v.refused ? 'refused' : JSON.stringify([v.canonical, v.algorithm, v.contentHash, v.fingerprint]);
+    check('profileForms', v.name, expected, actual);
+    console.log(`  ${expected === actual ? 'PASS' : 'FAIL'}  ${v.refused ? 'refuses' : 'stands'}: ${v.name}`);
+  }
+}
+
 // Laboratory results v2 (SPEC 11.12): the statement's form and file entry, its binding into a
 // document record and its field set, and DNA mark seals. Not part of the record format: an
 // implementation that doesn't offer them fails these, it doesn't skip them.
@@ -323,11 +345,15 @@ if (labCount) {
     fail += labCount;
     failures.push({ section: 'lab', name: `${need.join(', ')} not exposed by this implementation`, expected: 'functions', actual: 'nothing' });
   } else {
+    // A statement given as `statementText` is parsed here, as any JSON reader would read it:
+    // that is the point of those vectors (12.0 is the count 12).
+    const statementOf = (v) => (v.statementText !== undefined ? JSON.parse(v.statementText) : v.statement);
     for (const v of vectors.labStatements ?? []) {
       let actual;
       try {
-        const f = await impl.labStatementFile(v.statement);
-        actual = JSON.stringify([impl.canonicalise(v.statement), f.name, f.sha256, f.size]);
+        const st = statementOf(v);
+        const f = await impl.labStatementFile(st);
+        actual = JSON.stringify([impl.canonicalise(st), f.name, f.sha256, f.size]);
       } catch (e) { actual = `threw: ${e.message}`; }
       const expected = JSON.stringify([v.canonical, 'lab-result.json', v.sha256, v.size]);
       check('labStatements', v.name, expected, actual);
@@ -335,14 +361,14 @@ if (labCount) {
     }
     for (const v of vectors.labStatementRefusals ?? []) {
       let actual = 'accepted';
-      try { await impl.labStatementFile(v.statement); } catch { actual = 'refused'; }
+      try { await impl.labStatementFile(statementOf(v)); } catch { actual = 'refused'; }
       check('labStatementRefusals', v.name, 'refused', actual);
       console.log(`  ${actual === 'refused' ? 'PASS' : 'FAIL'}  refuses: ${v.name}`);
     }
     for (const v of vectors.labBindings ?? []) {
       let actual;
       try {
-        const p = await impl.labBindingProblems({ fields: v.fields, statement: v.statement, values: v.values, schemas: vectors.labSchemas });
+        const p = await impl.labBindingProblems({ fields: v.fields, statement: statementOf(v), values: v.values, schemas: vectors.labSchemas });
         actual = p.length === 0 ? 'bound' : 'refused';
       } catch (e) { actual = `threw: ${e.message}`; }
       const expected = v.bound ? 'bound' : 'refused';

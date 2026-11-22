@@ -4,6 +4,31 @@ Versions before 0.16.0 are described in their commit messages and on npm.
 
 ## Unreleased
 
+- **Four gaps in the specification closed, where implementations disagreed or the text was
+  silent (SPEC 11.8 to 11.12).** No record that was valid before changes its commitment or
+  fingerprint: every earlier vector is unchanged and still passes.
+  - *Counts in laboratory results are read by value* (11.12): `12.0` and `1.2e1` are the count
+    12, `-0` is 0, `12.5` is refused. JavaScript's `JSON.parse` cannot tell `12.0` from `12`, so a
+    rule that depended on how a count is written could not be followed in TypeScript. TypeScript
+    and Rust already read counts this way; Python refused `12.0`, and wrote a count of `12.0` into
+    a field-set slot as "12.0" rather than "12". Both fixed in `conformance/impl.py`.
+  - *What a `recordId` looks like* (11.8, used by 11.9 and 11.11): 1 to 128 characters, an ASCII
+    letter or digit, then only ASCII letters, digits, `.`, `_`, `:` and `-`. This is what all three
+    implementations already accepted.
+  - *What white space is* (11.8, used by 11.9 to 11.12): exactly what ECMAScript's
+    `String.prototype.trim()` removes, listed by code point, U+FEFF included; U+0085, U+180E and
+    U+200B are not. All three implementations already used this set at the ends of one-line text;
+    Python's laboratory-result check now names it too, rather than Python's own `strip()`.
+  - *"The five below" was six* (11.12): a `numbers` result names a form other than the six call
+    forms. Two binding vectors now try a `numbers` result under the viability and the retraction
+    forms.
+  - Vectors: `conformance/profile-forms-v1.json` (new, from `profile-forms-vectors.mjs`), 41
+    records testing record ids and white space in the three profiles, in `vectors.json` as
+    `profileForms`; `lab-result-v2.json` gains 26 (184 in all), among them counts written `12.0`,
+    `1e1`, `1.2E1`, `-0`, `1.0000000000000001`, `1e9`, `12.5`, `1000000001`, beyond 2^53 and
+    `1e400`. Those carry the statement as text (`statementText`), which both runners send exactly
+    as written. Section 10's counts brought up to date (it still said 88 laboratory-result
+    vectors and left out the document profile's 36).
 - **Deal records: settled on chain (SPEC 11.10, draft).** A statement paid in a dollar stablecoin
   on Cardano (USDCx or USDM, at 1:1 under the issuer's signed payout, `rate: "1"`) is settled
   without `received` when the reader finds the payment: valid, 10 blocks deep, its CIP-20 message

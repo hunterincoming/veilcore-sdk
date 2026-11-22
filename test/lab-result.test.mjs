@@ -10,7 +10,11 @@ const v = JSON.parse(readFileSync(new URL('../conformance/lab-result-v2.json', i
 
 test('the node and browser entry points give the vectors’ file entries and seals', async () => {
   for (const impl of [node, browser]) {
-    for (const s of v.labStatements) assert.deepEqual(await impl.labStatementFile(s.statement), { name: 'lab-result.json', sha256: s.sha256, size: s.size });
+    // A vector with `statementText` is the statement as written (12.0, 1e1): read it as JSON.parse does.
+    for (const s of v.labStatements) {
+      const statement = s.statementText !== undefined ? JSON.parse(s.statementText) : s.statement;
+      assert.deepEqual(await impl.labStatementFile(statement), { name: 'lab-result.json', sha256: s.sha256, size: s.size }, s.name);
+    }
     for (const m of v.markSeals) assert.equal(await impl.dnaMarkSeal(m.sequence, m.salt), m.seal);
   }
 });
@@ -38,7 +42,7 @@ test('both entry points give the vectors’ name bindings, and refuse the vector
     for (const b of v.labNameBindings) assert.equal(await impl.labNameBinding(b.key, b.subject, b.salt), b.nameBinding, b.name);
     for (const b of v.labNameBindingRefusals) await assert.rejects(impl.labNameBinding(b.key, b.subject, b.salt), b.name);
   }
-  const salted = v.labStatements.find((s) => s.statement.bindingSalt);
+  const salted = v.labStatements.find((s) => s.statement?.bindingSalt);
   assert.ok(salted, 'a statement with a binding salt');
   assert.deepEqual(node.labStatementProblems(salted.statement), []);
   assert.ok(node.labStatementProblems({ ...salted.statement, bindingSalt: '11'.repeat(32) }).some((s) => s.includes('bindingSalt')));
@@ -75,8 +79,8 @@ test('a viability result: its call and stage are the field set, its pairs read a
     for (const p of v.labViabilityPairs)
       assert.equal(impl.labViabilityPairProblems(p).length === 0, p.paired, p.name);
   }
-  const after = v.labStatements.find((s) => s.statement.kind === 'viability' && s.statement.result.stage === 'after');
-  const before = v.labStatements.find((s) => s.statement.kind === 'viability' && s.statement.result.stage === 'before');
+  const after = v.labStatements.find((s) => s.statement?.kind === 'viability' && s.statement.result.stage === 'after');
+  const before = v.labStatements.find((s) => s.statement?.kind === 'viability' && s.statement.result.stage === 'before');
   assert.deepEqual(node.labCallValues(after.statement).slice(0, 3), ['0', '1', null]);
   assert.deepEqual(node.labCallValues(before.statement).slice(0, 3), ['1', '0', null]);
   // The strain is named by proof code only: nothing of the strain record is in the statement.
