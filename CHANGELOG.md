@@ -4,6 +4,10 @@ Versions before 0.16.0 are described in their commit messages and on npm.
 
 ## Unreleased
 
+- **SPEC 9.2.1: the contracts that publish VeilCore's batch roots.** A pinned list, version 1
+  only (VeilCore's mainnet contract), with what a checker reads from each and how a successor
+  contract is added as a new row without removing the old one. Editorial (GOVERNANCE.md): no
+  record, commitment, proof or vector changes, and no code reads it.
 - **Four gaps in the specification closed, where implementations disagreed or the text was
   silent (SPEC 11.8 to 11.12).** No record that was valid before changes its commitment or
   fingerprint: every earlier vector is unchanged and still passes.
