@@ -455,6 +455,43 @@ console.log('\nSettled on chain');
   }
 }
 
+// Several contracts (SPEC 9.4): which pinned contract a check reads, the one a transaction is
+// decoded by, and dates for the same commitment on two contracts. In its own file
+// (pinned-contracts-v1.json, from pinned-contracts-vectors.mjs). Not part of the record format:
+// an implementation that doesn't check ledger anchors fails these, it doesn't skip them.
+const pinned = JSON.parse(readFileSync(new URL('./pinned-contracts-v1.json', import.meta.url), 'utf8'));
+const pinnedCount = pinned.choices.length + pinned.transactions.length + pinned.dates.length;
+console.log('\nSeveral contracts');
+{
+  const need = ['pinnedContracts', 'contractForTransaction', 'datedRecords'].filter((f) => typeof impl[f] !== 'function');
+  if (need.length) {
+    console.error(`  implementation does not export ${need.join(', ')}`);
+    fail += pinnedCount;
+    failures.push({ section: 'contracts', name: `${need.join(', ')} not exposed by this implementation`, expected: 'functions', actual: 'nothing' });
+  } else {
+    const addresses = (r) => (r.ok ? { ok: true, contracts: r.contracts.map((c) => c.address) } : { ok: false, refused: r.refused });
+    for (const [section, fn, list] of [
+      ['contractChoices', (v) => addresses(impl.pinnedContracts(pinned.lists[v.list], v.query)), pinned.choices],
+      ['contractTransactions', (v) => addresses(impl.contractForTransaction(pinned.lists[v.list], v.query)), pinned.transactions],
+      ['contractDates', (v) => {
+        const r = impl.datedRecords(pinned.lists[v.list], v.query);
+        return {
+          records: r.records.map((x) => ({ commitment: x.commitment, date: x.date, contract: x.contract, address: x.address, version: x.version })),
+          refused: r.refused.map((x) => ({ address: x.address, commitment: x.commitment, refused: x.refused })),
+        };
+      }, pinned.dates],
+    ]) {
+      for (const v of list) {
+        let actual;
+        try { actual = JSON.stringify(fn(v)); } catch (e) { actual = `threw: ${e.message}`; }
+        const expected = JSON.stringify(v.result);
+        check(section, v.name, expected, actual);
+        console.log(`  ${expected === actual ? 'PASS' : 'FAIL'}  ${v.name}`);
+      }
+    }
+  }
+}
+
 console.log(`\n${pass} passed, ${fail} failed`);
 
 if (fail > 0) {

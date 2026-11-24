@@ -28,3 +28,4 @@ export * from './evidence.js';
 export * from './rfc3161.js';
 export * from './deal-record.js';
 export * from './onchain-settle.js';
+export * from './pinned-contracts.js';
