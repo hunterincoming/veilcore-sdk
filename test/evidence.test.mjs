@@ -92,6 +92,23 @@ test('a package is refused for a record that does not match itself or its proof'
   await assert.rejects(buildEvidencePackage({ record: other, proof }), /different record/);
 });
 
+test('a package is refused for an anchor whose contract address is not 64 lowercase hex (SPEC 9.4)', async () => {
+  const { rec, proof } = await setup();
+  const good = 'a04de0a2684f3713276325649540c7278ffd07cba8b014e7489844f319a02347';
+  for (const bad of [good.toUpperCase(), `0x${good}`, good.slice(1), ` ${good}`, '', 42, null]) {
+    const anchor = { chain: 'midnight', network: 'mainnet', txHash: 'ab'.repeat(32), contractAddress: bad };
+    await assert.rejects(buildEvidencePackage({ record: rec, proof: { ...proof, anchor } }), /the inclusion proof's anchor names contract address .* not 64 lowercase hex characters/, String(bad));
+    // On the record itself: the anchor is not in the commitment, so the record still matches it.
+    for (const recordAnchor of [anchor, [{ chain: 'midnight', network: 'preprod' }, anchor]]) {
+      await assert.rejects(buildEvidencePackage({ record: { ...rec, anchor: recordAnchor } }), /the record's anchor names contract address .* not 64 lowercase hex characters/, String(bad));
+    }
+  }
+  // 64 lowercase hex, or no address at all, builds.
+  await buildEvidencePackage({ record: rec, proof: { ...proof, anchor: { chain: 'midnight', network: 'mainnet', txHash: 'ab'.repeat(32), contractAddress: good } } });
+  await buildEvidencePackage({ record: { ...rec, anchor: { chain: 'midnight', network: 'mainnet', contractAddress: good } } });
+  await buildEvidencePackage({ record: rec, proof });
+});
+
 test('verify.py is the conformance-tested implementation, unchanged', () => {
   const impl = readFileSync(new URL('../conformance/impl.py', import.meta.url), 'utf8');
   const bundled = readFileSync(new URL('../src/evidence-verifier.generated.ts', import.meta.url), 'utf8');
@@ -200,10 +217,26 @@ test("verify.py's mainnet main contracts are SPEC 9.2.1's rows, and its list is 
   }
 });
 
-/** A package whose inclusion proof's anchor is `anchor`, checked by its verify.py (or by `py`). */
+/** Rewrite one file of a built package and its manifest line, as someone editing it by hand would. */
+const rewrite = (files, name, bytes) => {
+  files[name] = bytes;
+  const m = JSON.parse(new TextDecoder().decode(files['MANIFEST.json']));
+  m.files[name] = createHash('sha256').update(bytes).digest('hex');
+  files['MANIFEST.json'] = new TextEncoder().encode(JSON.stringify(m, null, 2) + '\n');
+};
+
+/**
+ * A package whose inclusion proof's anchor is `anchor`, checked by its verify.py (or by `py`).
+ * The SDK refuses to build one whose contract address is not 64 lowercase hex, so such an address
+ * is written into inclusion-proof.json after building, as a hand-edited package would carry it.
+ */
 const anchoredOn = async (anchor, py) => {
   const { rec, proof } = await setup();
-  const files = await buildEvidencePackage({ record: rec, proof: { ...proof, anchor: { chain: 'midnight', txHash: 'ab'.repeat(32), ...anchor } } });
+  const full = { ...proof, anchor: { chain: 'midnight', txHash: 'ab'.repeat(32), ...anchor } };
+  const wellFormed = anchor.contractAddress === undefined || /^[0-9a-f]{64}$/.test(String(anchor.contractAddress));
+  const { contractAddress, ...rest } = full.anchor;
+  const files = await buildEvidencePackage({ record: rec, proof: wellFormed ? full : { ...full, anchor: rest } });
+  if (!wellFormed) rewrite(files, 'inclusion-proof.json', new TextEncoder().encode(JSON.stringify(full, null, 2) + '\n'));
   if (py !== undefined) {
     // A copy with another pinned list: its manifest line is rewritten to match, as a release would.
     files['verify.py'] = new TextEncoder().encode(py);

@@ -89,3 +89,28 @@ test('a malformed pinned list is a programming error, not a refusal', () => {
   // The same address on two networks is two entries, not a duplicate.
   assert.equal(pinnedContracts([one, { ...one, network: 'preprod' }], { network: 'mainnet', address: one.address }).ok, true);
 });
+
+test('a sighting that names no contract gives no date: never the first pinned contract’s (9.4 (4), (5))', () => {
+  const C = 'c0'.repeat(32);
+  const noAddress = { commitment: C, date: '2026-09-15T00:00:00Z' };
+  // Two contracts pinned: the first on the list must not lend its date.
+  for (const s of [noAddress, { ...noAddress, address: undefined }, { ...noAddress, address: null }]) {
+    const r = datedRecords(twoContracts, { network: 'mainnet', sightings: [s] });
+    assert.deepEqual(r, { records: [], refused: [{ address: null, commitment: C, refused: 'no-contract-named' }] });
+  }
+  // One contract pinned for the network and version: still no default.
+  assert.deepEqual(datedRecords(v1Only, { network: 'preprod', version: 1, sightings: [noAddress] }).records, []);
+  assert.deepEqual(
+    datedRecords([{ network: 'mainnet', address: V1, kind: 'main', version: 1, name: 'only' }], { network: 'mainnet', sightings: [noAddress] }).refused,
+    [{ address: null, commitment: C, refused: 'no-contract-named' }],
+  );
+  // Sightings that name their contract are still dated, each with its own contract.
+  const r = datedRecords(twoContracts, { network: 'mainnet', sightings: [noAddress, { address: V2, commitment: C, date: '2026-12-02T00:00:00Z' }] });
+  assert.deepEqual(r.records.map((x) => [x.contract, x.date]), [['VeilCore main contract v2', '2026-12-02T00:00:00Z']]);
+  assert.ok(!r.records.some((x) => x.date === noAddress.date), 'the unnamed sighting’s date is not shown under any contract');
+  // Off mainnet a defaulted version is still the reason given first; an empty address is malformed, not missing.
+  assert.equal(datedRecords(twoContracts, { network: 'preprod', sightings: [noAddress] }).refused[0].refused, 'version-not-named');
+  assert.equal(datedRecords(twoContracts, { network: 'mainnet', sightings: [{ ...noAddress, address: '' }] }).refused[0].refused, 'malformed-address');
+  // A check with no address still tries every pinned contract (5): that is unchanged.
+  assert.equal(pinnedContracts(twoContracts, { network: 'mainnet' }).contracts.length, 3);
+});

@@ -36,7 +36,8 @@ export type ContractRefusal =
   | 'version-mismatch'
   | 'no-pinned-contract'
   | 'several-pinned-contracts'
-  | 'named-contract-not-called';
+  | 'named-contract-not-called'
+  | 'no-contract-named';
 
 export type ContractChoice =
   | { readonly ok: true; readonly contracts: PinnedContract[] }
@@ -129,6 +130,7 @@ export const contractForTransaction = (
 
 /** Where a commitment was found on the ledger, as a lookup reports it. */
 export type CommitmentSighting = {
+  /** The contract the date came from. A sighting that names none gives no date. */
   readonly address: string;
   readonly commitment: string;
   /** The date the anchoring transaction gives, RFC 3339. */
@@ -148,18 +150,28 @@ export type DatedRecord = {
  * Dates for commitments found on several contracts (SPEC 9.4 (4)). Each sighting on a pinned
  * contract is its own record with its own date and the name of the contract that gave it. The
  * same commitment on two contracts stays two records: nothing is merged, and no record takes
- * another's date. A sighting on a contract that is not pinned gives no date.
+ * another's date. A sighting on a contract that is not pinned gives no date, and neither does
+ * one that names no contract (5): it is refused as `no-contract-named`, never given a default.
  */
 export const datedRecords = (
   list: readonly PinnedContract[],
   query: { network: string; sightings: readonly CommitmentSighting[]; version?: number },
-): { records: DatedRecord[]; refused: { address: string; commitment: string; refused: ContractRefusal }[] } => {
+): { records: DatedRecord[]; refused: { address: string | null; commitment: string; refused: ContractRefusal }[] } => {
   checkList(list);
   const { network, sightings, version } = query;
   if (!Array.isArray(sightings)) throw new TypeError('sightings must be an array');
   const records: DatedRecord[] = [];
-  const refused: { address: string; commitment: string; refused: ContractRefusal }[] = [];
+  const refused: { address: string | null; commitment: string; refused: ContractRefusal }[] = [];
   for (const s of sightings) {
+    // A date is shown with the contract that gave it (4), and there is no default contract (5).
+    // A sighting that doesn't say which contract dated it gives no date: it never takes the
+    // first pinned contract's, even when the network pins only one.
+    // A missing address and a null one are the same: JSON can write either.
+    const address = (s as { address?: unknown }).address;
+    if (address === undefined || address === null) {
+      refused.push({ address: null, commitment: s.commitment, refused: versionProblem(network, version) ?? 'no-contract-named' });
+      continue;
+    }
     const choice = pinnedContracts(list, { network, address: s.address, version });
     if (!choice.ok) {
       refused.push({ address: s.address, commitment: s.commitment, refused: choice.refused });

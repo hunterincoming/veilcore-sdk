@@ -203,6 +203,16 @@ Executed on [DATE] at [PLACE].
 export const buildEvidencePackage = async (input: EvidenceInput): Promise<EvidencePackage> => {
   const commitment = await computeCommitment(input.record);
   if (commitment !== input.record.commitment) throw new Error('the record does not match its own commitment; it would fail every check');
+  // SPEC 9.4: a contract address is 64 lowercase hex characters, refused in any other form,
+  // never normalised. verify.py fails such an anchor; refuse it here, before it is sent.
+  const carried: [Anchor, string][] = anchorsOf(input.record).map((a) => [a, 'the record\'s anchor']);
+  if (input.proof?.anchor) carried.push([input.proof.anchor as Anchor, 'the inclusion proof\'s anchor']);
+  for (const [a, where] of carried) {
+    const address = (a as { contractAddress?: unknown }).contractAddress;
+    if (address !== undefined && (typeof address !== 'string' || !/^[0-9a-f]{64}$/.test(address))) {
+      throw new Error(`${where} names contract address ${JSON.stringify(address)?.slice(0, 80)}, which is not 64 lowercase hex characters (no 0x, no capitals); fix the address before building the package`);
+    }
+  }
   if (input.proof) {
     if (input.proof.commitment !== commitment) throw new Error('the inclusion proof is for a different record');
     if (!(await verifyInclusion(input.proof))) throw new Error('the inclusion proof does not fold to its root');
