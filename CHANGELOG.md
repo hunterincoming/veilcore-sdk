@@ -4,6 +4,19 @@ Versions before 0.16.0 are described in their commit messages and on npm.
 
 ## Unreleased
 
+- **A sighting that names no contract gives no date (SPEC 9.4 (4) and (5)).** `datedRecords`
+  gave a commitment found with no contract address the date and name of the first pinned
+  contract on the network, a default contract that rule 5 forbids. It is now refused as
+  `no-contract-named` (address `null` in the refusal), even when the network pins only one
+  contract; off mainnet with no version named, `version-not-named` is still the reason given.
+  A missing and a null address are treated alike. Five new date sets in
+  `conformance/pinned-contracts-v1.json` (50 vectors in that file, was 45), appended: the 45
+  before them are unchanged. A check with no address still tries every pinned contract.
+- **Building an evidence package refuses a contract address that is not 64 lowercase hex
+  (SPEC 9.4).** `buildEvidencePackage` now checks `contractAddress` on the record's anchors and
+  the inclusion proof's anchor and refuses capitals, `0x`, a wrong length or a non-string with a
+  plain message, instead of building a package its own `verify.py` then fails. No address at all
+  still builds.
 - **verify.py names the contract a ledger anchor's transaction must have called (SPEC 9.2.1 and
   9.4).** The evidence package's `verify.py` carries VeilCore's pinned contracts for mainnet and
   preprod (`_PINNED_CONTRACTS`, the list in the VeilCore repository's `deployments/*.json`). For

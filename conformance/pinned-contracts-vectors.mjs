@@ -122,6 +122,33 @@ dated('preprod with no version named: nothing is dated', 'twoContracts', {
   network: 'preprod',
   sightings: [{ address: PRE_V2, commitment: C, date: '2026-11-27T08:00:00Z' }],
 });
+// A sighting that does not say which contract dated it gives no date (9.4 (4) and (5)): it is
+// refused, never given the first pinned contract's date, nor the only one's.
+dated('a sighting that names no contract, with v1 and v2 pinned: no date, never the first pinned contract\'s',
+  'twoContracts', {
+    network: 'mainnet',
+    sightings: [
+      { commitment: C, date: '2026-09-15T00:00:00Z' },
+      { address: V2, commitment: C, date: '2026-12-02T09:41:57Z' },
+    ],
+  });
+dated('a sighting whose contract is null, among sightings on v1 and v2: only the named ones are dated', 'twoContracts', {
+  network: 'mainnet',
+  sightings: [
+    { address: V1, commitment: C, date: '2026-10-20T14:03:11Z' },
+    { address: null, commitment: D, date: '2026-09-15T00:00:00Z' },
+    { address: V2, commitment: D, date: '2026-12-03T10:00:00Z' },
+  ],
+});
+dated('a sighting that names no contract, with one main contract pinned on preprod and its version named: still no date',
+  'v1Only', { network: 'preprod', version: 1, sightings: [{ commitment: C, date: '2026-11-25T08:00:00Z' }] });
+dated('a sighting that names no contract, with version 2 named on mainnet: no date', 'twoContracts', {
+  network: 'mainnet',
+  version: 2,
+  sightings: [{ commitment: C, date: '2026-12-02T09:41:57Z' }],
+});
+dated('a sighting that names no contract on preprod with no version named: the defaulted version fails first',
+  'twoContracts', { network: 'preprod', sightings: [{ commitment: C, date: '2026-11-27T08:00:00Z' }] });
 
 const out = {
   v: 'veilcore/pinned-contracts-vectors/v1',
