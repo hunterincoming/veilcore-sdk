@@ -11,7 +11,7 @@ import { pinnedContracts, contractForTransaction, datedRecords } from 'veilcore-
 const V = JSON.parse(await readFile(new URL('../conformance/pinned-contracts-v1.json', import.meta.url), 'utf8'));
 const { twoContracts, v1Only } = V.lists;
 const V1 = '11'.repeat(32);
-const V2 = '21'.repeat(32);
+const V2 = 'b2'.repeat(32);
 const UNPINNED = '2f'.repeat(32);
 const PRE_V2 = 'a2'.repeat(32);
 
@@ -60,6 +60,19 @@ test('no default contract, and off mainnet a defaulted version fails', () => {
 test('a transaction calling two pinned contracts is refused, whatever order', () => {
   assert.deepEqual(contractForTransaction(twoContracts, { network: 'mainnet', calls: [V2, V1] }), { ok: false, refused: 'several-pinned-contracts' });
   assert.deepEqual(contractForTransaction(twoContracts, { network: 'mainnet', calls: [UNPINNED, V1] }).contracts.map((c) => c.address), [V1]);
+});
+
+test('letter case or a prefix in a call can\'t hide a second pinned contract', () => {
+  for (const odd of [V2.toUpperCase(), '0x' + V2, ` ${V2}`, `${V2}\n`, V2.slice(2), '', null]) {
+    assert.deepEqual(contractForTransaction(twoContracts, { network: 'mainnet', calls: [V1, odd] }), { ok: false, refused: 'malformed-address' }, String(odd));
+  }
+});
+
+test('the transaction must call the contract the record names', () => {
+  assert.equal(contractForTransaction(twoContracts, { network: 'mainnet', calls: [V2], named: V2 }).ok, true);
+  assert.deepEqual(contractForTransaction(twoContracts, { network: 'mainnet', calls: [V2], named: V1 }), { ok: false, refused: 'named-contract-not-called' });
+  assert.deepEqual(contractForTransaction(twoContracts, { network: 'mainnet', calls: [V2, UNPINNED], named: UNPINNED }), { ok: false, refused: 'not-pinned' });
+  assert.deepEqual(contractForTransaction(twoContracts, { network: 'mainnet', calls: [V2], named: V2.toUpperCase() }), { ok: false, refused: 'malformed-address' });
 });
 
 test('a malformed pinned list is a programming error, not a refusal', () => {

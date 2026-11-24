@@ -49,7 +49,7 @@
       },
       {
         "network": "mainnet",
-        "address": "2121212121212121212121212121212121212121212121212121212121212121",
+        "address": "b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2",
         "kind": "main",
         "version": 2,
         "name": "VeilCore main contract v2"
@@ -83,12 +83,12 @@
       "list": "twoContracts",
       "query": {
         "network": "mainnet",
-        "address": "2121212121212121212121212121212121212121212121212121212121212121"
+        "address": "b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2"
       },
       "result": {
         "ok": true,
         "contracts": [
-          "2121212121212121212121212121212121212121212121212121212121212121"
+          "b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2"
         ]
       }
     },
@@ -97,7 +97,7 @@
       "list": "v1Only",
       "query": {
         "network": "mainnet",
-        "address": "2121212121212121212121212121212121212121212121212121212121212121",
+        "address": "b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2",
         "stated": {
           "contractVersion": 2,
           "predecessor": "1111111111111111111111111111111111111111111111111111111111111111"
@@ -147,7 +147,7 @@
         "address": "1111111111111111111111111111111111111111111111111111111111111111",
         "stated": {
           "contractVersion": 2,
-          "predecessor": "2121212121212121212121212121212121212121212121212121212121212121"
+          "predecessor": "b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2"
         }
       },
       "result": {
@@ -162,7 +162,7 @@
       "list": "twoContracts",
       "query": {
         "network": "mainnet",
-        "address": "2121212121212121212121212121212121212121212121212121212121212121",
+        "address": "b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2",
         "stated": {
           "contractVersion": 1
         }
@@ -170,7 +170,7 @@
       "result": {
         "ok": true,
         "contracts": [
-          "2121212121212121212121212121212121212121212121212121212121212121"
+          "b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2"
         ]
       }
     },
@@ -179,7 +179,7 @@
       "list": "twoContracts",
       "query": {
         "network": "preprod",
-        "address": "2121212121212121212121212121212121212121212121212121212121212121",
+        "address": "b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2",
         "version": 2
       },
       "result": {
@@ -192,7 +192,7 @@
       "list": "twoContracts",
       "query": {
         "network": "mainnet",
-        "address": "2121212121212121212121212121212121212121212121212121212121212121",
+        "address": "b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2",
         "version": 1
       },
       "result": {
@@ -214,11 +214,23 @@
       }
     },
     {
+      "name": "a pinned v2 address in capitals on mainnet",
+      "list": "twoContracts",
+      "query": {
+        "network": "mainnet",
+        "address": "B2B2B2B2B2B2B2B2B2B2B2B2B2B2B2B2B2B2B2B2B2B2B2B2B2B2B2B2B2B2B2B2"
+      },
+      "result": {
+        "ok": false,
+        "refused": "malformed-address"
+      }
+    },
+    {
       "name": "an address one character short",
       "list": "twoContracts",
       "query": {
         "network": "mainnet",
-        "address": "121212121212121212121212121212121212121212121212121212121212121"
+        "address": "2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2"
       },
       "result": {
         "ok": false,
@@ -236,7 +248,7 @@
         "contracts": [
           "1111111111111111111111111111111111111111111111111111111111111111",
           "1212121212121212121212121212121212121212121212121212121212121212",
-          "2121212121212121212121212121212121212121212121212121212121212121"
+          "b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2"
         ]
       }
     },
@@ -250,7 +262,7 @@
       "result": {
         "ok": true,
         "contracts": [
-          "2121212121212121212121212121212121212121212121212121212121212121"
+          "b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2"
         ]
       }
     },
@@ -368,13 +380,13 @@
       "query": {
         "network": "mainnet",
         "calls": [
-          "2121212121212121212121212121212121212121212121212121212121212121"
+          "b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2"
         ]
       },
       "result": {
         "ok": true,
         "contracts": [
-          "2121212121212121212121212121212121212121212121212121212121212121"
+          "b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2"
         ]
       }
     },
@@ -385,7 +397,7 @@
         "network": "mainnet",
         "calls": [
           "1111111111111111111111111111111111111111111111111111111111111111",
-          "2121212121212121212121212121212121212121212121212121212121212121"
+          "b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2"
         ]
       },
       "result": {
@@ -414,14 +426,14 @@
       "query": {
         "network": "mainnet",
         "calls": [
-          "2121212121212121212121212121212121212121212121212121212121212121",
+          "b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2",
           "2f2f2f2f2f2f2f2f2f2f2f2f2f2f2f2f2f2f2f2f2f2f2f2f2f2f2f2f2f2f2f2f"
         ]
       },
       "result": {
         "ok": true,
         "contracts": [
-          "2121212121212121212121212121212121212121212121212121212121212121"
+          "b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2"
         ]
       }
     },
@@ -445,7 +457,7 @@
       "query": {
         "network": "mainnet",
         "calls": [
-          "2121212121212121212121212121212121212121212121212121212121212121"
+          "b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2"
         ]
       },
       "result": {
@@ -467,6 +479,147 @@
         "ok": true,
         "contracts": [
           "1111111111111111111111111111111111111111111111111111111111111111"
+        ]
+      }
+    },
+    {
+      "name": "calls v1 and v2, with v2 written in capitals: refused",
+      "list": "twoContracts",
+      "query": {
+        "network": "mainnet",
+        "calls": [
+          "1111111111111111111111111111111111111111111111111111111111111111",
+          "B2B2B2B2B2B2B2B2B2B2B2B2B2B2B2B2B2B2B2B2B2B2B2B2B2B2B2B2B2B2B2B2"
+        ]
+      },
+      "result": {
+        "ok": false,
+        "refused": "malformed-address"
+      }
+    },
+    {
+      "name": "calls v1 and v2, with v2 written in capitals, on preprod: refused",
+      "list": "twoContracts",
+      "query": {
+        "network": "preprod",
+        "calls": [
+          "a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1",
+          "A2A2A2A2A2A2A2A2A2A2A2A2A2A2A2A2A2A2A2A2A2A2A2A2A2A2A2A2A2A2A2A2"
+        ],
+        "version": 1
+      },
+      "result": {
+        "ok": false,
+        "refused": "malformed-address"
+      }
+    },
+    {
+      "name": "calls v2 and an address with 0x in front: refused",
+      "list": "twoContracts",
+      "query": {
+        "network": "mainnet",
+        "calls": [
+          "b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2",
+          "0x1111111111111111111111111111111111111111111111111111111111111111"
+        ]
+      },
+      "result": {
+        "ok": false,
+        "refused": "malformed-address"
+      }
+    },
+    {
+      "name": "calls v2 and an address with a space in front: refused",
+      "list": "twoContracts",
+      "query": {
+        "network": "mainnet",
+        "calls": [
+          "b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2",
+          " 1111111111111111111111111111111111111111111111111111111111111111"
+        ]
+      },
+      "result": {
+        "ok": false,
+        "refused": "malformed-address"
+      }
+    },
+    {
+      "name": "the record names v1 and the transaction calls v1",
+      "list": "twoContracts",
+      "query": {
+        "network": "mainnet",
+        "calls": [
+          "1111111111111111111111111111111111111111111111111111111111111111"
+        ],
+        "named": "1111111111111111111111111111111111111111111111111111111111111111"
+      },
+      "result": {
+        "ok": true,
+        "contracts": [
+          "1111111111111111111111111111111111111111111111111111111111111111"
+        ]
+      }
+    },
+    {
+      "name": "the record names v1 and the transaction calls v2: refused",
+      "list": "twoContracts",
+      "query": {
+        "network": "mainnet",
+        "calls": [
+          "b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2"
+        ],
+        "named": "1111111111111111111111111111111111111111111111111111111111111111"
+      },
+      "result": {
+        "ok": false,
+        "refused": "named-contract-not-called"
+      }
+    },
+    {
+      "name": "the record names an unpinned contract it calls: refused",
+      "list": "twoContracts",
+      "query": {
+        "network": "mainnet",
+        "calls": [
+          "2f2f2f2f2f2f2f2f2f2f2f2f2f2f2f2f2f2f2f2f2f2f2f2f2f2f2f2f2f2f2f2f",
+          "b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2"
+        ],
+        "named": "2f2f2f2f2f2f2f2f2f2f2f2f2f2f2f2f2f2f2f2f2f2f2f2f2f2f2f2f2f2f2f2f"
+      },
+      "result": {
+        "ok": false,
+        "refused": "not-pinned"
+      }
+    },
+    {
+      "name": "the record names v2 in capitals: refused",
+      "list": "twoContracts",
+      "query": {
+        "network": "preprod",
+        "calls": [
+          "a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2a2"
+        ],
+        "named": "A2A2A2A2A2A2A2A2A2A2A2A2A2A2A2A2A2A2A2A2A2A2A2A2A2A2A2A2A2A2A2A2",
+        "version": 2
+      },
+      "result": {
+        "ok": false,
+        "refused": "malformed-address"
+      }
+    },
+    {
+      "name": "the record names no contract: the one pinned contract called",
+      "list": "twoContracts",
+      "query": {
+        "network": "mainnet",
+        "calls": [
+          "b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2"
+        ]
+      },
+      "result": {
+        "ok": true,
+        "contracts": [
+          "b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2"
         ]
       }
     },
@@ -530,7 +683,7 @@
             "date": "2026-10-20T14:03:11Z"
           },
           {
-            "address": "2121212121212121212121212121212121212121212121212121212121212121",
+            "address": "b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2",
             "commitment": "c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0",
             "date": "2026-12-02T09:41:57Z"
           },
@@ -540,7 +693,7 @@
             "date": "2026-09-01T00:00:00Z"
           },
           {
-            "address": "2121212121212121212121212121212121212121212121212121212121212121",
+            "address": "b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2",
             "commitment": "d0d0d0d0d0d0d0d0d0d0d0d0d0d0d0d0d0d0d0d0d0d0d0d0d0d0d0d0d0d0d0d0",
             "date": "2026-12-03T10:00:00Z"
           }
@@ -559,14 +712,14 @@
             "commitment": "c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0",
             "date": "2026-12-02T09:41:57Z",
             "contract": "VeilCore main contract v2",
-            "address": "2121212121212121212121212121212121212121212121212121212121212121",
+            "address": "b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2",
             "version": 2
           },
           {
             "commitment": "d0d0d0d0d0d0d0d0d0d0d0d0d0d0d0d0d0d0d0d0d0d0d0d0d0d0d0d0d0d0d0d0",
             "date": "2026-12-03T10:00:00Z",
             "contract": "VeilCore main contract v2",
-            "address": "2121212121212121212121212121212121212121212121212121212121212121",
+            "address": "b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2",
             "version": 2
           }
         ],
@@ -591,7 +744,7 @@
             "date": "2026-10-20T14:03:11Z"
           },
           {
-            "address": "2121212121212121212121212121212121212121212121212121212121212121",
+            "address": "b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2",
             "commitment": "c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0",
             "date": "2026-12-02T09:41:57Z"
           },
@@ -601,7 +754,7 @@
             "date": "2026-09-01T00:00:00Z"
           },
           {
-            "address": "2121212121212121212121212121212121212121212121212121212121212121",
+            "address": "b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2",
             "commitment": "d0d0d0d0d0d0d0d0d0d0d0d0d0d0d0d0d0d0d0d0d0d0d0d0d0d0d0d0d0d0d0d0",
             "date": "2026-12-03T10:00:00Z"
           }
@@ -619,7 +772,7 @@
         ],
         "refused": [
           {
-            "address": "2121212121212121212121212121212121212121212121212121212121212121",
+            "address": "b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2",
             "commitment": "c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0c0",
             "refused": "not-pinned"
           },
@@ -629,7 +782,7 @@
             "refused": "not-pinned"
           },
           {
-            "address": "2121212121212121212121212121212121212121212121212121212121212121",
+            "address": "b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2b2",
             "commitment": "d0d0d0d0d0d0d0d0d0d0d0d0d0d0d0d0d0d0d0d0d0d0d0d0d0d0d0d0d0d0d0d0",
             "refused": "not-pinned"
           }

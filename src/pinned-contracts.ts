@@ -35,7 +35,8 @@ export type ContractRefusal =
   | 'version-not-named'
   | 'version-mismatch'
   | 'no-pinned-contract'
-  | 'several-pinned-contracts';
+  | 'several-pinned-contracts'
+  | 'named-contract-not-called';
 
 export type ContractChoice =
   | { readonly ok: true; readonly contracts: PinnedContract[] }
@@ -95,23 +96,34 @@ export const pinnedContracts = (
 };
 
 /**
- * The one pinned contract a transaction is decoded by (SPEC 9.4 (3)): the pinned contract it
- * calls. A transaction that calls none, or more than one, is refused. Calls to contracts that
- * are not pinned don't count either way.
+ * The one pinned contract a transaction is decoded by (SPEC 9.4 (1) and (3)): the pinned
+ * contract it calls. A transaction that calls none, or more than one, is refused. Calls to
+ * contracts that are not pinned don't count either way, but every address in `calls` must be
+ * 64 lowercase hex: one written any other way is refused, never normalised, so that letter case
+ * can't hide a second pinned contract.
+ *
+ * `named` is the address the record names (`anchor.contractAddress` or
+ * `ledgerIdentity.contractAddress`), if it names one: the transaction must call that contract.
  */
 export const contractForTransaction = (
   list: readonly PinnedContract[],
-  query: { network: string; calls: readonly string[]; version?: number },
+  query: { network: string; calls: readonly string[]; version?: number; named?: string },
 ): ContractChoice => {
   checkList(list);
-  const { network, calls, version } = query;
+  const { network, calls, version, named } = query;
   const v = versionProblem(network, version);
   if (v) return refuse(v);
   if (!Array.isArray(calls)) throw new TypeError('calls must be an array of contract addresses');
+  if (calls.some((a) => typeof a !== 'string' || !HEX64.test(a))) return refuse('malformed-address');
+  if (named !== undefined) {
+    const n = pinnedContracts(list, { network, address: named, version });
+    if (!n.ok) return n;
+  }
   const called = list.filter((c) => c.network === network && calls.includes(c.address));
   if (called.length === 0) return refuse('no-pinned-contract');
   if (called.length > 1) return refuse('several-pinned-contracts');
   if (version !== undefined && version !== null && called[0].version !== version) return refuse('version-mismatch');
+  if (named !== undefined && called[0].address !== named) return refuse('named-contract-not-called');
   return { ok: true, contracts: called };
 };
 

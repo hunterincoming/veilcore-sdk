@@ -17,7 +17,7 @@ import { pinnedContracts, contractForTransaction, datedRecords } from '../dist/i
 const A = (byte) => byte.repeat(32);
 const V1 = A('11');
 const V1_CLAIMS = A('12');
-const V2 = A('21');
+const V2 = A('b2');
 const V2_UNPINNED = A('2f');
 const PRE_V1 = A('a1');
 const PRE_V2 = A('a2');
@@ -56,6 +56,7 @@ choice('a pinned v2 address whose state says version 1: read as v2', 'twoContrac
 choice('a mainnet address checked as preprod', 'twoContracts', { network: 'preprod', address: V2, version: 2 });
 choice('the right address with the wrong named version', 'twoContracts', { network: 'mainnet', address: V2, version: 1 });
 choice('an address in capitals', 'twoContracts', { network: 'preprod', address: PRE_V2.toUpperCase(), version: 2 });
+choice('a pinned v2 address in capitals on mainnet', 'twoContracts', { network: 'mainnet', address: V2.toUpperCase() });
 choice('an address one character short', 'twoContracts', { network: 'mainnet', address: V2.slice(1) });
 choice('no address on mainnet: every pinned contract, no default', 'twoContracts', { network: 'mainnet' });
 choice('no address on mainnet, version 2 named', 'twoContracts', { network: 'mainnet', version: 2 });
@@ -80,6 +81,15 @@ tx('calls v2 and a contract that is not pinned: decoded as v2', 'twoContracts', 
 tx('calls only a contract that is not pinned: refused', 'twoContracts', { network: 'mainnet', calls: [V2_UNPINNED] });
 tx('calls v2, with a list that pins v1 only: refused', 'v1Only', { network: 'mainnet', calls: [V2] });
 tx('calls v1 twice: one contract', 'twoContracts', { network: 'mainnet', calls: [V1, V1] });
+tx('calls v1 and v2, with v2 written in capitals: refused', 'twoContracts', { network: 'mainnet', calls: [V1, V2.toUpperCase()] });
+tx('calls v1 and v2, with v2 written in capitals, on preprod: refused', 'twoContracts', { network: 'preprod', calls: [PRE_V1, PRE_V2.toUpperCase()], version: 1 });
+tx('calls v2 and an address with 0x in front: refused', 'twoContracts', { network: 'mainnet', calls: [V2, '0x' + V1] });
+tx('calls v2 and an address with a space in front: refused', 'twoContracts', { network: 'mainnet', calls: [V2, ' ' + V1] });
+tx('the record names v1 and the transaction calls v1', 'twoContracts', { network: 'mainnet', calls: [V1], named: V1 });
+tx('the record names v1 and the transaction calls v2: refused', 'twoContracts', { network: 'mainnet', calls: [V2], named: V1 });
+tx('the record names an unpinned contract it calls: refused', 'twoContracts', { network: 'mainnet', calls: [V2_UNPINNED, V2], named: V2_UNPINNED });
+tx('the record names v2 in capitals: refused', 'twoContracts', { network: 'preprod', calls: [PRE_V2], named: PRE_V2.toUpperCase(), version: 2 });
+tx('the record names no contract: the one pinned contract called', 'twoContracts', { network: 'mainnet', calls: [V2] });
 tx('preprod v2 with the version named', 'twoContracts', { network: 'preprod', calls: [PRE_V2], version: 2 });
 tx('preprod v2 with no version named', 'twoContracts', { network: 'preprod', calls: [PRE_V2] });
 tx('preprod v2 named as version 1', 'twoContracts', { network: 'preprod', calls: [PRE_V2], version: 1 });
