@@ -2,7 +2,7 @@
 
 **A specification for evidence of prior possession of plant and animal genetic material**
 
-Version 0.1 - August 2026, revised 3 November 2026 (section 3.6.1: a record that names its own key; sections 11.8, 11.9 and 11.11, final: animal, strain and document records; section 11.10, a draft: deal records; section 11.12, a draft: laboratory results version 2; section 9.2.1, 23 November 2026: the contracts that publish VeilCore's batch roots; the record format version is unchanged)
+Version 0.1 - August 2026, revised 3 November 2026 (section 3.6.1: a record that names its own key; sections 11.8, 11.9 and 11.11, final: animal, strain and document records; section 11.10, a draft: deal records; section 11.12, a draft: laboratory results version 2; section 9.2.1, 23 November 2026: the contracts that publish VeilCore's batch roots; section 9.4, 24 November 2026: checking against several contracts; the record format version is unchanged)
 
 ---
 
