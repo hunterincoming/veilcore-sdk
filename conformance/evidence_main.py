@@ -16,7 +16,65 @@
 #
 # A malformed package is reported as a failed check, never as a Python traceback.
 
+# VeilCore's contracts on Midnight, by network (SPEC 9.2.1 and 9.4): the pinned list, as
+# deployments/mainnet.json and deployments/preprod.json in the VeilCore application repository
+# (github.com/hunterincoming/veilcore) publish it, copied here because this file runs on its own.
+# A ledger anchor dates a record only through a transaction on one of these: anyone can put a
+# copy of VeilCore's contract at another address. Rows are only ever added. This package's tests
+# check the mainnet main contracts against SPEC 9.2.1; the VeilCore repository's tests check the
+# whole list against its deployments files.
+_PINNED_CONTRACTS = {
+    "mainnet": [
+        {"address": "a04de0a2684f3713276325649540c7278ffd07cba8b014e7489844f319a02347", "kind": "main", "version": 1},
+        {"address": "ef763eb4ad1846b716dbfa90c00560a9a943ffb4d1fc638b0707df5adefd070d", "kind": "claims", "version": 1},
+    ],
+    "preprod": [
+        {"address": "72fe33436d424fcf247919c8e2f0de224175cc55061739be0ebffb2d650f2f73", "kind": "main", "version": 1},
+        {"address": "29d3ea80e121518f8fd8bd72533d856cf29cdbddbda1b6f322a661aa4f2484b6", "kind": "claims", "version": 1},
+    ],
+}
+
 _OTS_HEADER = b"\x00OpenTimestamps\x00\x00Proof\x00\xbf\x89\xe2\xe8\x84\xe8\x92\x94"
+
+
+def _ledger_anchor_lines(a, root, pinned=None):
+    """What to confirm for a ledger anchor with a transaction, as (status, text) lines: "to do"
+    when it can date the record, "FAIL" when it can't (SPEC 9.4). Only a Midnight network with
+    a pinned list is judged; any other chain or network reads as it always has."""
+    pinned = _PINNED_CONTRACTS if pinned is None else pinned
+    tx, chain, network = str(a.get("txHash"))[:200], str(a.get("chain"))[:60], str(a.get("network"))[:60]
+    published = f"published the batch root {root}" if root else "published the batch root"
+    plain = [("to do", f"confirm transaction {tx} on {chain} ({network}) {published}")]
+    listed = pinned.get(a.get("network")) if a.get("chain") == "midnight" and isinstance(a.get("network"), str) else None
+    if not listed:
+        return plain
+    everyone = ", ".join(f"{c['address']} (version {c['version']}{', claims' if c['kind'] == 'claims' else ''})" for c in listed)
+    main = [c for c in listed if c["kind"] == "main"]
+    named = a.get("contractAddress")
+    v2_words = ("", "VeilCore contract version 2 is deployed on mainnet for testing by VeilCore. It is not yet "
+                "independently reviewed and not for your records.")
+    if named is None:
+        # SPEC 9.4 (5): no default contract. Every pinned main contract is a candidate.
+        lines = [("to do", f"confirm transaction {tx} on {chain} ({network}) succeeded, called one of VeilCore's main "
+                           f"contracts and no other VeilCore contract (VeilCore's contracts there: {everyone}), and "
+                           f"{published}; the date is that contract's, and the record names none, so note which")]
+        if network == "mainnet" and any(c["version"] == 2 for c in main):
+            lines.append(("", "If it called version 2: " + v2_words[1]))
+        return lines
+    if not isinstance(named, str) or not _is_hex32(named):
+        # SPEC 9.4: an address in any other form is refused, not normalised.
+        return [("FAIL", f"transaction {tx}: the anchor's contract address is not 64 lowercase hex characters, so it dates nothing")]
+    entry = next((c for c in main if c["address"] == named), None)
+    if entry is None:
+        # SPEC 9.4 (1): only a pinned contract dates a record.
+        return [("FAIL", f"transaction {tx} names contract {named}, which is not one of VeilCore's main contracts on "
+                         f"{chain} {network} ({everyone}): it dates nothing")]
+    lines = [("to do", f"confirm transaction {tx} on {chain} ({network}) succeeded, called VeilCore contract version "
+                       f"{entry['version']} ({named}) and no other VeilCore contract (VeilCore's contracts there: "
+                       f"{everyone}), and {published}")]
+    if network == "mainnet" and entry["version"] == 2:
+        lines.append(v2_words)
+    return lines
 _MAX_FILE = 64 * 1024 * 1024
 
 
@@ -242,7 +300,11 @@ def _evidence_main():
             continue
         kind = a.get("kind", "ledger")
         if kind == "ledger" and a.get("txHash"):
-            say("to do", f"confirm transaction {str(a.get('txHash'))[:200]} on {str(a.get('chain'))[:60]} ({str(a.get('network'))[:60]}) published the batch root {root or ''}".rstrip())
+            for status, text in _ledger_anchor_lines(a, root):
+                if status == "FAIL":
+                    fail(text)
+                else:
+                    say(status, text)
         elif kind == "ledger":
             say("--", f"ledger anchor on {str(a.get('chain'))[:60]} ({str(a.get('network'))[:60]}) with no transaction: nothing to confirm yet")
         elif kind == "rfc3161" and not a.get("token"):

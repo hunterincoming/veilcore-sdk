@@ -4,6 +4,16 @@ Versions before 0.16.0 are described in their commit messages and on npm.
 
 ## Unreleased
 
+- **verify.py names the contract a ledger anchor's transaction must have called (SPEC 9.2.1 and
+  9.4).** The evidence package's `verify.py` carries VeilCore's pinned contracts for mainnet and
+  preprod (`_PINNED_CONTRACTS`, the list in the VeilCore repository's `deployments/*.json`). For
+  a Midnight anchor on those networks it now asks you to confirm the transaction called that
+  version's contract and no other VeilCore contract, listing them. An anchor naming a contract
+  not on the list, or an address not in lowercase hex, is a failed check: it dates nothing. With
+  no contract named, every pinned main contract is a candidate. Other networks read as before.
+  Tests check the list's mainnet main contracts against SPEC 9.2.1; the VeilCore repository's
+  tests check the whole list against its deployments files. A record, commitment or vector does
+  not change.
 - **SPEC 9.2.1: the contracts that publish VeilCore's batch roots.** A pinned list, version 1
   only (VeilCore's mainnet contract), with what a checker reads from each and how a successor
   contract is added as a new row without removing the old one. Editorial (GOVERNANCE.md): no
