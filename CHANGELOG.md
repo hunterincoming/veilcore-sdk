@@ -131,6 +131,15 @@ Versions before 0.16.0 are described in their commit messages and on npm.
 - **SPEC 11.8 says version 1 is final**, as decided on 16 October; the heading still said draft.
 - **SPEC 11.8 and 11.9:** agreements are now offered for animal and strain records, each with
   terms of its own (`subject` in the terms).
+- **SPEC 9.4: several contracts.** How a verifier checks records when more than one VeilCore
+  contract is on a ledger: a pinned list per network; a contract identified only by its pinned
+  address, never by a version or `predecessor` field it states; each transaction decoded by the
+  one pinned contract it calls; the same commitment on two contracts is two records with two
+  dates, never joined; no default contract, and off mainnet a check names its version. No
+  record, commitment or proof changes. `pinnedContracts`, `contractForTransaction` and
+  `datedRecords` take the caller's own list (the package holds none); 35 vectors in
+  `conformance/pinned-contracts-v1.json` (from `pinned-contracts-vectors.mjs`), on a made-up
+  two-contract fixture, run by `conformance/run.mjs`.
 
 ## 0.18.1
 
