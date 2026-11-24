@@ -2,7 +2,7 @@
 
 **A specification for evidence of prior possession of plant and animal genetic material**
 
-Version 0.1 - August 2026, revised 3 November 2026 (section 3.6.1: a record that names its own key; sections 11.8, 11.9 and 11.11, final: animal, strain and document records; section 11.10, a draft: deal records; section 11.12, a draft: laboratory results version 2; the record format version is unchanged)
+Version 0.1 - August 2026, revised 3 November 2026 (section 3.6.1: a record that names its own key; sections 11.8, 11.9 and 11.11, final: animal, strain and document records; section 11.10, a draft: deal records; section 11.12, a draft: laboratory results version 2; section 9.2.1, 23 November 2026: the contracts that publish VeilCore's batch roots; the record format version is unchanged)
 
 ---
 
@@ -561,6 +561,16 @@ For a record sealed under `sha256/canonical-json/v1`, and for every value in the
 **Whether the signing key was valid at issue, and whether it was later rotated or reported compromised.** Query the registry (section 7.3).
 
 **Whether an attestation has been retracted.** Query the registry.
+
+### 9.2.1 The contracts that publish VeilCore's batch roots
+
+VeilCore's registry publishes its batch roots on Midnight by an `anchorBatch` call on one of the contracts listed here. A checker of VeilCore's anchors holds this list in its own code: it looks for the call on any listed contract, and reads the contract's state after the call by that contract's version, chosen by which listed contract the transaction calls, never by an address a record, an inclusion proof or a registry names.
+
+| Version | Network | Contract address | Where the batch root is, in the contract's state after the call |
+|---|---|---|---|
+| v1 | Midnight mainnet (deployed 8 October 2026) | `a04de0a2684f3713276325649540c7278ffd07cba8b014e7489844f319a02347` | `lastBatchRoot`: element 0 of element 1 of the ledger array, a cell holding one `Bytes<32>`, stored with trailing zero bytes dropped (pad back to 32). The state is in ledger 8's format before Midnight's Ledger 9 fork (6 November 2026) and in ledger 9's after |
+
+**How a successor is added.** A later contract is a new row with its own version, address and place of the batch root. Rows are never changed or removed, so a root published on an earlier contract stays checkable after a later one takes over. A checker holding only the earlier rows reports a root on a later contract as not confirmed until it adds the new row and that version's reading. Nothing else in this specification changes: the anchor is not covered by the commitment (section 3.2), so records and inclusion proofs are the same whichever contract published their root.
 
 ### 9.3 What verification does not establish
 
